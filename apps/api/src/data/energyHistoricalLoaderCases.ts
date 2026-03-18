@@ -1,6 +1,7 @@
 import type { EnergyHistoricalCaseInput } from "@finance-superbrain/schemas";
 
 export const ENERGY_HISTORICAL_LOADER_CASES: EnergyHistoricalCaseInput[] = [
+  // ── OPEC / SUPPLY ────────────────────────────────────────────────────────
   {
     case_id: "energy-opec-cut-crude-rally",
     case_pack: "energy_v1",
@@ -19,10 +20,109 @@ export const ENERGY_HISTORICAL_LOADER_CASES: EnergyHistoricalCaseInput[] = [
       { ticker: "XOM", realized_direction: "up", realized_magnitude_bp: 54 },
     ],
     timing_alignment: 0.86,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "energy-opec-production-increase-jun-2023",
+    case_pack: "energy_v1",
+    event_type: "opec_increase",
+    signal_bias: "bearish",
+    market: "crude_oil",
+    region: "middle_east",
+    producer: "OPEC+",
+    focus_assets: ["USO", "XLE", "XOM"],
+    summary:
+      "Several OPEC members announced production increases that exceeded quotas, adding unexpected supply to a market that had been pricing in continued discipline — crude fell and energy equities gave back recent gains.",
+    occurred_at: "2023-06-04T20:00:00.000Z",
+    realized_moves: [
+      { ticker: "CL=F", realized_direction: "down", realized_magnitude_bp: -201 },
+      { ticker: "USO", realized_direction: "down", realized_magnitude_bp: -197 },
+      { ticker: "XLE", realized_direction: "down", realized_magnitude_bp: -91 },
+    ],
+    timing_alignment: 0.83,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "energy-opec-compliance-miss-may-2024",
+    case_pack: "energy_v1",
+    event_type: "opec_increase",
+    signal_bias: "bearish",
+    market: "crude_oil",
+    region: "middle_east",
+    producer: "OPEC+",
+    focus_assets: ["CL=F", "XLE", "USO"],
+    summary:
+      "OPEC+ compliance data showed multiple member nations overproducing versus their quotas, raising doubts about cartel cohesion and the durability of the production cut framework — crude prices fell on reduced supply-discipline premium.",
+    occurred_at: "2024-05-01T20:00:00.000Z",
+    realized_moves: [
+      { ticker: "CL=F", realized_direction: "down", realized_magnitude_bp: -153 },
+      { ticker: "XLE", realized_direction: "down", realized_magnitude_bp: -68 },
+      { ticker: "USO", realized_direction: "down", realized_magnitude_bp: -149 },
+    ],
+    timing_alignment: 0.79,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "energy-russia-ukraine-oil-supply-shock",
+    case_pack: "energy_v1",
+    event_type: "geopolitical_shock",
+    signal_bias: "bullish",
+    market: "crude_oil",
+    region: "europe",
+    producer: "Russia",
+    focus_assets: ["XLE", "USO", "XLB"],
+    summary:
+      "Russia's invasion of Ukraine removed approximately 1.5-2M barrels per day from accessible global markets as sanctions, insurance restrictions, and port closures took effect — crude surged to $130/barrel and lifted the entire commodity complex.",
+    occurred_at: "2022-02-24T08:00:00.000Z",
+    realized_moves: [
+      { ticker: "CL=F", realized_direction: "up", realized_magnitude_bp: 867 },
+      { ticker: "XLE", realized_direction: "up", realized_magnitude_bp: 346 },
+      { ticker: "XLB", realized_direction: "up", realized_magnitude_bp: 187 },
+    ],
+    timing_alignment: 0.91,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "energy-spr-release-iea-2022",
+    case_pack: "energy_v1",
+    event_type: "spr_release",
+    signal_bias: "bearish",
+    market: "crude_oil",
+    region: "north_america",
+    producer: "IEA member countries",
+    focus_assets: ["CL=F", "USO", "XLE"],
+    summary:
+      "The Biden administration and IEA allies coordinated the largest-ever strategic petroleum reserve release — 180M barrels over six months — which capped crude's war-driven rally and created a temporary supply buffer that sent oil futures back below $100.",
+    occurred_at: "2022-03-31T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "CL=F", realized_direction: "down", realized_magnitude_bp: -693 },
+      { ticker: "USO", realized_direction: "down", realized_magnitude_bp: -679 },
+      { ticker: "XLE", realized_direction: "down", realized_magnitude_bp: -218 },
+    ],
+    timing_alignment: 0.84,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "energy-russia-oil-price-cap-dec-2022",
+    case_pack: "energy_v1",
+    event_type: "geopolitical_shock",
+    signal_bias: "bearish",
+    market: "crude_oil",
+    region: "europe",
+    producer: "Russia",
+    focus_assets: ["CL=F", "XLE", "USO"],
+    summary:
+      "G7 nations implemented the $60/barrel Russian crude price cap — less restrictive than feared — combined with China demand weakness and recessionary fears to push crude below $80, ending the war-driven commodity super-cycle premium.",
+    occurred_at: "2022-12-05T08:00:00.000Z",
+    realized_moves: [
+      { ticker: "CL=F", realized_direction: "down", realized_magnitude_bp: -341 },
+      { ticker: "USO", realized_direction: "down", realized_magnitude_bp: -336 },
+      { ticker: "XLE", realized_direction: "down", realized_magnitude_bp: -129 },
+    ],
+    timing_alignment: 0.78,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── INVENTORIES ──────────────────────────────────────────────────────────
   {
     case_id: "energy-inventory-build-growth-fear",
     case_pack: "energy_v1",
@@ -41,10 +141,29 @@ export const ENERGY_HISTORICAL_LOADER_CASES: EnergyHistoricalCaseInput[] = [
       { ticker: "XLE", realized_direction: "down", realized_magnitude_bp: -39 },
     ],
     timing_alignment: 0.79,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "energy-crude-demand-destruction-2020",
+    case_pack: "energy_v1",
+    event_type: "demand_shock",
+    signal_bias: "bearish",
+    market: "crude_oil",
+    region: "global",
+    producer: "Global demand collapse",
+    focus_assets: ["USO", "XLE", "CL=F"],
+    summary:
+      "COVID-19 lockdowns destroyed approximately 30M barrels per day of global oil demand — the largest single demand shock in history — combined with OPEC+ production war briefly sent WTI futures below zero for the first time on storage constraints.",
+    occurred_at: "2020-04-20T09:00:00.000Z",
+    realized_moves: [
+      { ticker: "CL=F", realized_direction: "down", realized_magnitude_bp: -10000 },
+      { ticker: "USO", realized_direction: "down", realized_magnitude_bp: -2147 },
+      { ticker: "XLE", realized_direction: "down", realized_magnitude_bp: -1104 },
+    ],
+    timing_alignment: 0.97,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── SUPPLY DISRUPTIONS ────────────────────────────────────────────────────
   {
     case_id: "energy-refinery-outage-supply-shock",
     case_pack: "energy_v1",
@@ -63,10 +182,29 @@ export const ENERGY_HISTORICAL_LOADER_CASES: EnergyHistoricalCaseInput[] = [
       { ticker: "VLO", realized_direction: "up", realized_magnitude_bp: 58 },
     ],
     timing_alignment: 0.74,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "energy-gasoline-crack-spread-blowout-2022",
+    case_pack: "energy_v1",
+    event_type: "supply_disruption",
+    signal_bias: "bullish",
+    market: "refined_products",
+    region: "north_america",
+    producer: "US refining complex",
+    focus_assets: ["VLO", "MPC", "PSX"],
+    summary:
+      "US gasoline crack spreads blew out above $50/barrel — a record — as refinery capacity remained structurally constrained post-COVID while summer driving demand surged, creating windfall margins for downstream refiners while gasoline prices hit $5+/gallon nationally.",
+    occurred_at: "2022-05-31T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "VLO", realized_direction: "up", realized_magnitude_bp: 427 },
+      { ticker: "MPC", realized_direction: "up", realized_magnitude_bp: 391 },
+      { ticker: "PSX", realized_direction: "up", realized_magnitude_bp: 311 },
+    ],
+    timing_alignment: 0.83,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── NATURAL GAS ───────────────────────────────────────────────────────────
   {
     case_id: "energy-gas-spike-weather",
     case_pack: "energy_v1",
@@ -85,10 +223,49 @@ export const ENERGY_HISTORICAL_LOADER_CASES: EnergyHistoricalCaseInput[] = [
       { ticker: "XLU", realized_direction: "down", realized_magnitude_bp: -24 },
     ],
     timing_alignment: 0.82,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "energy-us-lng-export-capacity-expansion",
+    case_pack: "energy_v1",
+    event_type: "supply_expansion",
+    signal_bias: "bullish",
+    market: "natural_gas",
+    region: "north_america",
+    producer: "US LNG terminals",
+    focus_assets: ["LNG", "XLE", "UNG"],
+    summary:
+      "A major new US LNG export terminal received final approval, adding ~3.5 BCF/day of capacity — the announcement tightened domestic natural gas balance expectations and lifted LNG-exposed equities, while signalling long-term US export market share gains in Europe.",
+    occurred_at: "2024-01-12T13:00:00.000Z",
+    realized_moves: [
+      { ticker: "LNG", realized_direction: "up", realized_magnitude_bp: 317 },
+      { ticker: "XLE", realized_direction: "up", realized_magnitude_bp: 48 },
+      { ticker: "UNG", realized_direction: "up", realized_magnitude_bp: 94 },
+    ],
+    timing_alignment: 0.78,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "energy-natural-gas-collapse-winter-2022",
+    case_pack: "energy_v1",
+    event_type: "demand_shock",
+    signal_bias: "bearish",
+    market: "natural_gas",
+    region: "north_america",
+    producer: "US gas market",
+    focus_assets: ["UNG", "NG=F", "XLU"],
+    summary:
+      "After rallying to $10/MMBtu on European energy crisis fears, US natural gas collapsed over -70% within weeks as a warm winter reduced heating demand, storage filled rapidly, and the European gas crisis eased — one of the sharpest commodity collapses on record.",
+    occurred_at: "2022-12-15T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "NG=F", realized_direction: "down", realized_magnitude_bp: -1847 },
+      { ticker: "UNG", realized_direction: "down", realized_magnitude_bp: -1764 },
+      { ticker: "XLU", realized_direction: "up", realized_magnitude_bp: 94 },
+    ],
+    timing_alignment: 0.86,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── DEMAND / MACRO ENERGY ────────────────────────────────────────────────
   {
     case_id: "energy-demand-scare-global-growth",
     case_pack: "energy_v1",
@@ -107,8 +284,46 @@ export const ENERGY_HISTORICAL_LOADER_CASES: EnergyHistoricalCaseInput[] = [
       { ticker: "XLI", realized_direction: "down", realized_magnitude_bp: -34 },
     ],
     timing_alignment: 0.77,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "energy-china-demand-recovery-q1-2023",
+    case_pack: "energy_v1",
+    event_type: "demand_expansion",
+    signal_bias: "bullish",
+    market: "crude_oil",
+    region: "asia",
+    producer: "China National Petroleum",
+    focus_assets: ["CL=F", "XLE", "FXI"],
+    summary:
+      "China's reopening from COVID-zero restrictions triggered a sharp recovery in travel, manufacturing, and industrial activity — refinery throughput hit record highs and crude imports surged, providing a strong demand floor for oil prices.",
+    occurred_at: "2023-01-17T08:00:00.000Z",
+    realized_moves: [
+      { ticker: "CL=F", realized_direction: "up", realized_magnitude_bp: 284 },
+      { ticker: "XLE", realized_direction: "up", realized_magnitude_bp: 127 },
+      { ticker: "FXI", realized_direction: "up", realized_magnitude_bp: 318 },
+    ],
+    timing_alignment: 0.81,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "energy-ira-renewables-policy-tailwind",
+    case_pack: "energy_v1",
+    event_type: "policy_shift",
+    signal_bias: "mixed",
+    market: "broad_energy",
+    region: "north_america",
+    producer: "US policy",
+    focus_assets: ["ICLN", "ENPH", "XLE"],
+    summary:
+      "The Inflation Reduction Act passed with $369B in clean energy incentives — the largest climate legislation in US history — sending solar, wind, and EV equities sharply higher while traditional fossil fuel equities were little changed as energy security language provided cover for both sides.",
+    occurred_at: "2022-08-16T13:00:00.000Z",
+    realized_moves: [
+      { ticker: "ICLN", realized_direction: "up", realized_magnitude_bp: 1127 },
+      { ticker: "ENPH", realized_direction: "up", realized_magnitude_bp: 938 },
+      { ticker: "XLE", realized_direction: "down", realized_magnitude_bp: -41 },
+    ],
+    timing_alignment: 0.85,
+    labels: { case_quality: "reviewed" },
   },
 ];

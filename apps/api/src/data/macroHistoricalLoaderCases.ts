@@ -1,6 +1,7 @@
 import type { MacroHistoricalCaseInput } from "@finance-superbrain/schemas";
 
 export const MACRO_HISTORICAL_LOADER_CASES: MacroHistoricalCaseInput[] = [
+  // ── CPI ──────────────────────────────────────────────────────────────────
   {
     case_id: "macro-cpi-hotter-repricing",
     case_pack: "macro_calendar_v1",
@@ -15,9 +16,7 @@ export const MACRO_HISTORICAL_LOADER_CASES: MacroHistoricalCaseInput[] = [
       { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 34 },
     ],
     timing_alignment: 0.84,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
   {
     case_id: "macro-cpi-cooler-relief",
@@ -33,10 +32,92 @@ export const MACRO_HISTORICAL_LOADER_CASES: MacroHistoricalCaseInput[] = [
       { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -29 },
     ],
     timing_alignment: 0.81,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "macro-cpi-extreme-overshoot-2022",
+    case_pack: "macro_calendar_v1",
+    event_type: "cpi",
+    signal_bias: "hotter",
+    summary:
+      "Headline CPI printed 8.6% against an 8.3% consensus — a 40-year high that shattered any remaining softening narrative and forced the largest single-day yield spike of the tightening cycle.",
+    occurred_at: "2022-06-10T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -213 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -370 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 73 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -291 },
+    ],
+    timing_alignment: 0.91,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-cpi-oct-2022-v-reversal",
+    case_pack: "macro_calendar_v1",
+    event_type: "cpi",
+    signal_bias: "hotter",
+    summary:
+      "CPI printed 8.2% slightly above the 8.1% estimate, triggering an immediate -2% gap-down at open that fully reversed to close +2.6% as short-sellers covered and bulls bet on a regime shift — the single largest intraday V-reversal of the 2022 bear market.",
+    occurred_at: "2022-10-13T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 261 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 316 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 44 },
+    ],
+    timing_alignment: 0.62,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-cpi-jan-2022-40yr-high",
+    case_pack: "macro_calendar_v1",
+    event_type: "cpi",
+    signal_bias: "hotter",
+    summary:
+      "CPI at 7.5% year-over-year exceeded the 7.3% consensus and marked the highest US inflation in 40 years, forcing a sharp repricing of the Fed's tightening path before the first hike even occurred.",
+    occurred_at: "2022-02-10T13:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -127 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -184 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 48 },
+    ],
+    timing_alignment: 0.88,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-cpi-oct-2023-hot-surprise",
+    case_pack: "macro_calendar_v1",
+    event_type: "cpi",
+    signal_bias: "hotter",
+    summary:
+      "CPI 3.7% slightly exceeded the 3.6% consensus in a context where markets had priced in ongoing disinflation, causing a brief but sharp selloff in duration-sensitive assets.",
+    occurred_at: "2023-10-12T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -98 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -89 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 41 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -70 },
+    ],
+    timing_alignment: 0.83,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-core-cpi-jan-2024-sticky",
+    case_pack: "macro_calendar_v1",
+    event_type: "cpi",
+    signal_bias: "hotter",
+    summary:
+      "Core CPI came in at 0.4% month-over-month versus 0.3% expected, with shelter and services remaining persistently elevated — dashing early-2024 hopes for rapid disinflation and pushing markets to price out two rate cuts.",
+    occurred_at: "2024-02-13T13:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -158 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -186 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 52 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -137 },
+    ],
+    timing_alignment: 0.87,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── NFP ──────────────────────────────────────────────────────────────────
   {
     case_id: "macro-nfp-stronger-yields-up",
     case_pack: "macro_calendar_v1",
@@ -51,9 +132,7 @@ export const MACRO_HISTORICAL_LOADER_CASES: MacroHistoricalCaseInput[] = [
       { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 28 },
     ],
     timing_alignment: 0.82,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
   {
     case_id: "macro-nfp-softer-duration-relief",
@@ -69,10 +148,59 @@ export const MACRO_HISTORICAL_LOADER_CASES: MacroHistoricalCaseInput[] = [
       { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -21 },
     ],
     timing_alignment: 0.8,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "macro-nfp-blowout-jan-2023",
+    case_pack: "macro_calendar_v1",
+    event_type: "nfp",
+    signal_bias: "stronger",
+    summary:
+      "+517k payrolls versus the +187k consensus was the largest single-month beat of the post-COVID cycle, forcing a wholesale repricing of the Fed's terminal rate and sending 2-year yields up 20bp on the day.",
+    occurred_at: "2023-02-03T13:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -198 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -107 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 96 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -110 },
+    ],
+    timing_alignment: 0.89,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-nfp-sahm-rule-trigger",
+    case_pack: "macro_calendar_v1",
+    event_type: "nfp",
+    signal_bias: "softer",
+    summary:
+      "Unemployment rose to 4.3% against 4.1% expectations, triggering the Sahm Rule recession indicator for the first time since 2020 and igniting a global risk-off cascade that unwound yen carry positions and hammered equities.",
+    occurred_at: "2024-08-02T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -185 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 127 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -253 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -39 },
+    ],
+    timing_alignment: 0.86,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-nfp-miss-rising-unemployment-2023",
+    case_pack: "macro_calendar_v1",
+    event_type: "nfp",
+    signal_bias: "softer",
+    summary:
+      "Payrolls came in soft while the unemployment rate ticked higher, raising soft-landing doubts but simultaneously fuelling rate-cut hopes — bonds rallied while equities were mixed, illustrating the 'bad news is good news' regime.",
+    occurred_at: "2023-07-07T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 71 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -64 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -19 },
+    ],
+    timing_alignment: 0.67,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── FOMC ─────────────────────────────────────────────────────────────────
   {
     case_id: "macro-fomc-dovish-pivot",
     case_pack: "macro_calendar_v1",
@@ -87,10 +215,75 @@ export const MACRO_HISTORICAL_LOADER_CASES: MacroHistoricalCaseInput[] = [
       { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -27 },
     ],
     timing_alignment: 0.79,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "macro-fomc-75bp-surprise-jun-2022",
+    case_pack: "macro_calendar_v1",
+    event_type: "fomc",
+    signal_bias: "hawkish",
+    summary:
+      "The Fed hiked 75bp — the largest single move since 1994 — against a consensus expecting 50bp, but markets interpreted the decisive action as the Fed 'getting ahead of inflation,' producing a counterintuitive relief rally in equities before a sharp reversal the following session.",
+    occurred_at: "2022-06-15T18:00:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 146 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 208 },
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -47 },
+    ],
+    timing_alignment: 0.58,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-fomc-first-cut-50bp-sep-2024",
+    case_pack: "macro_calendar_v1",
+    event_type: "fomc",
+    signal_bias: "dovish",
+    summary:
+      "The Fed cut 50bp at its first easing meeting, double the 25bp most expected, signalling a front-loaded approach and triggering a broad risk-on rally with the longest-duration assets and growth equities leading.",
+    occurred_at: "2024-09-18T18:00:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 95 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 110 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 250 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -57 },
+    ],
+    timing_alignment: 0.83,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-fomc-pause-rate-hike-cycle",
+    case_pack: "macro_calendar_v1",
+    event_type: "fomc",
+    signal_bias: "neutral",
+    summary:
+      "The Fed paused its rate-hiking cycle as widely expected but kept the door open for additional hikes, producing a relief-driven equity rally on reduced near-term tightening risk while long-end yields stayed firm.",
+    occurred_at: "2023-06-14T18:00:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 100 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 30 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 82 },
+    ],
+    timing_alignment: 0.72,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-fomc-pivot-signal-dec-2023",
+    case_pack: "macro_calendar_v1",
+    event_type: "fomc",
+    signal_bias: "dovish",
+    summary:
+      "Powell confirmed the hiking cycle was likely over and the dot plot showed 75bp of cuts in 2024 — more than the 50bp expected — sparking the most explosive single-meeting bond rally of the tightening era and lifting all risk assets.",
+    occurred_at: "2023-12-13T19:00:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 348 },
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 130 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 160 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -77 },
+    ],
+    timing_alignment: 0.88,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── JACKSON HOLE / FED SPEECHES ──────────────────────────────────────────
   {
     case_id: "macro-fed-speech-hawkish",
     case_pack: "macro_calendar_v1",
@@ -107,8 +300,258 @@ export const MACRO_HISTORICAL_LOADER_CASES: MacroHistoricalCaseInput[] = [
       { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 18 },
     ],
     timing_alignment: 0.74,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-jackson-hole-hawkish-2022",
+    case_pack: "macro_calendar_v1",
+    event_type: "fed_speech",
+    signal_bias: "hawkish",
+    title: "Jackson Hole — We must keep at it",
+    speaker: "Jerome Powell",
+    summary:
+      "Powell's unusually brief and aggressive Jackson Hole speech — 'We must keep at it until the job is done' — delivered the most hawkish central bank signal of 2022, collapsing equity markets and driving the sharpest single-day TLT selloff of the year.",
+    occurred_at: "2022-08-26T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -337 },
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -128 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -410 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 65 },
+    ],
+    timing_alignment: 0.94,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── PCE ──────────────────────────────────────────────────────────────────
+  {
+    case_id: "macro-pce-hot-feb-2024",
+    case_pack: "macro_calendar_v1",
+    event_type: "pce",
+    signal_bias: "hotter",
+    summary:
+      "Core PCE came in at 0.4% MoM versus 0.3% expected — the Fed's preferred inflation gauge staying sticky and pushing markets to price out the March rate cut that had been broadly expected two months earlier.",
+    occurred_at: "2024-02-29T13:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -40 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -17 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 28 },
+    ],
+    timing_alignment: 0.78,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── GDP ───────────────────────────────────────────────────────────────────
+  {
+    case_id: "macro-gdp-contraction-q1-2022",
+    case_pack: "macro_calendar_v1",
+    event_type: "gdp",
+    signal_bias: "weaker",
+    summary:
+      "Q1 2022 GDP contracted -1.4% against a +1.0% consensus estimate, technically the first quarter of negative growth, but markets viewed it as noise driven by trade deficit distortions — the selloff was moderated by still-tight labour data.",
+    occurred_at: "2022-04-28T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -352 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 83 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -426 },
+    ],
+    timing_alignment: 0.74,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-gdp-blowout-q3-2023",
+    case_pack: "macro_calendar_v1",
+    event_type: "gdp",
+    signal_bias: "stronger",
+    summary:
+      "Q3 2023 GDP grew 4.9%, nearly double the prior quarter and well above 4.7% expectations, cementing the soft-landing thesis but also reviving 'higher for longer' fears that pushed 10-year yields to 5% and weighed on duration.",
+    occurred_at: "2023-10-26T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -130 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -48 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 34 },
+    ],
+    timing_alignment: 0.81,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── SENTIMENT / ACTIVITY ─────────────────────────────────────────────────
+  {
+    case_id: "macro-consumer-sentiment-crash-may-2022",
+    case_pack: "macro_calendar_v1",
+    event_type: "sentiment",
+    signal_bias: "weaker",
+    summary:
+      "University of Michigan consumer sentiment printed 58.4 vs 63.0 expected — a multi-decade low — amplifying fears that high gas prices and inflation were eroding household confidence and accelerating recession risk.",
+    occurred_at: "2022-05-13T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -254 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 73 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -309 },
+    ],
+    timing_alignment: 0.79,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-jolts-miss-soft-landing-hope",
+    case_pack: "macro_calendar_v1",
+    event_type: "jolts",
+    signal_bias: "softer",
+    summary:
+      "JOLTS job openings fell to 9.59M versus 9.77M expected, signalling labour market cooling without outright deterioration — the perfect data point for the soft-landing narrative, rallying bonds and tech equities.",
+    occurred_at: "2023-05-02T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 57 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 84 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -22 },
+    ],
+    timing_alignment: 0.76,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-retail-sales-strong-beat-mar-2024",
+    case_pack: "macro_calendar_v1",
+    event_type: "retail_sales",
+    signal_bias: "stronger",
+    summary:
+      "Retail sales grew +0.6% month-over-month against a +0.3% consensus, suggesting the consumer remained resilient and reducing urgency for the Fed to cut — equities were muted but dollar and yields moved higher.",
+    occurred_at: "2024-03-15T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -54 },
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 18 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 26 },
+    ],
+    timing_alignment: 0.72,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-ism-manufacturing-contraction",
+    case_pack: "macro_calendar_v1",
+    event_type: "ism",
+    signal_bias: "weaker",
+    summary:
+      "ISM Manufacturing slipped to 50.2, near the contraction threshold and below the 52.0 consensus, adding to recession fears and sending industrials and cyclicals lower while defensive and bond exposure benefited.",
+    occurred_at: "2022-11-01T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -143 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 44 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -178 },
+    ],
+    timing_alignment: 0.77,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-fomc-qt-day-after-collapse",
+    case_pack: "macro_calendar_v1",
+    event_type: "fomc",
+    signal_bias: "hawkish",
+    summary:
+      "The day after a widely applauded 50bp hike and QT announcement, markets reversed sharply when participants re-read the press conference — Powell's rejection of 75bp hikes was oversold, and the full tightening path was priced in across risk assets.",
+    occurred_at: "2022-05-05T13:30:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -356 },
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -81 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -476 },
+    ],
+    timing_alignment: 0.82,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── TARIFFS / TRADE WAR ──────────────────────────────────────────────────
+  {
+    case_id: "macro-trump-tariff-reciprocal-apr-2025",
+    case_pack: "macro_calendar_v1",
+    event_type: "trade_policy",
+    signal_bias: "negative",
+    summary:
+      "The announcement of sweeping 'reciprocal' tariffs on 180+ countries — with effective rates far above consensus expectations — triggered a two-day global equity crash comparable to COVID and 2008, with SPY shedding nearly 10% in two sessions and VIX surging above 50.",
+    occurred_at: "2025-04-03T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -471 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -584 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 134 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -87 },
+    ],
+    timing_alignment: 0.93,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-tariff-pause-90-day-rally",
+    case_pack: "macro_calendar_v1",
+    event_type: "trade_policy",
+    signal_bias: "positive",
+    summary:
+      "A 90-day pause on reciprocal tariffs for most countries (excluding China) was announced via social media, triggering the largest single-day SPY rally since 2008 as shorts were obliterated — the reversal illustrated how binary trade-policy optionality can overwhelm all fundamental analysis.",
+    occurred_at: "2025-04-09T09:30:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 952 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 1218 },
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -89 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 64 },
+    ],
+    timing_alignment: 0.88,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-10yr-yield-5pct-barrier-oct-2023",
+    case_pack: "macro_calendar_v1",
+    event_type: "rates",
+    signal_bias: "hawkish",
+    summary:
+      "10-year Treasury yields broke through the psychological 5% barrier for the first time since 2007, driven by supply concerns from fiscal deficits and 'higher for longer' Fed rhetoric — the move caused simultaneous equity and bond weakness, unusually challenging traditional 60/40 portfolio logic.",
+    occurred_at: "2023-10-19T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -184 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -127 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: -153 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 48 },
+    ],
+    timing_alignment: 0.85,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-nfp-miss-jun-2024",
+    case_pack: "macro_calendar_v1",
+    event_type: "nfp",
+    signal_bias: "softer",
+    summary:
+      "May 2024 payrolls printed softer than expected at +139k, with the prior months revised down — coming after a string of hot data, the miss provided the first credible signal that labour market momentum was fading and accelerated rate-cut pricing toward September.",
+    occurred_at: "2024-06-07T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 89 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 143 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -34 },
+    ],
+    timing_alignment: 0.82,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-cpi-miss-jun-2023",
+    case_pack: "macro_calendar_v1",
+    event_type: "cpi",
+    signal_bias: "cooler",
+    summary:
+      "CPI fell to 3.0% year-over-year, well below the 3.1% consensus and down sharply from 4.0% the prior month — the most decisive single-month disinflation print of the cycle, triggering a powerful bond and equity rally that re-energised the soft-landing narrative.",
+    occurred_at: "2023-07-12T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 83 },
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 70 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 118 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -41 },
+    ],
+    timing_alignment: 0.86,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "macro-nfp-miss-2023-oct",
+    case_pack: "macro_calendar_v1",
+    event_type: "nfp",
+    signal_bias: "softer",
+    summary:
+      "October 2023 payrolls printed +150k versus the +180k estimate — a clear miss — while September was revised lower. Combined with the 10-year yield already at 5%, the softer labour data gave the Fed cover to pause, fuelling one of the year's sharpest bond rallies.",
+    occurred_at: "2023-11-03T12:30:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 127 },
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 53 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 84 },
+      { ticker: "DXY", realized_direction: "down", realized_magnitude_bp: -57 },
+    ],
+    timing_alignment: 0.83,
+    labels: { case_quality: "reviewed" },
   },
 ];

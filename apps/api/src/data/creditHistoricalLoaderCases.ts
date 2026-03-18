@@ -1,6 +1,7 @@
 import type { CreditHistoricalCaseInput } from "@finance-superbrain/schemas";
 
 export const CREDIT_HISTORICAL_LOADER_CASES: CreditHistoricalCaseInput[] = [
+  // ── BANK STRESS ──────────────────────────────────────────────────────────
   {
     case_id: "credit-svb-bank-run",
     case_pack: "credit_v1",
@@ -18,9 +19,26 @@ export const CREDIT_HISTORICAL_LOADER_CASES: CreditHistoricalCaseInput[] = [
       { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 92 },
     ],
     timing_alignment: 0.87,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-first-republic-collapse",
+    case_pack: "credit_v1",
+    event_type: "bank_run",
+    signal_bias: "negative",
+    institution: "First Republic Bank",
+    region: "united_states",
+    focus_assets: ["KRE", "XLF"],
+    summary:
+      "First Republic reported catastrophic deposit outflows of $100B+ in Q1 2023 — far worse than any estimate — triggering a second wave of regional bank stress that pushed the FDIC to orchestrate an emergency JPMorgan acquisition.",
+    occurred_at: "2023-04-24T20:00:00.000Z",
+    realized_moves: [
+      { ticker: "KRE", realized_direction: "down", realized_magnitude_bp: -283 },
+      { ticker: "XLF", realized_direction: "down", realized_magnitude_bp: -97 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 58 },
+    ],
+    timing_alignment: 0.86,
+    labels: { case_quality: "reviewed" },
   },
   {
     case_id: "credit-fed-liquidity-backstop",
@@ -39,30 +57,7 @@ export const CREDIT_HISTORICAL_LOADER_CASES: CreditHistoricalCaseInput[] = [
       { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -26 },
     ],
     timing_alignment: 0.78,
-    labels: {
-      case_quality: "reviewed",
-    },
-  },
-  {
-    case_id: "credit-hy-spread-widening",
-    case_pack: "credit_v1",
-    event_type: "credit_spread_widening",
-    signal_bias: "negative",
-    institution: "US high-yield market",
-    region: "united_states",
-    focus_assets: ["HYG", "LQD"],
-    summary:
-      "High-yield spreads widened materially on growth and funding concerns, weighing on lower-quality credit and financial risk appetite.",
-    occurred_at: "2022-06-13T14:00:00.000Z",
-    realized_moves: [
-      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -82 },
-      { ticker: "LQD", realized_direction: "down", realized_magnitude_bp: -37 },
-      { ticker: "XLF", realized_direction: "down", realized_magnitude_bp: -28 },
-    ],
-    timing_alignment: 0.81,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
   {
     case_id: "credit-global-bank-contagion",
@@ -81,10 +76,86 @@ export const CREDIT_HISTORICAL_LOADER_CASES: CreditHistoricalCaseInput[] = [
       { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 61 },
     ],
     timing_alignment: 0.84,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "credit-cs-at1-wipeout",
+    case_pack: "credit_v1",
+    event_type: "banking_contagion",
+    signal_bias: "negative",
+    institution: "Credit Suisse",
+    region: "europe",
+    focus_assets: ["EUFN", "HYG", "LQD"],
+    summary:
+      "UBS acquired Credit Suisse with Swiss regulators wiping out CHF 17B of AT1 (Additional Tier 1) bonds — unprecedented in any prior European bank resolution — triggering a global repricing of bank subordinated credit and a brief but violent selloff in European financial institutions.",
+    occurred_at: "2023-03-20T08:00:00.000Z",
+    realized_moves: [
+      { ticker: "EUFN", realized_direction: "down", realized_magnitude_bp: -381 },
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -94 },
+      { ticker: "LQD", realized_direction: "down", realized_magnitude_bp: -41 },
+    ],
+    timing_alignment: 0.83,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── SPREADS ──────────────────────────────────────────────────────────────
+  {
+    case_id: "credit-hy-spread-widening",
+    case_pack: "credit_v1",
+    event_type: "credit_spread_widening",
+    signal_bias: "negative",
+    institution: "US high-yield market",
+    region: "united_states",
+    focus_assets: ["HYG", "LQD"],
+    summary:
+      "High-yield spreads widened materially on growth and funding concerns, weighing on lower-quality credit and financial risk appetite.",
+    occurred_at: "2022-06-13T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -82 },
+      { ticker: "LQD", realized_direction: "down", realized_magnitude_bp: -37 },
+      { ticker: "XLF", realized_direction: "down", realized_magnitude_bp: -28 },
+    ],
+    timing_alignment: 0.81,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-hy-junk-issuance-freeze",
+    case_pack: "credit_v1",
+    event_type: "credit_spread_widening",
+    signal_bias: "negative",
+    institution: "US primary credit market",
+    region: "united_states",
+    focus_assets: ["HYG", "JNK", "LQD"],
+    summary:
+      "High-yield primary issuance effectively shut down for multiple weeks as spreads widened beyond 600bp, freezing LBO financing and distressed refinancing — the credit market was the leading indicator of the equity selloff that followed.",
+    occurred_at: "2022-10-03T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -187 },
+      { ticker: "JNK", realized_direction: "down", realized_magnitude_bp: -203 },
+      { ticker: "LQD", realized_direction: "down", realized_magnitude_bp: -88 },
+    ],
+    timing_alignment: 0.85,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-ig-spread-compression-rally",
+    case_pack: "credit_v1",
+    event_type: "credit_spread_compression",
+    signal_bias: "positive",
+    institution: "US investment-grade credit market",
+    region: "united_states",
+    focus_assets: ["LQD", "HYG", "XLF"],
+    summary:
+      "IG credit spreads compressed to multi-year lows as rate-cut expectations improved funding conditions — the tightening in credit led equity multiples higher and confirmed the soft-landing framework was holding.",
+    occurred_at: "2024-01-12T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "LQD", realized_direction: "up", realized_magnitude_bp: 74 },
+      { ticker: "HYG", realized_direction: "up", realized_magnitude_bp: 111 },
+      { ticker: "XLF", realized_direction: "up", realized_magnitude_bp: 89 },
+    ],
+    timing_alignment: 0.76,
+    labels: { case_quality: "reviewed" },
+  },
+  // ── SOVEREIGN / STRUCTURED ───────────────────────────────────────────────
   {
     case_id: "credit-downgrade-wave-cre",
     case_pack: "credit_v1",
@@ -102,8 +173,139 @@ export const CREDIT_HISTORICAL_LOADER_CASES: CreditHistoricalCaseInput[] = [
       { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -21 },
     ],
     timing_alignment: 0.75,
-    labels: {
-      case_quality: "reviewed",
-    },
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-us-debt-ceiling-brinkmanship",
+    case_pack: "credit_v1",
+    event_type: "sovereign_stress",
+    signal_bias: "negative",
+    institution: "US Treasury",
+    region: "united_states",
+    focus_assets: ["TLT", "HYG", "SPY"],
+    summary:
+      "Treasury T-bill yields spiked to multi-decade highs as the x-date approached and negotiations stalled — the near-miss on a US technical default forced a sharp repricing of short-end Treasuries and kept risk assets under pressure until the last-minute deal.",
+    occurred_at: "2023-05-26T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -48 },
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -63 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -74 },
+    ],
+    timing_alignment: 0.77,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-italy-sovereign-spread-blowout",
+    case_pack: "credit_v1",
+    event_type: "sovereign_stress",
+    signal_bias: "negative",
+    institution: "Italian sovereign debt market",
+    region: "europe",
+    focus_assets: ["EZU", "EUFN", "TLT"],
+    summary:
+      "Italian BTP-Bund spreads blew out above 250bp as energy-shock inflation and ECB tightening raised concerns about periphery debt sustainability — the stress forced the ECB to accelerate its anti-fragmentation tool announcement.",
+    occurred_at: "2022-06-14T08:00:00.000Z",
+    realized_moves: [
+      { ticker: "EZU", realized_direction: "down", realized_magnitude_bp: -217 },
+      { ticker: "EUFN", realized_direction: "down", realized_magnitude_bp: -284 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 83 },
+    ],
+    timing_alignment: 0.82,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-mortgage-spread-widening-2022",
+    case_pack: "credit_v1",
+    event_type: "credit_spread_widening",
+    signal_bias: "negative",
+    institution: "US mortgage-backed securities market",
+    region: "united_states",
+    focus_assets: ["MBB", "XHB", "KRE"],
+    summary:
+      "Mortgage spreads widened sharply as QT-driven MBS portfolio runoff added supply pressure — 30-year mortgage rates surged through 7%, crushing housing affordability and triggering a sharp selloff in homebuilders and mortgage originators.",
+    occurred_at: "2022-11-10T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "MBB", realized_direction: "down", realized_magnitude_bp: -87 },
+      { ticker: "XHB", realized_direction: "down", realized_magnitude_bp: -201 },
+      { ticker: "KRE", realized_direction: "down", realized_magnitude_bp: -118 },
+    ],
+    timing_alignment: 0.79,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-treasury-market-dysfunction",
+    case_pack: "credit_v1",
+    event_type: "liquidity_stress",
+    signal_bias: "negative",
+    institution: "US Treasury market",
+    region: "united_states",
+    focus_assets: ["TLT", "HYG", "SPY"],
+    summary:
+      "10-year Treasury yields lurched above 4% for the first time in 14 years while market depth collapsed — bid-ask spreads in on-the-run Treasuries hit stress-era levels, raising concerns about the functioning of the world's most important financial market.",
+    occurred_at: "2022-10-21T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: -241 },
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -93 },
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -84 },
+    ],
+    timing_alignment: 0.81,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-china-evergrande-default",
+    case_pack: "credit_v1",
+    event_type: "corporate_default",
+    signal_bias: "negative",
+    institution: "China Evergrande Group",
+    region: "asia",
+    focus_assets: ["FXI", "KWEB", "HYG"],
+    summary:
+      "Evergrande missed USD bond coupon payments, triggering a formal default on $300B+ in liabilities — the largest real estate corporate default in history created China-specific contagion risk and briefly spiked global EM credit spreads.",
+    occurred_at: "2021-12-09T08:00:00.000Z",
+    realized_moves: [
+      { ticker: "FXI", realized_direction: "down", realized_magnitude_bp: -214 },
+      { ticker: "KWEB", realized_direction: "down", realized_magnitude_bp: -189 },
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -44 },
+    ],
+    timing_alignment: 0.76,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-lbo-financing-freeze-2022",
+    case_pack: "credit_v1",
+    event_type: "credit_spread_widening",
+    signal_bias: "negative",
+    institution: "US leveraged loan market",
+    region: "united_states",
+    focus_assets: ["HYG", "JNK", "XLF"],
+    summary:
+      "Banks were stuck holding $13B+ in Twitter LBO bridge loans at steep losses as high-yield markets froze — the stuck inventory became a canary for the broader LBO financing market, signalling that private equity deal activity and credit market functioning were severely impaired.",
+    occurred_at: "2022-10-27T14:00:00.000Z",
+    realized_moves: [
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -147 },
+      { ticker: "JNK", realized_direction: "down", realized_magnitude_bp: -163 },
+      { ticker: "XLF", realized_direction: "down", realized_magnitude_bp: -84 },
+    ],
+    timing_alignment: 0.78,
+    labels: { case_quality: "reviewed" },
+  },
+  {
+    case_id: "credit-yen-carry-unwind-credit-stress",
+    case_pack: "credit_v1",
+    event_type: "liquidity_stress",
+    signal_bias: "negative",
+    institution: "Global carry trade financing",
+    region: "global",
+    focus_assets: ["HYG", "SPY", "TLT"],
+    summary:
+      "The Bank of Japan's surprise 25bp rate hike in late July 2024 accelerated the yen carry unwind — forced selling of risk assets used as carry-funded positions cascaded into credit spread widening and equity volatility, with VIX spiking to 65 within days.",
+    occurred_at: "2024-08-05T09:30:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "down", realized_magnitude_bp: -307 },
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: -127 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 218 },
+    ],
+    timing_alignment: 0.87,
+    labels: { case_quality: "reviewed" },
   },
 ];
