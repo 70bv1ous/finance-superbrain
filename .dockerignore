@@ -1,0 +1,7 @@
+node_modules
+npm-debug.log
+.git
+.pglite
+apps/api/dist
+packages/schemas/dist
+apps/api/api-live-3002.out.log

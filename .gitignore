@@ -1,0 +1,38 @@
+node_modules/
+dist/
+.next/
+coverage/
+.DS_Store
+.pglite*/
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+apps/api/.env
+apps/web/.env.local
+
+# Logs
+*.log
+server.log
+stdout.log
+stderr.log
+
+# Local startup scripts (Windows helpers, not needed in production)
+apps/api/launch.ps1
+apps/api/start.ps1
+apps/api/start-debug.ps1
+apps/api/test-run.ps1
+apps/api/test-chat.ps1
+
+# OS
+Thumbs.db
+
+# TypeScript cache
+*.tsbuildinfo
+
+# PGlite local DB
+*.db
+pglite-data/

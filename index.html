@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="A screenshot-backed trading journal for logging setups, reviewing execution, and sharing a polished hosted tracker.">
+<meta name="theme-color" content="#071018">
+<meta name="robots" content="index,follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Trade Setup Journal">
+<meta property="og:description" content="Track taken and missed setups with screenshots, detailed reviews, and exportable journal history.">
+<meta name="twitter:card" content="summary_large_image">
+<title>Trade Setup Journal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23071018'/%3E%3Cpath d='M16 42h10V22H16v20zm12 0h10V14H28v28zm12 0h10V30H40v12z' fill='%2343c6ac'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #071018;
+    --bg-soft: #101c2a;
+    --surface: rgba(11, 22, 35, 0.88);
+    --surface-strong: #0d1723;
+    --surface-2: #132233;
+    --line: #22364c;
+    --line-strong: #31506f;
+    --text: #edf2f7;
+    --muted: #90a4b9;
+    --muted-soft: #6f8599;
+    --accent: #43c6ac;
+    --accent-2: #2f80ed;
+    --good: #43d39e;
+    --warn: #f2b84b;
+    --bad: #ff6b6b;
+    --shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+    --radius: 22px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    color: var(--text);
+    font-family: "Lora", serif;
+    background:
+      radial-gradient(circle at top left, rgba(67, 198, 172, 0.12), transparent 28%),
+      radial-gradient(circle at top right, rgba(47, 128, 237, 0.12), transparent 26%),
+      linear-gradient(180deg, #071018 0%, #09131d 100%);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 34px 34px;
+    pointer-events: none;
+    opacity: 0.35;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 32px 18px 80px;
+  }
+
+  .hero {
+    background: linear-gradient(135deg, rgba(9, 21, 34, 0.95), rgba(16, 33, 50, 0.88));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .hero-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 28px 28px 14px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(67, 198, 172, 0.12);
+    color: var(--accent);
+    font: 600 11px/1 "IBM Plex Mono", monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-family: "Syne", sans-serif;
+    font-size: clamp(2.2rem, 4vw, 4rem);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    max-width: 720px;
+  }
+
+  h1 span {
+    color: var(--accent);
+  }
+
+  .hero-copy p {
+    margin-top: 14px;
+    max-width: 720px;
+    color: var(--muted);
+    line-height: 1.8;
+    font-size: 15px;
+  }
+
+  .hero-side {
+    min-width: 260px;
+    display: grid;
+    gap: 12px;
+    align-content: start;
+  }
+
+  .hero-note,
+  .hero-date {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 18px;
+    padding: 16px 18px;
+  }
+
+  .hero-date-label,
+  .hero-note-label {
+    font: 500 10px/1.2 "IBM Plex Mono", monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted-soft);
+    margin-bottom: 8px;
+  }
+
+  .hero-date-value {
+    font-family: "Syne", sans-serif;
+    font-size: 1.1rem;
+    line-height: 1.3;
+  }
+
+  .hero-note p {
+    color: var(--muted);
+    line-height: 1.6;
+    font-size: 13px;
+  }
+
+  .hero-toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 0 28px 28px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 18px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
+  }
+
+  .stat-label {
+    font: 500 10px/1.2 "IBM Plex Mono", monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted-soft);
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-family: "Syne", sans-serif;
+    font-size: 2rem;
+    letter-spacing: -0.04em;
+  }
+
+  .stat-sub {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .nav-tab,
+  .inner-tab,
+  .btn,
+  .chip,
+  .shot-button,
+  .text-button {
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  .nav-tab {
+    padding: 12px 18px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: 0.2s ease;
+  }
+
+  .nav-tab:hover,
+  .nav-tab.active {
+    color: var(--text);
+    border-color: rgba(67, 198, 172, 0.38);
+    background: rgba(67, 198, 172, 0.12);
+  }
+
+  .view {
+    display: none;
+  }
+
+  .view.active {
+    display: block;
+    animation: fadeUp 0.28s ease;
+  }
+
+  .journal-layout,
+  .insight-layout,
+  .protocol-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    gap: 18px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+  }
+
+  .panel + .panel {
+    margin-top: 18px;
+  }
+
+  .panel-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+
+  .panel-title {
+    font-family: "Syne", sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: -0.03em;
+  }
+
+  .panel-kicker {
+    font: 500 10px/1.2 "IBM Plex Mono", monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+  }
+
+  .helper-text {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .edit-banner {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: 1px solid rgba(47, 128, 237, 0.35);
+    border-radius: 18px;
+    background: rgba(47, 128, 237, 0.12);
+  }
+
+  .edit-banner.active {
+    display: flex;
+  }
+
+  .edit-banner strong {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .inner-tabs {
+    display: inline-flex;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 20px;
+  }
+
+  .inner-tab {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .inner-tab.active {
+    background: rgba(67, 198, 172, 0.14);
+    color: var(--text);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .form-group {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .split-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  label {
+    font: 500 10px/1.2 "IBM Plex Mono", monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted-soft);
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    background: rgba(6, 13, 22, 0.72);
+    color: var(--text);
+    padding: 12px 14px;
+    outline: none;
+    transition: 0.2s ease;
+    font-size: 14px;
+  }
+
+  input,
+  select {
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  textarea {
+    min-height: 110px;
+    resize: vertical;
+    line-height: 1.7;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: rgba(67, 198, 172, 0.6);
+    box-shadow: 0 0 0 3px rgba(67, 198, 172, 0.12);
+  }
+
+  .range-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+  }
+
+  input[type="range"] {
+    padding: 0;
+    accent-color: var(--accent);
+    background: transparent;
+  }
+
+  .range-value {
+    min-width: 48px;
+    text-align: center;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(67, 198, 172, 0.14);
+    color: var(--accent);
+    font-family: "Syne", sans-serif;
+    font-size: 1.3rem;
+  }
+
+  .emotion-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .emotion-btn {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+    padding: 9px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: 0.18s ease;
+  }
+
+  .emotion-btn:hover {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .emotion-btn.selected {
+    border-color: rgba(67, 198, 172, 0.5);
+    color: var(--text);
+    background: rgba(67, 198, 172, 0.16);
+  }
+
+  .emotion-btn.neg.selected {
+    border-color: rgba(255, 107, 107, 0.45);
+    background: rgba(255, 107, 107, 0.14);
+  }
+
+  .upload-box {
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .upload-box input[type="file"] {
+    padding: 12px;
+    background: rgba(6, 13, 22, 0.55);
+  }
+
+  .image-preview-grid,
+  .history-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .preview-card,
+  .gallery-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: var(--surface-strong);
+    min-height: 110px;
+  }
+
+  .preview-card img,
+  .gallery-card img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    aspect-ratio: 1 / 1;
+  }
+
+  .preview-remove {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .preview-label,
+  .gallery-label {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    padding: 7px 8px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.68);
+    color: #fff;
+    font: 500 10px/1.3 "IBM Plex Mono", monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .btn-row,
+  .toolbar-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transition: 0.2s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #66d1c9);
+    color: #041018;
+    font-weight: 700;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px rgba(67, 198, 172, 0.3);
+  }
+
+  .btn-ghost {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .btn-ghost:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-danger {
+    color: #fff;
+    background: rgba(255, 107, 107, 0.18);
+    border: 1px solid rgba(255, 107, 107, 0.4);
+  }
+
+  .side-stack {
+    display: grid;
+    gap: 18px;
+  }
+
+  .mini-card {
+    padding: 18px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .mini-card strong {
+    display: block;
+    margin-bottom: 6px;
+    font-family: "Syne", sans-serif;
+    font-size: 1rem;
+  }
+
+  .mini-card p,
+  .mini-card li {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .mini-card ul {
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .history-toolbar {
+    display: grid;
+    grid-template-columns: 1.8fr repeat(3, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .history-list {
+    display: grid;
+    gap: 14px;
+  }
+
+  .history-card {
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(8, 17, 27, 0.78);
+    box-shadow: var(--shadow);
+  }
+
+  .history-card summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 18px 20px;
+  }
+
+  .history-card summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .history-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(120px, auto) minmax(110px, auto) 30px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .summary-main {
+    display: grid;
+    gap: 8px;
+  }
+
+  .summary-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .summary-title {
+    font-family: "Syne", sans-serif;
+    font-size: 1.2rem;
+  }
+
+  .summary-meta {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .chip-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 7px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .chip.type-taken {
+    background: rgba(67, 211, 158, 0.12);
+    color: var(--good);
+  }
+
+  .chip.type-missed {
+    background: rgba(255, 107, 107, 0.14);
+    color: var(--bad);
+  }
+
+  .chip.outcome-win {
+    background: rgba(67, 211, 158, 0.12);
+    color: var(--good);
+  }
+
+  .chip.outcome-loss {
+    background: rgba(255, 107, 107, 0.14);
+    color: var(--bad);
+  }
+
+  .chip.outcome-neutral {
+    background: rgba(242, 184, 75, 0.14);
+    color: var(--warn);
+  }
+
+  .summary-score {
+    text-align: right;
+  }
+
+  .score-label {
+    font: 500 10px/1.2 "IBM Plex Mono", monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted-soft);
+    margin-bottom: 6px;
+  }
+
+  .score-value {
+    font-family: "Syne", sans-serif;
+    font-size: 1.8rem;
+  }
+
+  .summary-toggle {
+    font: 600 18px/1 "IBM Plex Mono", monospace;
+    color: var(--muted-soft);
+    text-align: center;
+  }
+
+  .history-card[open] .summary-toggle {
+    color: var(--accent);
+  }
+
+  .history-body {
+    padding: 0 20px 20px;
+    display: grid;
+    gap: 16px;
+  }
+
+  .history-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .metric {
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .metric-label {
+    font: 500 10px/1.2 "IBM Plex Mono", monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted-soft);
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .history-copy-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .copy-panel {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .copy-title {
+    font: 500 10px/1.2 "IBM Plex Mono", monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted-soft);
+    margin-bottom: 10px;
+  }
+
+  .copy-body {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.8;
+    white-space: pre-wrap;
+  }
+
+  .history-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .action-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .text-button,
+  .shot-button {
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  .text-button.delete {
+    background: rgba(255, 107, 107, 0.16);
+    color: #fff;
+  }
+
+  .empty-state {
+    border: 1px dashed rgba(255, 255, 255, 0.14);
+    border-radius: 22px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .empty-state strong {
+    display: block;
+    margin-bottom: 8px;
+    font-family: "Syne", sans-serif;
+    font-size: 1.2rem;
+    color: var(--text);
+  }
+
+  .insight-grid {
+    display: grid;
+    gap: 18px;
+  }
+
+  .insight-card {
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .bar-stack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 170px 1fr 44px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .bar-label,
+  .bar-count {
+    font: 500 11px/1.2 "IBM Plex Mono", monospace;
+    color: var(--muted);
+  }
+
+  .bar-track {
+    height: 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 999px;
+  }
+
+  .focus-copy {
+    color: var(--muted);
+    line-height: 1.85;
+    font-size: 15px;
+  }
+
+  .checklist {
+    display: grid;
+    gap: 10px;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 14px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    cursor: pointer;
+  }
+
+  .check-box {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    display: grid;
+    place-items: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--good);
+  }
+
+  .check-item.done {
+    border-color: rgba(67, 211, 158, 0.22);
+    background: rgba(67, 211, 158, 0.08);
+  }
+
+  .check-item.done .check-box {
+    border-color: rgba(67, 211, 158, 0.32);
+    background: rgba(67, 211, 158, 0.14);
+  }
+
+  .protocol-steps {
+    display: grid;
+    gap: 14px;
+  }
+
+  .protocol-step {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .step-num {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(67, 198, 172, 0.14);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    font-family: "Syne", sans-serif;
+    font-size: 1.2rem;
+  }
+
+  .step-title {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .step-body {
+    color: var(--muted);
+    line-height: 1.75;
+    font-size: 14px;
+  }
+
+  .toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: rgba(4, 12, 20, 0.94);
+    border: 1px solid rgba(67, 198, 172, 0.4);
+    color: var(--text);
+    font: 500 12px/1.4 "IBM Plex Mono", monospace;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transform: translateY(24px);
+    pointer-events: none;
+    transition: 0.24s ease;
+    z-index: 1000;
+    max-width: 320px;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 999;
+  }
+
+  .lightbox.active {
+    display: flex;
+  }
+
+  .lightbox-content {
+    max-width: min(1100px, 100%);
+    max-height: 100%;
+    display: grid;
+    gap: 12px;
+  }
+
+  .lightbox img {
+    max-width: min(1100px, 100%);
+    max-height: calc(100vh - 120px);
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .lightbox-caption {
+    color: #fff;
+    text-align: center;
+    font: 500 12px/1.5 "IBM Plex Mono", monospace;
+  }
+
+  .lightbox-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    border: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 980px) {
+    .journal-layout,
+    .insight-layout,
+    .protocol-layout,
+    .history-toolbar,
+    .history-copy-grid,
+    .split-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .history-summary {
+      grid-template-columns: 1fr;
+    }
+
+    .summary-score,
+    .summary-toggle {
+      text-align: left;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .app {
+      padding: 18px 14px 70px;
+    }
+
+    .hero-top,
+    .hero-toolbar,
+    .panel {
+      padding-left: 18px;
+      padding-right: 18px;
+    }
+
+    .hero-toolbar {
+      padding-bottom: 18px;
+    }
+
+    .bar-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="hero">
+    <div class="hero-top">
+      <div class="hero-copy">
+        <div class="eyebrow">Portable trade journal</div>
+        <h1>Review the <span>exact setup</span>, not just the result.</h1>
+        <p>
+          This version is built for screenshot-backed journaling. You can save trade context, attach setup images,
+          edit entries later, and export the whole journal so it is easier to move, back up, or share across devices.
+        </p>
+      </div>
+      <div class="hero-side">
+        <div class="hero-date">
+          <div class="hero-date-label">Today</div>
+          <div class="hero-date-value" id="dateDisplay"></div>
+        </div>
+        <div class="hero-note">
+          <div class="hero-note-label">Storage note</div>
+          <p>When hosted online, every visitor gets their own private browser-stored journal. Use Export Journal to move your data between devices.</p>
+        </div>
+      </div>
+    </div>
+    <div class="hero-toolbar">
+      <button type="button" class="btn btn-primary" onclick="exportJournal()">Export Journal</button>
+      <button type="button" class="btn btn-ghost" onclick="document.getElementById('importFile').click()">Import Journal</button>
+      <button type="button" class="btn btn-ghost" onclick="shareApp()">Share This Site</button>
+      <button type="button" class="btn btn-ghost" onclick="switchView('history')">Open Review History</button>
+      <input id="importFile" type="file" accept=".json,application/json" hidden>
+    </div>
+  </section>
+
+  <section class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Entries</div><div class="stat-value" id="statEntries">0</div><div class="stat-sub">all journal records</div></div>
+    <div class="stat-card"><div class="stat-label">Taken</div><div class="stat-value" id="statTaken">0</div><div class="stat-sub">executed trades</div></div>
+    <div class="stat-card"><div class="stat-label">Missed</div><div class="stat-value" id="statMissed">0</div><div class="stat-sub">valid setups skipped</div></div>
+    <div class="stat-card"><div class="stat-label">Execution Rate</div><div class="stat-value" id="statExecRate">-</div><div class="stat-sub">taken / all logged setups</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Review</div><div class="stat-value" id="statReview">-</div><div class="stat-sub">self review score</div></div>
+    <div class="stat-card"><div class="stat-label">Screenshot Entries</div><div class="stat-value" id="statScreens">0</div><div class="stat-sub">records with images</div></div>
+    <div class="stat-card"><div class="stat-label">Journal Streak</div><div class="stat-value" id="statStreak">0</div><div class="stat-sub">days in a row</div></div>
+  </section>
+
+  <nav class="nav">
+    <button type="button" class="nav-tab active" data-view="journal" onclick="switchView('journal', this)">Journal</button>
+    <button type="button" class="nav-tab" data-view="history" onclick="switchView('history', this)">History</button>
+    <button type="button" class="nav-tab" data-view="insights" onclick="switchView('insights', this)">Insights</button>
+    <button type="button" class="nav-tab" data-view="protocol" onclick="switchView('protocol', this)">Protocol</button>
+  </nav>
+
+  <section class="view active" id="view-journal">
+    <div class="journal-layout">
+      <div>
+        <div class="panel">
+          <div class="panel-title-row">
+            <div>
+              <div class="panel-kicker">Build the entry properly</div>
+              <div class="panel-title">Log the trade and save the visual proof</div>
+            </div>
+            <div class="helper-text">Edit mode lets you revisit old entries and improve the review later.</div>
+          </div>
+
+          <div class="edit-banner" id="editBanner">
+            <div>
+              <strong id="editBannerLabel">Editing entry</strong>
+              <div class="helper-text" id="editBannerMeta"></div>
+            </div>
+            <button type="button" class="btn btn-ghost" onclick="cancelEdit()">Cancel Edit</button>
+          </div>
+
+          <div class="inner-tabs">
+            <button type="button" class="inner-tab active" data-entry-type="taken" onclick="switchEntryType('taken', this)">Trade Taken</button>
+            <button type="button" class="inner-tab" data-entry-type="missed" onclick="switchEntryType('missed', this)">Missed Setup</button>
+          </div>
+
+          <div id="form-taken">
+            <div class="form-grid">
+              <div class="form-group"><label for="t-date">Date and time</label><input type="datetime-local" id="t-date"></div>
+              <div class="form-group"><label for="t-pair">Pair or asset</label><input type="text" id="t-pair" placeholder="BTCUSD, XAUUSD, NQ"></div>
+              <div class="form-group"><label for="t-timeframe">Timeframe</label><input type="text" id="t-timeframe" placeholder="5m, 15m, 1H"></div>
+              <div class="form-group"><label for="t-session">Session</label><input type="text" id="t-session" placeholder="London, New York open"></div>
+              <div class="form-group"><label for="t-direction">Direction</label><select id="t-direction"><option value="">Select</option><option value="Long">Long</option><option value="Short">Short</option></select></div>
+              <div class="form-group"><label for="t-setup">Setup or strategy</label><input type="text" id="t-setup" placeholder="OB retest, liquidity sweep"></div>
+              <div class="form-group"><label for="t-bias">Bias or narrative</label><input type="text" id="t-bias" placeholder="Bullish HTF structure"></div>
+              <div class="form-group"><label for="t-outcome">Outcome</label><select id="t-outcome"><option value="">Select</option><option value="WIN">Win</option><option value="LOSS">Loss</option><option value="BREAKEVEN">Breakeven</option><option value="OPEN">Still open</option></select></div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group"><label for="t-entry">Entry price</label><input type="text" id="t-entry" placeholder="104225.50"></div>
+              <div class="form-group"><label for="t-stop">Stop loss</label><input type="text" id="t-stop" placeholder="103880.00"></div>
+              <div class="form-group"><label for="t-target">Take profit</label><input type="text" id="t-target" placeholder="104950.00"></div>
+              <div class="form-group"><label for="t-risk">Risk percent</label><input type="text" id="t-risk" placeholder="0.50%"></div>
+              <div class="form-group"><label for="t-r">R multiple</label><input type="text" id="t-r" placeholder="+2.3R"></div>
+              <div class="form-group"><label for="t-rules">Did you follow your rules?</label><select id="t-rules"><option value="">Select</option><option value="yes">Yes</option><option value="partial">Partially</option><option value="no">No</option></select></div>
+            </div>
+
+            <div class="split-grid">
+              <div class="form-group">
+                <label for="t-psych">Mindset quality before the trade</label>
+                <div class="range-row"><input type="range" min="1" max="10" value="6" id="t-psych" oninput="setRangeValue('t-psych-val', this.value)"><div class="range-value" id="t-psych-val">6</div></div>
+              </div>
+              <div class="form-group">
+                <label for="t-review">Self review score after the trade</label>
+                <div class="range-row"><input type="range" min="1" max="10" value="6" id="t-review" oninput="setRangeValue('t-review-val', this.value)"><div class="range-value" id="t-review-val">6</div></div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Emotions before entry</label>
+              <div class="emotion-grid" id="emotions-taken">
+                <button type="button" class="emotion-btn" data-emotion="Calm" onclick="toggleEmotion(this, 'taken')">Calm</button>
+                <button type="button" class="emotion-btn" data-emotion="Confident" onclick="toggleEmotion(this, 'taken')">Confident</button>
+                <button type="button" class="emotion-btn neg" data-emotion="Anxious" onclick="toggleEmotion(this, 'taken')">Anxious</button>
+                <button type="button" class="emotion-btn neg" data-emotion="FOMO" onclick="toggleEmotion(this, 'taken')">FOMO</button>
+                <button type="button" class="emotion-btn neg" data-emotion="Revenge" onclick="toggleEmotion(this, 'taken')">Revenge</button>
+                <button type="button" class="emotion-btn neg" data-emotion="Hesitant" onclick="toggleEmotion(this, 'taken')">Hesitant</button>
+                <button type="button" class="emotion-btn" data-emotion="Neutral" onclick="toggleEmotion(this, 'taken')">Neutral</button>
+              </div>
+            </div>
+
+            <div class="form-group"><label for="t-thesis">Why was this setup valid?</label><textarea id="t-thesis" placeholder="Write the exact reasoning, key level, confluence, and why this was worth taking."></textarea></div>
+            <div class="split-grid">
+              <div class="form-group"><label for="t-notes">Execution notes</label><textarea id="t-notes" placeholder="Describe what happened from entry to exit."></textarea></div>
+              <div class="form-group"><label for="t-didwell">What did you do well?</label><textarea id="t-didwell" placeholder="Capture the parts you want to repeat."></textarea></div>
+            </div>
+            <div class="form-group"><label for="t-improve">What must improve next time?</label><textarea id="t-improve" placeholder="One clean action item for the next session."></textarea></div>
+
+            <div class="form-group">
+              <label>Setup screenshots</label>
+              <div class="upload-box">
+                <input type="file" id="t-images" accept="image/*" multiple>
+                <div class="helper-text">Up to 3 screenshots per entry. Images are compressed before saving.</div>
+                <div class="image-preview-grid" id="t-image-preview"></div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button type="button" class="btn btn-primary" onclick="saveTrade('taken')">Save Taken Trade</button>
+              <button type="button" class="btn btn-ghost" onclick="resetForm('taken')">Clear Form</button>
+            </div>
+          </div>
+
+          <div id="form-missed" style="display:none">
+            <div class="form-grid">
+              <div class="form-group"><label for="m-date">Date and time</label><input type="datetime-local" id="m-date"></div>
+              <div class="form-group"><label for="m-pair">Pair or asset</label><input type="text" id="m-pair" placeholder="BTCUSD, XAUUSD, NQ"></div>
+              <div class="form-group"><label for="m-timeframe">Timeframe</label><input type="text" id="m-timeframe" placeholder="5m, 15m, 1H"></div>
+              <div class="form-group"><label for="m-setup">Setup or strategy</label><input type="text" id="m-setup" placeholder="Liquidity sweep, break and retest"></div>
+              <div class="form-group"><label for="m-session">Session</label><input type="text" id="m-session" placeholder="London, New York open"></div>
+              <div class="form-group"><label for="m-played">Would it have worked?</label><select id="m-played"><option value="">Select</option><option value="yes">Yes, it would have won</option><option value="no">No, it would have lost</option><option value="unknown">Unknown</option></select></div>
+            </div>
+
+            <div class="split-grid">
+              <div class="form-group">
+                <label for="m-psych">Mindset quality at the moment</label>
+                <div class="range-row"><input type="range" min="1" max="10" value="5" id="m-psych" oninput="setRangeValue('m-psych-val', this.value)"><div class="range-value" id="m-psych-val">5</div></div>
+              </div>
+              <div class="form-group">
+                <label for="m-review">Review score after processing it</label>
+                <div class="range-row"><input type="range" min="1" max="10" value="5" id="m-review" oninput="setRangeValue('m-review-val', this.value)"><div class="range-value" id="m-review-val">5</div></div>
+              </div>
+            </div>
+
+            <div class="form-group"><label for="m-thesis">What did you see?</label><textarea id="m-thesis" placeholder="Describe the setup clearly: location, structure, trigger, and why it was valid."></textarea></div>
+            <div class="split-grid">
+              <div class="form-group"><label for="m-blocker">What stopped you?</label><textarea id="m-blocker" placeholder="One honest reason. No hiding."></textarea></div>
+              <div class="form-group"><label for="m-improve">What is the lesson and next trigger plan?</label><textarea id="m-improve" placeholder="What will you do next time when this setup appears again?"></textarea></div>
+            </div>
+            <div class="form-group"><label for="m-notes">Additional review notes</label><textarea id="m-notes" placeholder="Anything else you need future-you to remember."></textarea></div>
+
+            <div class="form-group">
+              <label>Miss trigger tags</label>
+              <div class="emotion-grid" id="emotions-missed">
+                <button type="button" class="emotion-btn neg" data-emotion="Fear of loss" onclick="toggleEmotion(this, 'missed')">Fear of loss</button>
+                <button type="button" class="emotion-btn neg" data-emotion="Needed more confirmation" onclick="toggleEmotion(this, 'missed')">Needed more confirmation</button>
+                <button type="button" class="emotion-btn neg" data-emotion="Drawdown pressure" onclick="toggleEmotion(this, 'missed')">Drawdown pressure</button>
+                <button type="button" class="emotion-btn neg" data-emotion="Doubted analysis" onclick="toggleEmotion(this, 'missed')">Doubted analysis</button>
+                <button type="button" class="emotion-btn neg" data-emotion="Distracted" onclick="toggleEmotion(this, 'missed')">Distracted</button>
+                <button type="button" class="emotion-btn neg" data-emotion="No clear reason" onclick="toggleEmotion(this, 'missed')">No clear reason</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Setup screenshots</label>
+              <div class="upload-box">
+                <input type="file" id="m-images" accept="image/*" multiple>
+                <div class="helper-text">Save the setup so you can review the miss properly later.</div>
+                <div class="image-preview-grid" id="m-image-preview"></div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button type="button" class="btn btn-primary" onclick="saveTrade('missed')">Save Missed Setup</button>
+              <button type="button" class="btn btn-ghost" onclick="resetForm('missed')">Clear Form</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-stack">
+        <div class="panel">
+          <div class="panel-title-row">
+            <div>
+              <div class="panel-kicker">Why this helps</div>
+              <div class="panel-title">Review like a trader, not a spectator</div>
+            </div>
+          </div>
+          <div class="mini-card"><strong>Use screenshots as evidence</strong><p>Each entry can carry the exact chart image that explains the decision. That makes your history much easier to audit than plain text notes.</p></div>
+          <div class="mini-card"><strong>Edit old entries</strong><p>If a trade is still open or you want to revisit your notes later, open it from History and edit it instead of creating duplicates.</p></div>
+          <div class="mini-card"><strong>Keep the journal portable</strong><ul><li>Export after important review sessions.</li><li>Import the JSON file on another device or browser.</li><li>Keep screenshots focused so storage does not fill too quickly.</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-history">
+    <div class="panel">
+      <div class="panel-title-row">
+        <div>
+          <div class="panel-kicker">Review board</div>
+          <div class="panel-title">Detailed history with notes, numbers, and images</div>
+        </div>
+        <div class="helper-text">Use filters to isolate one setup, one symbol, or only the entries with screenshots.</div>
+      </div>
+      <div class="history-toolbar">
+        <input type="text" id="historySearch" placeholder="Search pair, setup, notes, blocker, lesson">
+        <select id="historyTypeFilter"><option value="all">All entry types</option><option value="taken">Taken trades</option><option value="missed">Missed setups</option></select>
+        <select id="historyImageFilter"><option value="all">All screenshot states</option><option value="with-images">With screenshots</option><option value="without-images">Without screenshots</option></select>
+        <select id="historySort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
+      </div>
+      <div class="history-list" id="tradeLog"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-insights">
+    <div class="insight-layout">
+      <div class="panel">
+        <div class="panel-title-row">
+          <div>
+            <div class="panel-kicker">Recurring patterns</div>
+            <div class="panel-title">What the journal is showing you</div>
+          </div>
+        </div>
+        <div class="insight-grid">
+          <div class="insight-card">
+            <div class="panel-kicker" style="margin-bottom:10px">Miss trigger frequency</div>
+            <div class="bar-stack" id="psychBars"></div>
+          </div>
+          <div class="insight-card">
+            <div class="panel-kicker" style="margin-bottom:10px">Setup performance snapshot</div>
+            <div id="setupInsights" class="focus-copy"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title-row">
+          <div>
+            <div class="panel-kicker">Current focus</div>
+            <div class="panel-title">Plain-language self review</div>
+          </div>
+        </div>
+        <div id="insightText" class="focus-copy"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-protocol">
+    <div class="protocol-layout">
+      <div class="panel">
+        <div class="panel-title-row">
+          <div>
+            <div class="panel-kicker">Fast reset</div>
+            <div class="panel-title">2-minute missed-setup protocol</div>
+          </div>
+        </div>
+        <div class="protocol-steps">
+          <div class="protocol-step"><div class="step-num">1</div><div><div class="step-title">Close the chart for a moment</div><div class="step-body">Stop replaying the miss in real time. That gives you enough distance to document it instead of spiraling.</div></div></div>
+          <div class="protocol-step"><div class="step-num">2</div><div><div class="step-title">Capture the setup screenshot</div><div class="step-body">Save the chart before it changes. The picture will be far more useful later than a vague memory.</div></div></div>
+          <div class="protocol-step"><div class="step-num">3</div><div><div class="step-title">Write what was valid</div><div class="step-body">Describe the setup, level, trigger, and context. Focus on facts first, emotions second.</div></div></div>
+          <div class="protocol-step"><div class="step-num">4</div><div><div class="step-title">Name the blocker</div><div class="step-body">Fear, hesitation, distraction, or drawdown pressure. One honest sentence is enough.</div></div></div>
+          <div class="protocol-step"><div class="step-num">5</div><div><div class="step-title">Leave one instruction for next time</div><div class="step-body">Turn the lesson into a rule, trigger, or checklist item so future-you has a clear plan.</div></div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title-row">
+          <div><div class="panel-kicker">Before the session</div><div class="panel-title">Checklist</div></div>
+          <button type="button" class="btn btn-ghost" onclick="resetChecklist()">Reset</button>
+        </div>
+        <div class="checklist" id="checklist"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button type="button" class="lightbox-close" onclick="closeLightbox(event)">X</button>
+  <div class="lightbox-content">
+    <img id="lightboxImage" alt="Trade screenshot">
+    <div class="lightbox-caption" id="lightboxCaption"></div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = "psychedge_trades_v2";
+  const LEGACY_KEY = "psychedge_trades";
+  const CHECKLIST_KEY = "psychedge_checklist";
+  const MAX_IMAGES_PER_ENTRY = 3;
+  const CHECKLIST_ITEMS = [
+    "I know the session plan and key levels.",
+    "My risk is defined before I click anything.",
+    "I am not trading to make back money quickly.",
+    "I am calm enough to execute without forcing.",
+    "I will journal the setup whether I take it or miss it."
+  ];
+
+  let trades = loadTrades();
+  let checklistState = loadChecklist();
+  let selectedEmotions = { taken: [], missed: [] };
+  let draftImages = { taken: [], missed: [] };
+  let editingTradeId = null;
+
+  function init() {
+    document.getElementById("dateDisplay").textContent = new Date().toLocaleDateString("en-SG", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric"
+    });
+
+    document.getElementById("t-date").value = toLocalDateTimeValue();
+    document.getElementById("m-date").value = toLocalDateTimeValue();
+    document.getElementById("importFile").addEventListener("change", handleImportFile);
+    document.getElementById("t-images").addEventListener("change", (event) => handleImageInput("taken", event));
+    document.getElementById("m-images").addEventListener("change", (event) => handleImageInput("missed", event));
+    ["historySearch", "historyTypeFilter", "historyImageFilter", "historySort"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", renderHistory);
+      document.getElementById(id).addEventListener("change", renderHistory);
+    });
+    renderChecklist();
+    updateStats();
+    renderHistory();
+    renderInsights();
+    refreshEditBanner();
+  }
+
+  function loadTrades() {
+    let raw = [];
+    try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY) || "[]"); }
+    catch (error) { raw = []; }
+    const normalized = Array.isArray(raw) ? raw.map(normalizeTrade).filter(Boolean).sort(sortTradesNewest) : [];
+    if (!localStorage.getItem(STORAGE_KEY) && normalized.length) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized)); } catch (error) {}
+    }
+    return normalized;
+  }
+
+  function loadChecklist() {
+    try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || "{}"); }
+    catch (error) { return {}; }
+  }
+
+  function normalizeTrade(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const type = entry.type === "missed" ? "missed" : "taken";
+    const psych = normalizeScore(entry.psych, type === "taken" ? 6 : 5);
+    const review = normalizeScore(entry.review, psych);
+    return {
+      id: Number(entry.id) || Date.now() + Math.floor(Math.random() * 100000),
+      type,
+      date: normalizeDateValue(entry.date || entry.createdAt || new Date().toISOString()),
+      pair: sanitizeString(entry.pair || entry.symbol || ""),
+      timeframe: sanitizeString(entry.timeframe || ""),
+      session: sanitizeString(entry.session || ""),
+      direction: sanitizeString(entry.direction || ""),
+      setup: sanitizeString(entry.setup || ""),
+      marketBias: sanitizeString(entry.marketBias || entry.bias || ""),
+      thesis: sanitizeString(entry.thesis || entry.q1 || ""),
+      blocker: sanitizeString(entry.blocker || entry.q2 || ""),
+      notes: sanitizeString(entry.notes || ""),
+      didWell: sanitizeString(entry.didWell || ""),
+      improveNext: sanitizeString(entry.improveNext || entry.q3 || ""),
+      entryPrice: sanitizeString(entry.entryPrice || ""),
+      stopPrice: sanitizeString(entry.stopPrice || ""),
+      targetPrice: sanitizeString(entry.targetPrice || ""),
+      riskPercent: sanitizeString(entry.riskPercent || ""),
+      outcome: sanitizeString(entry.outcome || ""),
+      rMultiple: sanitizeString(entry.rMultiple || entry.r || ""),
+      rules: sanitizeString(entry.rules || ""),
+      played: sanitizeString(entry.played || ""),
+      psych,
+      review,
+      emotions: Array.isArray(entry.emotions) ? entry.emotions.map(sanitizeString).filter(Boolean) : [],
+      images: normalizeImages(entry.images || entry.screenshots || []),
+      createdAt: entry.createdAt || new Date().toISOString(),
+      updatedAt: entry.updatedAt || null
+    };
+  }
+
+  function normalizeImages(images) {
+    if (!Array.isArray(images)) return [];
+    return images.map((image, index) => {
+      if (typeof image === "string") return { id: Date.now() + index, name: "Screenshot " + (index + 1), dataUrl: image };
+      if (image && image.dataUrl) return { id: Number(image.id) || Date.now() + index, name: sanitizeString(image.name || "Screenshot " + (index + 1)), dataUrl: image.dataUrl };
+      return null;
+    }).filter(Boolean);
+  }
+
+  function normalizeScore(value, fallback) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.min(10, Math.max(1, Math.round(numeric)));
+  }
+
+  function normalizeDateValue(value) {
+    if (!value) return toLocalDateTimeValue();
+    if (typeof value === "string") {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value + "T12:00";
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) return value.slice(0, 16);
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return toLocalDateTimeValue();
+    return toLocalDateTimeValue(date);
+  }
+
+  function toLocalDateTimeValue(date = new Date()) {
+    const adjusted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return adjusted.toISOString().slice(0, 16);
+  }
+
+  function sanitizeString(value) { return typeof value === "string" ? value.trim() : ""; }
+  function sortTradesNewest(a, b) { return new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime(); }
+  function sortTradesOldest(a, b) { return new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime(); }
+
+  function persistTrades(nextTrades) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextTrades));
+      trades = nextTrades.slice().sort(sortTradesNewest);
+      return true;
+    } catch (error) {
+      showToast("Storage is full. Export the journal and use fewer screenshots per entry.");
+      return false;
+    }
+  }
+
+  function switchView(view, button) {
+    document.querySelectorAll(".view").forEach((panel) => panel.classList.remove("active"));
+    document.querySelectorAll(".nav-tab").forEach((tab) => tab.classList.remove("active"));
+    document.getElementById("view-" + view).classList.add("active");
+    const target = button || document.querySelector('.nav-tab[data-view="' + view + '"]');
+    if (target) target.classList.add("active");
+    if (view === "history") renderHistory();
+    if (view === "insights") renderInsights();
+  }
+
+  function switchEntryType(type, button) {
+    document.querySelectorAll(".inner-tab").forEach((tab) => tab.classList.remove("active"));
+    const target = button || document.querySelector('.inner-tab[data-entry-type="' + type + '"]');
+    if (target) target.classList.add("active");
+    document.getElementById("form-taken").style.display = type === "taken" ? "block" : "none";
+    document.getElementById("form-missed").style.display = type === "missed" ? "block" : "none";
+  }
+
+  function setRangeValue(targetId, value) { document.getElementById(targetId).textContent = value; }
+
+  function toggleEmotion(button, formType) {
+    const label = button.dataset.emotion || button.textContent.trim();
+    const list = selectedEmotions[formType];
+    const index = list.indexOf(label);
+    if (index >= 0) {
+      list.splice(index, 1);
+      button.classList.remove("selected");
+    } else {
+      list.push(label);
+      button.classList.add("selected");
+    }
+  }
+
+  async function handleImageInput(formType, event) {
+    const incoming = Array.from(event.target.files || []);
+    if (!incoming.length) return;
+    const remainingSlots = MAX_IMAGES_PER_ENTRY - draftImages[formType].length;
+    if (remainingSlots <= 0) {
+      showToast("This entry already has the maximum number of screenshots.");
+      event.target.value = "";
+      return;
+    }
+    const filesToProcess = incoming.slice(0, remainingSlots);
+    if (incoming.length > remainingSlots) showToast("Only the first " + remainingSlots + " screenshot(s) were added.");
+    for (const file of filesToProcess) {
+      try {
+        const dataUrl = await compressImage(file);
+        draftImages[formType].push({ id: Date.now() + Math.floor(Math.random() * 100000), name: file.name, dataUrl });
+      } catch (error) {
+        showToast("One image could not be processed.");
+      }
+    }
+    event.target.value = "";
+    renderImagePreview(formType);
+  }
+
+  function compressImage(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxSide = 1400;
+          let width = image.width;
+          let height = image.height;
+          if (width > height && width > maxSide) {
+            height = Math.round((height * maxSide) / width);
+            width = maxSide;
+          } else if (height >= width && height > maxSide) {
+            width = Math.round((width * maxSide) / height);
+            height = maxSide;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext("2d").drawImage(image, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.78));
+        };
+        image.onerror = reject;
+        image.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderImagePreview(formType) {
+    const container = document.getElementById(formType === "taken" ? "t-image-preview" : "m-image-preview");
+    const items = draftImages[formType];
+    container.innerHTML = items.map((image) => `
+      <div class="preview-card">
+        <img src="${image.dataUrl}" alt="${escapeHtml(image.name)}">
+        <button type="button" class="preview-remove" onclick="removeDraftImage('${formType}', ${image.id})">X</button>
+        <div class="preview-label">${escapeHtml(image.name)}</div>
+      </div>`).join("");
+  }
+
+  function removeDraftImage(formType, imageId) {
+    draftImages[formType] = draftImages[formType].filter((image) => image.id !== imageId);
+    renderImagePreview(formType);
+  }
+
+  function saveTrade(type) {
+    const entry = type === "taken" ? collectTakenEntry() : collectMissedEntry();
+    if (!entry) return;
+    const wasEditing = editingTradeId;
+    const nextTrades = wasEditing
+      ? trades.map((trade) => trade.id === wasEditing ? { ...entry, id: wasEditing, createdAt: trade.createdAt, updatedAt: new Date().toISOString() } : trade)
+      : [{ ...entry, id: Date.now(), createdAt: new Date().toISOString(), updatedAt: null }, ...trades];
+    if (!persistTrades(nextTrades)) return;
+    resetForm(type);
+    document.getElementById(type === "taken" ? "t-date" : "m-date").value = toLocalDateTimeValue();
+    cancelEdit(true);
+    updateStats();
+    renderHistory();
+    renderInsights();
+    switchView("history");
+    showToast(wasEditing ? "Entry updated." : "Entry saved.");
+  }
+
+  function collectTakenEntry() {
+    const pair = sanitizeString(document.getElementById("t-pair").value);
+    const setup = sanitizeString(document.getElementById("t-setup").value);
+    const date = document.getElementById("t-date").value;
+    if (!pair || !setup || !date) {
+      showToast("Add the date, pair, and setup before saving.");
+      return null;
+    }
+    return {
+      type: "taken",
+      date,
+      pair,
+      timeframe: sanitizeString(document.getElementById("t-timeframe").value),
+      session: sanitizeString(document.getElementById("t-session").value),
+      direction: sanitizeString(document.getElementById("t-direction").value),
+      setup,
+      marketBias: sanitizeString(document.getElementById("t-bias").value),
+      thesis: sanitizeString(document.getElementById("t-thesis").value),
+      blocker: "",
+      notes: sanitizeString(document.getElementById("t-notes").value),
+      didWell: sanitizeString(document.getElementById("t-didwell").value),
+      improveNext: sanitizeString(document.getElementById("t-improve").value),
+      entryPrice: sanitizeString(document.getElementById("t-entry").value),
+      stopPrice: sanitizeString(document.getElementById("t-stop").value),
+      targetPrice: sanitizeString(document.getElementById("t-target").value),
+      riskPercent: sanitizeString(document.getElementById("t-risk").value),
+      outcome: sanitizeString(document.getElementById("t-outcome").value),
+      rMultiple: sanitizeString(document.getElementById("t-r").value),
+      rules: sanitizeString(document.getElementById("t-rules").value),
+      played: "",
+      psych: normalizeScore(document.getElementById("t-psych").value, 6),
+      review: normalizeScore(document.getElementById("t-review").value, 6),
+      emotions: [...selectedEmotions.taken],
+      images: draftImages.taken.map((image) => ({ ...image }))
+    };
+  }
+
+  function collectMissedEntry() {
+    const pair = sanitizeString(document.getElementById("m-pair").value);
+    const setup = sanitizeString(document.getElementById("m-setup").value);
+    const date = document.getElementById("m-date").value;
+    const thesis = sanitizeString(document.getElementById("m-thesis").value);
+    const blocker = sanitizeString(document.getElementById("m-blocker").value);
+    const improveNext = sanitizeString(document.getElementById("m-improve").value);
+    if (!pair || !setup || !date || !thesis || !blocker || !improveNext) {
+      showToast("Complete the key review fields before saving the missed setup.");
+      return null;
+    }
+    return {
+      type: "missed",
+      date,
+      pair,
+      timeframe: sanitizeString(document.getElementById("m-timeframe").value),
+      session: sanitizeString(document.getElementById("m-session").value),
+      direction: "",
+      setup,
+      marketBias: "",
+      thesis,
+      blocker,
+      notes: sanitizeString(document.getElementById("m-notes").value),
+      didWell: "",
+      improveNext,
+      entryPrice: "",
+      stopPrice: "",
+      targetPrice: "",
+      riskPercent: "",
+      outcome: "",
+      rMultiple: "",
+      rules: "",
+      played: sanitizeString(document.getElementById("m-played").value),
+      psych: normalizeScore(document.getElementById("m-psych").value, 5),
+      review: normalizeScore(document.getElementById("m-review").value, 5),
+      emotions: [...selectedEmotions.missed],
+      images: draftImages.missed.map((image) => ({ ...image }))
+    };
+  }
+
+  function resetForm(type) {
+    if (type === "taken") {
+      ["t-pair","t-timeframe","t-session","t-direction","t-setup","t-bias","t-outcome","t-entry","t-stop","t-target","t-risk","t-r","t-rules","t-thesis","t-notes","t-didwell","t-improve"]
+        .forEach((id) => { document.getElementById(id).value = ""; });
+      document.getElementById("t-psych").value = 6;
+      document.getElementById("t-review").value = 6;
+      setRangeValue("t-psych-val", 6);
+      setRangeValue("t-review-val", 6);
+      selectedEmotions.taken = [];
+      document.querySelectorAll("#emotions-taken .emotion-btn").forEach((button) => button.classList.remove("selected"));
+      draftImages.taken = [];
+      renderImagePreview("taken");
+      document.getElementById("t-images").value = "";
+    } else {
+      ["m-pair","m-timeframe","m-setup","m-session","m-played","m-thesis","m-blocker","m-improve","m-notes"]
+        .forEach((id) => { document.getElementById(id).value = ""; });
+      document.getElementById("m-psych").value = 5;
+      document.getElementById("m-review").value = 5;
+      setRangeValue("m-psych-val", 5);
+      setRangeValue("m-review-val", 5);
+      selectedEmotions.missed = [];
+      document.querySelectorAll("#emotions-missed .emotion-btn").forEach((button) => button.classList.remove("selected"));
+      draftImages.missed = [];
+      renderImagePreview("missed");
+      document.getElementById("m-images").value = "";
+    }
+  }
+
+  function cancelEdit(silent = false) {
+    editingTradeId = null;
+    refreshEditBanner();
+    resetForm("taken");
+    resetForm("missed");
+    document.getElementById("t-date").value = toLocalDateTimeValue();
+    document.getElementById("m-date").value = toLocalDateTimeValue();
+    switchEntryType("taken");
+    if (!silent) showToast("Edit mode cleared.");
+  }
+
+  function refreshEditBanner() {
+    const banner = document.getElementById("editBanner");
+    if (!editingTradeId) { banner.classList.remove("active"); return; }
+    const trade = trades.find((item) => item.id === editingTradeId);
+    if (!trade) { banner.classList.remove("active"); return; }
+    banner.classList.add("active");
+    document.getElementById("editBannerLabel").textContent = "Editing " + (trade.type === "taken" ? "taken trade" : "missed setup");
+    document.getElementById("editBannerMeta").textContent = formatDateTime(trade.date) + " | " + (trade.pair || "Unknown pair");
+  }
+
+  function editTrade(id) {
+    const trade = trades.find((item) => item.id === id);
+    if (!trade) return;
+    editingTradeId = id;
+    refreshEditBanner();
+    switchView("journal");
+    switchEntryType(trade.type);
+    if (trade.type === "taken") {
+      document.getElementById("t-date").value = normalizeDateValue(trade.date);
+      document.getElementById("t-pair").value = trade.pair;
+      document.getElementById("t-timeframe").value = trade.timeframe;
+      document.getElementById("t-session").value = trade.session;
+      document.getElementById("t-direction").value = trade.direction;
+      document.getElementById("t-setup").value = trade.setup;
+      document.getElementById("t-bias").value = trade.marketBias;
+      document.getElementById("t-outcome").value = trade.outcome;
+      document.getElementById("t-entry").value = trade.entryPrice;
+      document.getElementById("t-stop").value = trade.stopPrice;
+      document.getElementById("t-target").value = trade.targetPrice;
+      document.getElementById("t-risk").value = trade.riskPercent;
+      document.getElementById("t-r").value = trade.rMultiple;
+      document.getElementById("t-rules").value = trade.rules;
+      document.getElementById("t-thesis").value = trade.thesis;
+      document.getElementById("t-notes").value = trade.notes;
+      document.getElementById("t-didwell").value = trade.didWell;
+      document.getElementById("t-improve").value = trade.improveNext;
+      document.getElementById("t-psych").value = trade.psych;
+      document.getElementById("t-review").value = trade.review;
+      setRangeValue("t-psych-val", trade.psych);
+      setRangeValue("t-review-val", trade.review);
+      selectedEmotions.taken = [...trade.emotions];
+      draftImages.taken = trade.images.map((image) => ({ ...image }));
+      applyEmotionSelection("taken");
+      renderImagePreview("taken");
+    } else {
+      document.getElementById("m-date").value = normalizeDateValue(trade.date);
+      document.getElementById("m-pair").value = trade.pair;
+      document.getElementById("m-timeframe").value = trade.timeframe;
+      document.getElementById("m-setup").value = trade.setup;
+      document.getElementById("m-session").value = trade.session;
+      document.getElementById("m-played").value = trade.played;
+      document.getElementById("m-thesis").value = trade.thesis;
+      document.getElementById("m-blocker").value = trade.blocker;
+      document.getElementById("m-improve").value = trade.improveNext;
+      document.getElementById("m-notes").value = trade.notes;
+      document.getElementById("m-psych").value = trade.psych;
+      document.getElementById("m-review").value = trade.review;
+      setRangeValue("m-psych-val", trade.psych);
+      setRangeValue("m-review-val", trade.review);
+      selectedEmotions.missed = [...trade.emotions];
+      draftImages.missed = trade.images.map((image) => ({ ...image }));
+      applyEmotionSelection("missed");
+      renderImagePreview("missed");
+    }
+  }
+
+  function applyEmotionSelection(type) {
+    const selected = new Set(selectedEmotions[type]);
+    const scope = type === "taken" ? "#emotions-taken .emotion-btn" : "#emotions-missed .emotion-btn";
+    document.querySelectorAll(scope).forEach((button) => {
+      button.classList.toggle("selected", selected.has(button.dataset.emotion || button.textContent.trim()));
+    });
+  }
+
+  function deleteTrade(id) {
+    const trade = trades.find((item) => item.id === id);
+    if (!trade) return;
+    if (!window.confirm("Delete this journal entry for " + (trade.pair || "this setup") + "?")) return;
+    const nextTrades = trades.filter((item) => item.id !== id);
+    if (!persistTrades(nextTrades)) return;
+    if (editingTradeId === id) cancelEdit(true);
+    updateStats();
+    renderHistory();
+    renderInsights();
+    showToast("Entry deleted.");
+  }
+
+  function updateStats() {
+    const taken = trades.filter((trade) => trade.type === "taken");
+    const missed = trades.filter((trade) => trade.type === "missed");
+    const reviewScores = trades.map((trade) => trade.review).filter((value) => Number.isFinite(value));
+    const execRate = trades.length ? Math.round((taken.length / trades.length) * 100) : null;
+    const avgReview = reviewScores.length ? (reviewScores.reduce((sum, value) => sum + value, 0) / reviewScores.length).toFixed(1) : null;
+    document.getElementById("statEntries").textContent = trades.length;
+    document.getElementById("statTaken").textContent = taken.length;
+    document.getElementById("statMissed").textContent = missed.length;
+    document.getElementById("statExecRate").textContent = execRate !== null ? execRate + "%" : "-";
+    document.getElementById("statReview").textContent = avgReview !== null ? avgReview : "-";
+    document.getElementById("statScreens").textContent = trades.filter((trade) => trade.images.length > 0).length;
+    document.getElementById("statStreak").textContent = calculateStreak();
+  }
+
+  function calculateStreak() {
+    if (!trades.length) return 0;
+    const dates = new Set(trades.map((trade) => dateOnly(trade.date)));
+    let streak = 0;
+    const cursor = new Date();
+    while (true) {
+      const key = cursor.toISOString().slice(0, 10);
+      if (!dates.has(key)) break;
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function renderHistory() {
+    const container = document.getElementById("tradeLog");
+    const entries = getFilteredTrades();
+    if (!entries.length) {
+      container.innerHTML = '<div class="empty-state"><strong>No entries match these filters.</strong>Try clearing the search or changing the screenshot filter.</div>';
+      return;
+    }
+    container.innerHTML = entries.map((trade, index) => buildHistoryCard(trade, index)).join("");
+  }
+
+  function getFilteredTrades() {
+    const searchValue = document.getElementById("historySearch").value.trim().toLowerCase();
+    const typeFilter = document.getElementById("historyTypeFilter").value;
+    const imageFilter = document.getElementById("historyImageFilter").value;
+    const sort = document.getElementById("historySort").value;
+    return trades.filter((trade) => {
+      const matchesType = typeFilter === "all" || trade.type === typeFilter;
+      const matchesImage = imageFilter === "all" || (imageFilter === "with-images" && trade.images.length > 0) || (imageFilter === "without-images" && trade.images.length === 0);
+      const haystack = [trade.pair, trade.setup, trade.thesis, trade.blocker, trade.notes, trade.didWell, trade.improveNext, trade.marketBias, trade.session, ...(trade.emotions || [])].join(" ").toLowerCase();
+      return matchesType && matchesImage && (!searchValue || haystack.includes(searchValue));
+    }).sort(sort === "oldest" ? sortTradesOldest : sortTradesNewest);
+  }
+
+  function buildHistoryCard(trade, index) {
+    const typeClass = trade.type === "taken" ? "type-taken" : "type-missed";
+    const typeLabel = trade.type === "taken" ? "Taken" : "Missed";
+    const outcomeClass = getOutcomeClass(trade);
+    const summaryOutcome = getOutcomeLabel(trade);
+    const gallery = trade.images.length ? '<div class="history-gallery">' + trade.images.map((image, imageIndex) => `
+      <button type="button" class="gallery-card shot-button" onclick="openTradeImage(${trade.id}, ${imageIndex})">
+        <img src="${image.dataUrl}" alt="${escapeHtml(image.name)}">
+        <div class="gallery-label">${escapeHtml(image.name)}</div>
+      </button>
+    `).join("") + "</div>" : "";
+    return `
+      <details class="history-card" ${index < 2 ? "open" : ""}>
+        <summary>
+          <div class="history-summary">
+            <div class="summary-main">
+              <div class="summary-line">
+                <div class="summary-title">${escapeHtml(trade.pair || "Unnamed setup")}</div>
+                <div class="chip ${typeClass}">${typeLabel}</div>
+                <div class="chip ${outcomeClass}">${escapeHtml(summaryOutcome)}</div>
+              </div>
+              <div class="summary-meta">${escapeHtml(formatSummaryMeta(trade))}</div>
+              <div class="chip-row">
+                ${trade.timeframe ? `<div class="chip">${escapeHtml(trade.timeframe)}</div>` : ""}
+                ${trade.session ? `<div class="chip">${escapeHtml(trade.session)}</div>` : ""}
+                ${trade.setup ? `<div class="chip">${escapeHtml(trade.setup)}</div>` : ""}
+                ${trade.images.length ? `<div class="chip">${trade.images.length} screenshot${trade.images.length > 1 ? "s" : ""}</div>` : ""}
+              </div>
+            </div>
+            <div class="summary-score"><div class="score-label">Review</div><div class="score-value">${trade.review}/10</div></div>
+            <div class="summary-score"><div class="score-label">Mindset</div><div class="score-value">${trade.psych}/10</div></div>
+            <div class="summary-toggle">+</div>
+          </div>
+        </summary>
+        <div class="history-body">
+          <div class="history-metrics">${buildMetricCards(trade)}</div>
+          <div class="history-copy-grid">
+            <div class="copy-panel"><div class="copy-title">${trade.type === "taken" ? "Why it was valid" : "What was valid"}</div><div class="copy-body">${escapeHtml(trade.thesis || "-")}</div></div>
+            <div class="copy-panel"><div class="copy-title">${trade.type === "taken" ? "Next improvement" : "Lesson and next plan"}</div><div class="copy-body">${escapeHtml(trade.improveNext || "-")}</div></div>
+          </div>
+          ${trade.notes ? `<div class="copy-panel"><div class="copy-title">Additional notes</div><div class="copy-body">${escapeHtml(trade.notes)}</div></div>` : ""}
+          ${gallery}
+          <div class="history-actions">
+            <div class="action-group">
+              <button type="button" class="text-button" onclick="editTrade(${trade.id})">Edit</button>
+              <button type="button" class="text-button" onclick="copyTradeReview(${trade.id})">Copy Review</button>
+              ${trade.images.length ? `<button type="button" class="text-button" onclick="openTradeImage(${trade.id}, 0)">Open Screenshot</button>` : ""}
+            </div>
+            <button type="button" class="text-button delete" onclick="deleteTrade(${trade.id})">Delete</button>
+          </div>
+        </div>
+      </details>`;
+  }
+
+  function buildMetricCards(trade) {
+    const metrics = [
+      { label: "Date", value: formatDateTime(trade.date) },
+      { label: "Direction", value: trade.direction || "-" },
+      { label: "Rules", value: trade.rules || "-" },
+      { label: trade.type === "taken" ? "R multiple" : "Would it have worked?", value: trade.type === "taken" ? (trade.rMultiple || "-") : formatPlayedValue(trade.played) },
+      { label: "Entry", value: trade.entryPrice || "-" },
+      { label: "Stop", value: trade.stopPrice || "-" },
+      { label: "Target", value: trade.targetPrice || "-" },
+      { label: "Risk", value: trade.riskPercent || "-" },
+      { label: "Bias", value: trade.marketBias || "-" },
+      { label: "Emotions", value: trade.emotions.length ? trade.emotions.join(", ") : "-" },
+      { label: trade.type === "taken" ? "What went well" : "Blocker", value: trade.type === "taken" ? (trade.didWell || "-") : (trade.blocker || "-") }
+    ];
+    return metrics.filter((metric) => metric.value && metric.value !== "-").map((metric) => `
+      <div class="metric">
+        <div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="metric-value">${escapeHtml(metric.value)}</div>
+      </div>`).join("");
+  }
+
+  function renderInsights() {
+    const taken = trades.filter((trade) => trade.type === "taken");
+    const missed = trades.filter((trade) => trade.type === "missed");
+    const bars = document.getElementById("psychBars");
+    const setupInsights = document.getElementById("setupInsights");
+    const insightText = document.getElementById("insightText");
+    if (trades.length < 2) {
+      bars.innerHTML = '<div class="helper-text">Add at least two journal entries to start seeing trends here.</div>';
+      setupInsights.innerHTML = "More entries are needed before the setup comparison becomes useful.";
+      insightText.innerHTML = "Once you have a few entries, this panel will summarize what is hurting execution and what deserves more trust.";
+      return;
+    }
+    const emotionCounts = {};
+    missed.forEach((trade) => trade.emotions.forEach((emotion) => { emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1; }));
+    const topEmotions = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const colors = ["#ff6b6b", "#f2b84b", "#43c6ac", "#2f80ed", "#b98cff"];
+    bars.innerHTML = topEmotions.length ? topEmotions.map(([label, count], index) => `
+      <div class="bar-row">
+        <div class="bar-label">${escapeHtml(label)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, Math.round((count / Math.max(1, missed.length)) * 100))}%;background:${colors[index] || "#43c6ac"}"></div></div>
+        <div class="bar-count">${count}</div>
+      </div>`).join("") : '<div class="helper-text">Add emotion tags to missed setups to reveal the repeat blocker more clearly.</div>';
+    setupInsights.innerHTML = buildSetupInsights(taken, missed);
+    insightText.innerHTML = buildInsightText(taken, missed, topEmotions);
+  }
+
+  function buildSetupInsights(taken, missed) {
+    const setupMap = {};
+    taken.forEach((trade) => {
+      if (!trade.setup) return;
+      if (!setupMap[trade.setup]) setupMap[trade.setup] = { count: 0, rValues: [] };
+      setupMap[trade.setup].count += 1;
+      const parsedR = parseRValue(trade.rMultiple);
+      if (parsedR !== null) setupMap[trade.setup].rValues.push(parsedR);
+    });
+    const ranked = Object.entries(setupMap).map(([name, stats]) => ({
+      name,
+      count: stats.count,
+      avgR: stats.rValues.length ? (stats.rValues.reduce((sum, value) => sum + value, 0) / stats.rValues.length).toFixed(2) : null
+    })).sort((a, b) => b.count - a.count).slice(0, 3);
+    const lines = ranked.length ? ["Most journaled taken setups:"] : ["Log more taken trades with a setup name to compare your patterns."];
+    ranked.forEach((item) => lines.push(item.name + " | " + item.count + " trade" + (item.count > 1 ? "s" : "") + (item.avgR !== null ? " | avg " + item.avgR + "R" : "")));
+    lines.push("");
+    lines.push("Rule breaks on taken trades: " + taken.filter((trade) => trade.rules === "no" || trade.rules === "partial").length);
+    lines.push("Missed setups with a written blocker: " + missed.filter((trade) => trade.blocker).length + " / " + missed.length);
+    return escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
+  }
+
+  function buildInsightText(taken, missed, topEmotions) {
+    const total = taken.length + missed.length;
+    const executionRate = total ? Math.round((taken.length / total) * 100) : 0;
+    const avgReview = trades.length ? (trades.reduce((sum, trade) => sum + trade.review, 0) / trades.length).toFixed(1) : "0.0";
+    const avgPsychTaken = taken.length ? (taken.reduce((sum, trade) => sum + trade.psych, 0) / taken.length).toFixed(1) : "0.0";
+    const topBlocker = topEmotions[0] ? topEmotions[0][0] : null;
+    const screenshotCoverage = trades.length ? Math.round((trades.filter((trade) => trade.images.length > 0).length / trades.length) * 100) : 0;
+    return [
+      "Execution rate: <strong style=\"color:var(--accent)\">" + executionRate + "%</strong>. " + (executionRate < 60 ? "You are spotting setups more often than you are trusting them." : executionRate < 80 ? "The journal shows decent follow-through, but there is still room to tighten trust and preparation." : "Execution is strong. The next edge is better selectivity and cleaner post-trade reviews."),
+      "Average self-review score: <strong style=\"color:var(--warn)\">" + avgReview + "/10</strong>. Average mindset on taken trades: <strong style=\"color:var(--accent-2)\">" + avgPsychTaken + "/10</strong>.",
+      topBlocker ? "Most repeated miss trigger: <strong style=\"color:var(--bad)\">" + escapeHtml(topBlocker) + "</strong>. Build one checklist line or alert response around that." : "Start tagging emotions on missed setups so the main blocker becomes obvious.",
+      "Screenshot coverage is <strong style=\"color:var(--text)\">" + screenshotCoverage + "%</strong>. " + (screenshotCoverage < 50 ? "More visual evidence will make your review sharper." : "Good. You are building a review trail that is easier to trust.")
+    ].join("<br><br>");
+  }
+
+  function parseRValue(value) {
+    if (!value) return null;
+    const match = String(value).match(/-?\d+(\.\d+)?/);
+    return match ? Number(match[0]) : null;
+  }
+
+  function getOutcomeClass(trade) {
+    if (trade.type === "missed") return trade.played === "yes" ? "outcome-win" : trade.played === "no" ? "outcome-loss" : "outcome-neutral";
+    if (trade.outcome === "WIN") return "outcome-win";
+    if (trade.outcome === "LOSS") return "outcome-loss";
+    return "outcome-neutral";
+  }
+
+  function getOutcomeLabel(trade) {
+    if (trade.type === "missed") return formatPlayedValue(trade.played);
+    return trade.rMultiple || trade.outcome || "No outcome";
+  }
+
+  function formatPlayedValue(value) {
+    if (value === "yes") return "Would have won";
+    if (value === "no") return "Would have lost";
+    if (value === "unknown") return "Unknown";
+    return "-";
+  }
+
+  function formatSummaryMeta(trade) {
+    const parts = [formatDateTime(trade.date)];
+    if (trade.direction) parts.push(trade.direction);
+    if (trade.marketBias) parts.push(trade.marketBias);
+    return parts.join(" | ");
+  }
+
+  function formatDateTime(value) {
+    if (!value) return "No date";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString("en-SG", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function dateOnly(value) { return String(value || "").slice(0, 10); }
+
+  function copyTradeReview(id) {
+    const trade = trades.find((item) => item.id === id);
+    if (!trade) return;
+    const text = buildTradeReviewText(trade);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => showToast("Review copied to clipboard.")).catch(() => showToast("Could not copy the review."));
+      return;
+    }
+    showToast("Clipboard access is not available here.");
+  }
+
+  function buildTradeReviewText(trade) {
+    return [
+      "Trade Review",
+      trade.pair || "Unnamed setup",
+      "Date: " + formatDateTime(trade.date),
+      "Type: " + (trade.type === "taken" ? "Taken trade" : "Missed setup"),
+      "Setup: " + (trade.setup || "-"),
+      "Timeframe: " + (trade.timeframe || "-"),
+      "Session: " + (trade.session || "-"),
+      "Direction: " + (trade.direction || "-"),
+      "Outcome: " + getOutcomeLabel(trade),
+      "Mindset score: " + trade.psych + "/10",
+      "Review score: " + trade.review + "/10",
+      "Emotions: " + (trade.emotions.length ? trade.emotions.join(", ") : "-"),
+      "",
+      trade.type === "taken" ? "Why it was valid:" : "What I saw:",
+      trade.thesis || "-",
+      "",
+      trade.type === "taken" ? "What I did well:" : "What stopped me:",
+      (trade.type === "taken" ? trade.didWell : trade.blocker) || "-",
+      "",
+      trade.type === "taken" ? "What must improve next time:" : "Lesson and next plan:",
+      trade.improveNext || "-",
+      "",
+      "Notes:",
+      trade.notes || "-"
+    ].join("\n");
+  }
+
+  function shareApp() {
+    const title = "Trade Setup Journal";
+    const text = "A screenshot-backed trading journal for reviewing setups and execution.";
+    const isHosted = /^https?:/i.test(window.location.href);
+    const url = isHosted ? window.location.href : "";
+
+    if (navigator.share && url) {
+      navigator.share({ title, text, url })
+        .then(() => showToast("Site link shared."))
+        .catch(() => showToast("Share was cancelled."));
+      return;
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      const fallbackText = url || "Host this file as index.html on Netlify, Vercel, or GitHub Pages to get a public link.";
+      navigator.clipboard.writeText(fallbackText)
+        .then(() => showToast(url ? "Site link copied." : "Hosting note copied."))
+        .catch(() => showToast("Could not copy the share link."));
+      return;
+    }
+
+    showToast(url ? "Copy the page URL from your browser to share it." : "Host this file online first to share it.");
+  }
+
+  function exportJournal() {
+    const payload = { version: 2, exportedAt: new Date().toISOString(), trades, checklistState };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "trade-journal-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast("Journal exported.");
+  }
+
+  function handleImportFile(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const incomingTrades = Array.isArray(parsed) ? parsed : Array.isArray(parsed.trades) ? parsed.trades : [];
+        const normalizedIncoming = incomingTrades.map(normalizeTrade).filter(Boolean);
+        const mergedMap = new Map();
+        [...trades, ...normalizedIncoming].forEach((trade) => mergedMap.set(trade.id, trade));
+        const nextTrades = Array.from(mergedMap.values()).sort(sortTradesNewest);
+        if (!persistTrades(nextTrades)) return;
+        if (parsed.checklistState && typeof parsed.checklistState === "object") {
+          checklistState = parsed.checklistState;
+          localStorage.setItem(CHECKLIST_KEY, JSON.stringify(checklistState));
+        }
+        updateStats();
+        renderChecklist();
+        renderHistory();
+        renderInsights();
+        showToast("Journal imported and merged.");
+      } catch (error) {
+        showToast("That file could not be imported.");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function renderChecklist() {
+    const container = document.getElementById("checklist");
+    container.innerHTML = CHECKLIST_ITEMS.map((item, index) => {
+      const done = Boolean(checklistState[index]);
+      return `<div class="check-item ${done ? "done" : ""}" onclick="toggleCheck(${index})"><div class="check-box">${done ? "X" : ""}</div><div class="step-body">${escapeHtml(item)}</div></div>`;
+    }).join("");
+  }
+
+  function toggleCheck(index) {
+    checklistState[index] = !checklistState[index];
+    localStorage.setItem(CHECKLIST_KEY, JSON.stringify(checklistState));
+    renderChecklist();
+  }
+
+  function resetChecklist() {
+    checklistState = {};
+    localStorage.setItem(CHECKLIST_KEY, JSON.stringify(checklistState));
+    renderChecklist();
+    showToast("Checklist reset.");
+  }
+
+  function openTradeImage(tradeId, imageIndex) {
+    const trade = trades.find((item) => item.id === tradeId);
+    if (!trade || !trade.images[imageIndex]) return;
+    document.getElementById("lightboxImage").src = trade.images[imageIndex].dataUrl;
+    document.getElementById("lightboxCaption").textContent = (trade.pair || "Trade") + " | " + (trade.images[imageIndex].name || "Screenshot");
+    document.getElementById("lightbox").classList.add("active");
+  }
+
+  function closeLightbox(event) {
+    if (event && event.target && event.target.id !== "lightbox" && !event.target.classList.contains("lightbox-close")) return;
+    document.getElementById("lightbox").classList.remove("active");
+  }
+
+  function escapeHtml(value) {
+    return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  let toastTimer;
+  function showToast(message) {
+    const toast = document.getElementById("toast");
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+  }
+
+  init();
+</script>
+</body>
+</html>

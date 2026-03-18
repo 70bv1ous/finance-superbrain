@@ -1,0 +1,102 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: finance_superbrain
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  migrate:
+    build:
+      context: .
+    command: ["node", "apps/api/dist/scripts/migrate.js"]
+    restart: "no"
+    environment: &runtime-env
+      NODE_ENV: production
+      REPOSITORY_BACKEND: postgres
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/finance_superbrain
+      MARKET_DATA_BACKEND: mock
+      HOST: 0.0.0.0
+      PORT: 3001
+      API_BASE_URL: http://api:3001
+      OPERATION_WORKER_SERVICE_STATUS_MODE: liveness
+      INTEGRATION_PROBE_SNAPSHOT_BACKGROUND_ENABLED: "true"
+      INTEGRATION_GOVERNANCE_ENABLED: "true"
+      INTEGRATION_GOVERNANCE_BACKGROUND_ENABLED: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+    command: ["node", "apps/api/dist/index.js"]
+    restart: unless-stopped
+    environment:
+      <<: *runtime-env
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1));"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  worker-service:
+    build:
+      context: .
+    command: ["node", "apps/api/dist/scripts/runOperationWorkerService.js"]
+    restart: unless-stopped
+    environment:
+      <<: *runtime-env
+      OPERATION_WORKER_ID: worker-main
+      OPERATION_WORKER_SERVICE_ID: worker-service-main
+      OPERATION_WORKER_SERVICE_HOST: worker-service
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "apps/api/dist/scripts/checkOperationWorkerService.js",
+          "--mode=liveness",
+          "--service-id=worker-service-main"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  postgres-data:
