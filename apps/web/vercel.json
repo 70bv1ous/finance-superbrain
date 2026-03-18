@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && npm install && npm --workspace @finance-superbrain/web run build",
-  "outputDirectory": ".next",
-  "installCommand": "echo 'install handled by buildCommand'"
+  "installCommand": "cd ../.. && npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next"
 }
