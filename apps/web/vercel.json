@@ -1,9 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && npm --workspace @finance-superbrain/web run build",
-  "outputDirectory": "apps/web/.next",
-  "installCommand": "npm install",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "https://finance-superbrain-api.up.railway.app"
-  }
+  "buildCommand": "cd ../.. && npm install && npm --workspace @finance-superbrain/web run build",
+  "outputDirectory": ".next",
+  "installCommand": "echo 'install handled by buildCommand'"
 }
