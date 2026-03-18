@@ -18,6 +18,9 @@ COPY apps/api/src ./apps/api/src
 # Install all workspace deps from root
 RUN npm install
 
+# Build schemas (api imports @finance-superbrain/schemas/dist/index.js)
+RUN npm run build -w @finance-superbrain/schemas
+
 ENV NODE_ENV=production
 EXPOSE 3099
 
