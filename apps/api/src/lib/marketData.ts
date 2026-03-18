@@ -1,82 +1,67 @@
 /**
  * Live market data snapshot (#5 — Real-time Market Data).
  *
- * Pulls current prices from Yahoo Finance (free, no key required) for the
- * key tickers the brain needs to contextualise trader queries in real time.
- * Fails silently — if the market is closed or the request times out the
- * brain simply runs without live data.
+ * Primary source: Stooq.com — free CSV API, no auth, no IP restrictions,
+ * works reliably from cloud/datacenter IPs.
  *
- * Cloud IP fix: Yahoo Finance requires a crumb token for equity tickers when
- * requests originate from datacenter IPs. We fetch the crumb once per process
- * and cache it for 6 hours to avoid repeated auth round-trips.
+ * Fallback (VIX, 10yr yield): Yahoo Finance v8 chart API — FX and volatility
+ * tickers route through a different Yahoo backend that doesn't require crumbs.
+ *
+ * Fails silently — if the market is closed or a request times out the
+ * brain simply runs without that ticker's live data.
  */
 
-const CORE_TICKERS: Array<{ symbol: string; label: string }> = [
-  { symbol: "SPY",      label: "S&P 500 ETF"    },
-  { symbol: "QQQ",      label: "Nasdaq ETF"      },
-  { symbol: "TLT",      label: "20yr Treasury"   },
-  { symbol: "GLD",      label: "Gold ETF"        },
-  { symbol: "^VIX",     label: "VIX"             },
-  { symbol: "CL=F",     label: "Crude Oil"       },
-  { symbol: "EURUSD=X", label: "EUR/USD"         },
-  { symbol: "DX-Y.NYB", label: "DXY Dollar Idx"  },
-  { symbol: "^TNX",     label: "10yr Yield"      },
-];
-
-const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 
 type TickerSnapshot = {
-  symbol: string;
-  label:  string;
-  price:  number;
+  symbol:     string;
+  label:      string;
+  price:      number;
   change_pct: number;
-  direction: "up" | "down" | "flat";
+  direction:  "up" | "down" | "flat";
 };
 
-type CrumbSession = { crumb: string; cookie: string; fetchedAt: number };
-let crumbSession: CrumbSession | null = null;
+// ── Stooq: works from any IP, no auth ─────────────────────────────────────
+// Stooq CSV format: Symbol,Date,Time,Open,High,Low,Close,Volume
+const STOOQ_TICKERS: Array<{ symbol: string; stooq: string; label: string }> = [
+  { symbol: "SPY",      stooq: "spy.us",  label: "S&P 500 ETF"   },
+  { symbol: "QQQ",      stooq: "qqq.us",  label: "Nasdaq ETF"     },
+  { symbol: "TLT",      stooq: "tlt.us",  label: "20yr Treasury"  },
+  { symbol: "GLD",      stooq: "gld.us",  label: "Gold ETF"       },
+  { symbol: "CL=F",     stooq: "cl.f",    label: "Crude Oil"      },
+  { symbol: "EURUSD=X", stooq: "eurusd",  label: "EUR/USD"        },
+  { symbol: "DX-Y.NYB", stooq: "dx.f",    label: "DXY Dollar Idx" },
+];
 
-/**
- * Fetches a Yahoo Finance crumb + session cookie.
- * Required for equity/ETF tickers when called from cloud datacenter IPs.
- * Result is cached in-process for 6 hours.
- */
-async function getYahooCrumb(): Promise<CrumbSession | null> {
-  const SIX_HOURS = 6 * 60 * 60 * 1000;
-  if (crumbSession && Date.now() - crumbSession.fetchedAt < SIX_HOURS) {
-    return crumbSession;
-  }
+// ── Yahoo Finance: only used for tickers Stooq doesn't support ────────────
+const YAHOO_FALLBACK_TICKERS: Array<{ symbol: string; label: string }> = [
+  { symbol: "^VIX", label: "VIX"        },
+  { symbol: "^TNX", label: "10yr Yield" },
+];
 
+async function fetchStooqQuote(
+  stooqSymbol: string,
+): Promise<{ price: number; change_pct: number } | null> {
   try {
-    // Step 1: get a session cookie from Yahoo's consent endpoint
-    const cookieRes = await fetch("https://fc.yahoo.com", {
+    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooqSymbol)}&f=sd2t2ohlcv&h&e=csv`;
+    const res = await fetch(url, {
       signal: AbortSignal.timeout(5000),
       headers: { "User-Agent": BROWSER_UA },
     });
-    const rawCookie = cookieRes.headers.get("set-cookie") ?? "";
-    // Extract A3 cookie (Yahoo's main session cookie)
-    const cookieMatch = rawCookie.match(/A3=[^;,]+/);
-    const cookie = cookieMatch ? cookieMatch[0] : rawCookie.split(";")[0] ?? "";
+    if (!res.ok) return null;
 
-    if (!cookie) return null;
+    const text = await res.text();
+    const lines = text.trim().split("\n");
+    if (lines.length < 2) return null;
 
-    // Step 2: use that cookie to fetch the crumb
-    const crumbRes = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
-      signal: AbortSignal.timeout(5000),
-      headers: {
-        "User-Agent": BROWSER_UA,
-        "Cookie": cookie,
-      },
-    });
+    // columns: Symbol,Date,Time,Open,High,Low,Close,Volume
+    const cols = lines[1].split(",");
+    const close = parseFloat(cols[6] ?? "");
+    const open  = parseFloat(cols[3] ?? "");
+    if (isNaN(close) || close <= 0) return null;
 
-    const crumb = (await crumbRes.text()).trim();
-    // Crumbs are short alphanumeric strings — reject anything that looks like an error page
-    if (!crumb || crumb.length > 30 || crumb.includes("<") || crumb.includes("{")) {
-      return null;
-    }
-
-    crumbSession = { crumb, cookie, fetchedAt: Date.now() };
-    return crumbSession;
+    const change_pct = open > 0 ? ((close - open) / open) * 100 : 0;
+    return { price: close, change_pct };
   } catch {
     return null;
   }
@@ -84,19 +69,12 @@ async function getYahooCrumb(): Promise<CrumbSession | null> {
 
 async function fetchYahooQuote(
   symbol: string,
-  session: CrumbSession | null,
 ): Promise<{ price: number; change_pct: number } | null> {
   try {
-    // Build URL — add crumb if we have a session
-    const base = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
-    const url  = session ? `${base}&crumb=${encodeURIComponent(session.crumb)}` : base;
-
-    const headers: Record<string, string> = { "User-Agent": BROWSER_UA };
-    if (session?.cookie) headers["Cookie"] = session.cookie;
-
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
     const res = await fetch(url, {
       signal: AbortSignal.timeout(5000),
-      headers,
+      headers: { "User-Agent": BROWSER_UA },
     });
     if (!res.ok) return null;
 
@@ -118,25 +96,41 @@ async function fetchYahooQuote(
  * Returns an array of ticker snapshots (failed fetches are silently omitted).
  */
 export async function getLiveMarketSnapshot(): Promise<TickerSnapshot[]> {
-  // Fetch crumb once, share across all ticker requests
-  const session = await getYahooCrumb();
+  const toSnapshot = (
+    symbol: string,
+    label: string,
+    q: { price: number; change_pct: number } | null,
+  ): TickerSnapshot | null => {
+    if (!q) return null;
+    return {
+      symbol,
+      label,
+      price:      q.price,
+      change_pct: q.change_pct,
+      direction:  q.change_pct > 0.05 ? "up" : q.change_pct < -0.05 ? "down" : "flat",
+    };
+  };
 
-  const results = await Promise.allSettled(
-    CORE_TICKERS.map(async ({ symbol, label }) => {
-      const quote = await fetchYahooQuote(symbol, session);
-      if (!quote) return null;
-      return {
-        symbol,
-        label,
-        price:      quote.price,
-        change_pct: quote.change_pct,
-        direction:  quote.change_pct > 0.05 ? "up" : quote.change_pct < -0.05 ? "down" : "flat",
-      } satisfies TickerSnapshot;
-    })
-  );
+  const [stooqResults, yahooResults] = await Promise.all([
+    // Stooq batch
+    Promise.allSettled(
+      STOOQ_TICKERS.map(async ({ symbol, stooq, label }) =>
+        toSnapshot(symbol, label, await fetchStooqQuote(stooq)),
+      ),
+    ),
+    // Yahoo fallback batch
+    Promise.allSettled(
+      YAHOO_FALLBACK_TICKERS.map(async ({ symbol, label }) =>
+        toSnapshot(symbol, label, await fetchYahooQuote(symbol)),
+      ),
+    ),
+  ]);
 
-  return results
-    .filter((r): r is PromiseFulfilledResult<TickerSnapshot> => r.status === "fulfilled" && r.value !== null)
+  return [...stooqResults, ...yahooResults]
+    .filter(
+      (r): r is PromiseFulfilledResult<TickerSnapshot> =>
+        r.status === "fulfilled" && r.value !== null,
+    )
     .map(r => r.value as TickerSnapshot);
 }
 
