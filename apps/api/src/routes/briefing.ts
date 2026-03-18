@@ -13,6 +13,7 @@ import { getUpcomingEvents, formatUpcomingEvents } from "../lib/eventCalendar.js
 import { resolveOutcome, getAccuracyStats }        from "../lib/predictionTracker.js";
 import { getDailyUsage }                           from "../lib/chatService.js";
 import { processChat }                             from "../lib/chatService.js";
+import { getLiveMarketSnapshot, formatMarketSnapshot } from "../lib/marketData.js";
 
 export const registerBriefingRoutes = async (
   server: FastifyInstance,
@@ -91,6 +92,18 @@ export const registerBriefingRoutes = async (
       ...usage,
       cost_estimate_usd: parseFloat((usage.used * 0.0015).toFixed(4)),
       reset_time: "midnight UTC",
+    });
+  });
+
+  // ── GET /v1/market ─────────────────────────────────────────────────────────
+  // Debug endpoint: returns raw live market snapshot so you can verify data is
+  // flowing from Stooq/Yahoo into the API before it hits the AI context.
+  server.get("/v1/market", async (_request, reply) => {
+    const tickers = await getLiveMarketSnapshot();
+    return reply.send({
+      tickers_fetched: tickers.length,
+      formatted: formatMarketSnapshot(tickers),
+      raw: tickers,
     });
   });
 };
