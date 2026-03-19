@@ -30,29 +30,46 @@ export class VoyageEmbeddingProvider implements EmbeddingProvider {
     return first;
   }
 
-  /** Embed up to 128 strings in a single API call. */
+  /** Embed up to 128 strings in a single API call. Retries on 429 with backoff. */
   async embedBatch(inputs: string[]): Promise<number[][]> {
-    const response = await fetch(VOYAGE_API_URL, {
-      method:  "POST",
-      headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
-        "Content-Type":  "application/json",
-      },
-      body: JSON.stringify({ input: inputs, model: this.model }),
-    });
+    const MAX_RETRIES = 6;
+    let delay = 20_000; // start at 20s — free tier is 3 RPM
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      throw new Error(`Voyage API ${response.status}: ${text.slice(0, 200)}`);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const response = await fetch(VOYAGE_API_URL, {
+        method:  "POST",
+        headers: {
+          "Authorization": `Bearer ${this.apiKey}`,
+          "Content-Type":  "application/json",
+        },
+        body: JSON.stringify({ input: inputs, model: this.model }),
+      });
+
+      if (response.status === 429) {
+        if (attempt === MAX_RETRIES) {
+          const text = await response.text().catch(() => "");
+          throw new Error(`Voyage API 429 after ${MAX_RETRIES} retries: ${text.slice(0, 200)}`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay = Math.min(delay * 1.5, 120_000); // cap at 2 minutes
+        continue;
+      }
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`Voyage API ${response.status}: ${text.slice(0, 200)}`);
+      }
+
+      const data = (await response.json()) as {
+        data: Array<{ embedding: number[]; index: number }>;
+      };
+
+      // Sort by index to guarantee order
+      return data.data
+        .sort((a, b) => a.index - b.index)
+        .map((item) => item.embedding);
     }
 
-    const data = (await response.json()) as {
-      data: Array<{ embedding: number[]; index: number }>;
-    };
-
-    // Sort by index to guarantee order
-    return data.data
-      .sort((a, b) => a.index - b.index)
-      .map((item) => item.embedding);
+    throw new Error("Voyage API: exceeded max retries");
   }
 }
