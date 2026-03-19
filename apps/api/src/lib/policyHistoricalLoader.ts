@@ -280,6 +280,25 @@ const POLICY_PRESETS: Record<PolicyHistoricalCaseInput["event_type"], PolicyPres
   },
 };
 
+/** Fallback preset for extended policy event types (policy_shift, fx_regime_shift, geopolitical_shock, etc.) */
+const POLICY_GENERIC_PRESET: PolicyPreset = {
+  event_family: "policy_event",
+  source_type: "headline",
+  default_title: (item) => `${item.country} policy development moves markets`,
+  default_dominant_catalyst: "policy-event",
+  primary_themes: ["central_bank", "trade_policy", "geopolitics"],
+  primary_assets: ["SPY", "TLT", "DXY"],
+  tags: ["policy_loader", "policy_event"],
+  regimes: ["policy_transition", "macro_rates"],
+  buildLead: (item) =>
+    `${item.country} generated a significant policy development that shifted market expectations and repriced risk assets, currencies, and rates.`,
+  buildReviewHints: () => [
+    "Check whether the policy event changed the medium-term rates or growth narrative.",
+    "Review whether FX, equities, and bonds all confirmed the same policy interpretation.",
+    "Confirm whether subsequent official commentary reinforced or reversed the initial move.",
+  ],
+};
+
 const buildSource = (item: PolicyHistoricalCaseInput, preset: PolicyPreset): CreateSourceRequest => ({
   source_type: preset.source_type,
   title: item.title?.trim() || preset.default_title(item),
@@ -325,7 +344,7 @@ const buildLabels = (
 });
 
 const toHistoricalDraft = (item: PolicyHistoricalCaseInput): HistoricalCaseLibraryDraft => {
-  const preset = POLICY_PRESETS[item.event_type];
+  const preset = (POLICY_PRESETS as Record<string, PolicyPreset>)[item.event_type] ?? POLICY_GENERIC_PRESET;
 
   return {
     case_id: item.case_id,

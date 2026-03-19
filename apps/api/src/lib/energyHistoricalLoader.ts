@@ -189,6 +189,25 @@ const ENERGY_PRESETS: Record<EnergyHistoricalCaseInput["event_type"], EnergyPres
   },
 };
 
+/** Fallback preset for extended energy event types (geopolitical_shock, opec_increase, spr_release, supply_expansion, etc.) */
+const ENERGY_GENERIC_PRESET: EnergyPreset = {
+  event_family: "energy_event",
+  default_title: () => "Energy market event shifts crude and commodity pricing",
+  default_dominant_catalyst: "energy-event",
+  primary_themes: ["energy", "inflation", "geopolitics"],
+  primary_assets: ["CL=F", "USO", "XLE", "SPY"],
+  tags: ["energy_loader", "energy_event"],
+  regimes: ["commodity_volatility", "inflation_sensitive"],
+  sectors: ["energy"],
+  buildLead: (item) =>
+    `An energy market development shifted the supply-demand balance, repricing crude, energy equities, and inflation-sensitive assets.`,
+  buildReviewHints: () => [
+    "Check whether the energy event changed the medium-term supply-demand narrative or was quickly faded.",
+    "Review whether crude, energy equities, and broader inflation assets all moved in the same direction.",
+    "Confirm whether refinery, pipeline, or geopolitical follow-through sustained or reversed the initial move.",
+  ],
+};
+
 const buildSource = (item: EnergyHistoricalCaseInput, preset: EnergyPreset): CreateSourceRequest => ({
   source_type: "headline",
   title: item.title?.trim() || preset.default_title(item),
@@ -233,7 +252,7 @@ const buildLabels = (
 });
 
 const toHistoricalDraft = (item: EnergyHistoricalCaseInput): HistoricalCaseLibraryDraft => {
-  const preset = ENERGY_PRESETS[item.event_type];
+  const preset = (ENERGY_PRESETS as Record<string, EnergyPreset>)[item.event_type] ?? ENERGY_GENERIC_PRESET;
 
   return {
     case_id: item.case_id,

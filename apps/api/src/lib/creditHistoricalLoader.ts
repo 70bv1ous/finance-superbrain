@@ -205,6 +205,25 @@ const CREDIT_PRESETS: Record<CreditHistoricalCaseInput["event_type"], CreditPres
   },
 };
 
+/** Fallback preset for extended credit event types (sovereign_stress, liquidity_stress, corporate_default, etc.) */
+const CREDIT_GENERIC_PRESET: CreditPreset = {
+  event_family: "credit_event",
+  default_title: (item) => `${defaultInstitution(item)} triggers a credit market event`,
+  default_dominant_catalyst: "credit-event",
+  primary_themes: ["credit_stress", "liquidity"],
+  primary_assets: ["HYG", "LQD", "TLT", "SPY"],
+  tags: ["credit_loader", "credit_event"],
+  regimes: ["credit_cycle", "financial_stress"],
+  sectors: ["financials"],
+  buildLead: (item) =>
+    `${defaultInstitution(item)} generated a significant credit market development that repriced risk assets, spread levels, and funding conditions.`,
+  buildReviewHints: () => [
+    "Check whether the credit event stayed idiosyncratic or widened into a systemic concern.",
+    "Review whether equities, rates, and credit ETFs agreed on the severity of the event.",
+    "Confirm whether policy or official backstop responses changed the direction of the move.",
+  ],
+};
+
 const buildSource = (item: CreditHistoricalCaseInput, preset: CreditPreset): CreateSourceRequest => ({
   source_type: "headline",
   title: item.title?.trim() || preset.default_title(item),
@@ -248,7 +267,7 @@ const buildLabels = (
 });
 
 const toHistoricalDraft = (item: CreditHistoricalCaseInput): HistoricalCaseLibraryDraft => {
-  const preset = CREDIT_PRESETS[item.event_type];
+  const preset = (CREDIT_PRESETS as Record<string, CreditPreset>)[item.event_type] ?? CREDIT_GENERIC_PRESET;
 
   return {
     case_id: item.case_id,
