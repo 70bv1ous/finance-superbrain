@@ -5,19 +5,25 @@ import type {
   HistoricalCaseLibraryDraft,
 } from "@finance-superbrain/schemas";
 
+import { CHINA_HISTORICAL_LOADER_CASES } from "../data/chinaHistoricalLoaderCases.js";
+import { COMMODITIES_HISTORICAL_LOADER_CASES } from "../data/commoditiesHistoricalLoaderCases.js";
 import { CREDIT_HISTORICAL_LOADER_CASES } from "../data/creditHistoricalLoaderCases.js";
 import { CRYPTO_HISTORICAL_LOADER_CASES } from "../data/cryptoHistoricalLoaderCases.js";
 import { EARNINGS_HISTORICAL_LOADER_CASES } from "../data/earningsHistoricalLoaderCases.js";
 import { ENERGY_HISTORICAL_LOADER_CASES } from "../data/energyHistoricalLoaderCases.js";
+import { GEOPOLITICAL_HISTORICAL_LOADER_CASES } from "../data/geopoliticalHistoricalLoaderCases.js";
 import { buildHistoricalLibraryDrafts } from "../data/historicalBackfillCases.js";
 import { MACRO_HISTORICAL_LOADER_CASES } from "../data/macroHistoricalLoaderCases.js";
 import { POLICY_HISTORICAL_LOADER_CASES } from "../data/policyHistoricalLoaderCases.js";
 
+import { buildChinaHistoricalLibraryDrafts } from "./chinaHistoricalLoader.js";
+import { buildCommoditiesHistoricalLibraryDrafts } from "./commoditiesHistoricalLoader.js";
 import { buildCreditHistoricalLibraryDrafts } from "./creditHistoricalLoader.js";
 import { buildCryptoHistoricalLibraryDrafts } from "./cryptoHistoricalLoader.js";
 import { buildEarningsHistoricalLibraryDrafts } from "./earningsHistoricalLoader.js";
 import { ingestHistoricalCaseLibrary } from "./historicalCaseLibrary.js";
 import { buildEnergyHistoricalLibraryDrafts } from "./energyHistoricalLoader.js";
+import { buildGeopoliticalHistoricalLibraryDrafts } from "./geopoliticalHistoricalLoader.js";
 import { buildMacroHistoricalLibraryDrafts } from "./macroHistoricalLoader.js";
 import { buildPolicyHistoricalLibraryDrafts } from "./policyHistoricalLoader.js";
 import type { AppServices } from "./services.js";
@@ -33,6 +39,9 @@ export const DEFAULT_CORE_HISTORICAL_CASE_PACKS = [
   "energy_v1",
   "credit_v1",
   "crypto_v1",
+  "china_macro_v1",
+  "commodities_v1",
+  "geopolitical_v1",
 ] as const;
 
 const withCasePack = <T extends { case_pack: string }>(items: T[], casePack: string) =>
@@ -146,6 +155,57 @@ export const buildCoreHistoricalCorpusDrafts = (
       labeling_mode: request.labeling_mode,
     });
     appendDomain(drafts, domainBreakdown, "crypto", request.crypto_case_pack, cryptoDrafts);
+  }
+
+  if (request.include_china_macro) {
+    const chinaDrafts = buildChinaHistoricalLibraryDrafts({
+      items: withCasePack(CHINA_HISTORICAL_LOADER_CASES, request.china_macro_case_pack),
+      store_library: true,
+      ingest_reviewed_memory: false,
+      fallback_model_version: "china-loader-v1",
+      labeling_mode: request.labeling_mode,
+    });
+    appendDomain(
+      drafts,
+      domainBreakdown,
+      "china_macro",
+      request.china_macro_case_pack,
+      chinaDrafts,
+    );
+  }
+
+  if (request.include_commodities) {
+    const commoditiesDrafts = buildCommoditiesHistoricalLibraryDrafts({
+      items: withCasePack(COMMODITIES_HISTORICAL_LOADER_CASES, request.commodities_case_pack),
+      store_library: true,
+      ingest_reviewed_memory: false,
+      fallback_model_version: "commodities-loader-v1",
+      labeling_mode: request.labeling_mode,
+    });
+    appendDomain(
+      drafts,
+      domainBreakdown,
+      "commodities",
+      request.commodities_case_pack,
+      commoditiesDrafts,
+    );
+  }
+
+  if (request.include_geopolitical) {
+    const geopoliticalDrafts = buildGeopoliticalHistoricalLibraryDrafts({
+      items: withCasePack(GEOPOLITICAL_HISTORICAL_LOADER_CASES, request.geopolitical_case_pack),
+      store_library: true,
+      ingest_reviewed_memory: false,
+      fallback_model_version: "geopolitical-loader-v1",
+      labeling_mode: request.labeling_mode,
+    });
+    appendDomain(
+      drafts,
+      domainBreakdown,
+      "geopolitical",
+      request.geopolitical_case_pack,
+      geopoliticalDrafts,
+    );
   }
 
   return {

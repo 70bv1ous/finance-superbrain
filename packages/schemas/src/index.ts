@@ -1738,6 +1738,153 @@ export const cryptoHistoricalIngestionRequestSchema = z.object({
   labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
 });
 
+// ─── China Macro Historical ────────────────────────────────────────────────
+
+export const chinaHistoricalEventTypeSchema = z.enum([
+  "pboc_rate_cut",
+  "pboc_rrr_cut",
+  "property_sector_stress",
+  "regulatory_crackdown",
+  "zero_covid_exit",
+  "lockdown_shock",
+  "pmi_miss",
+  "stimulus_announcement",
+  "reopening_trade",
+  "us_china_tariff_escalation",
+  "tech_sector_selloff",
+  "deflation_data",
+  "party_congress",
+  "ev_sector_surge",
+]);
+
+export const chinaHistoricalCaseInputSchema = z.object({
+  case_id: z.string().min(1).max(120),
+  case_pack: z.string().min(1).max(120),
+  event_type: chinaHistoricalEventTypeSchema,
+  signal_bias: z.enum(["bullish", "bearish", "mixed", "neutral"]),
+  institution: z.string().min(1).max(120).optional(),
+  region: z.string().min(1).max(80).optional(),
+  focus_assets: z.array(z.string().min(1).max(40)).max(8).optional(),
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(12).max(4000),
+  occurred_at: z.iso.datetime().optional(),
+  speaker: z.string().min(1).max(120).optional(),
+  publisher: z.string().min(1).max(120).optional(),
+  realized_moves: z.array(realizedMoveSchema).min(1),
+  timing_alignment: z.number().min(0).max(1),
+  dominant_catalyst: z.string().min(1).max(240).optional(),
+  labels: historicalCaseLabelInputSchema.optional(),
+  review_hints: z.array(z.string().min(1).max(240)).max(12).optional(),
+  model_version: z.string().min(1).max(80).optional(),
+});
+
+export const chinaHistoricalIngestionRequestSchema = z.object({
+  items: z.array(chinaHistoricalCaseInputSchema).min(1).max(200),
+  store_library: z.boolean().default(true),
+  ingest_reviewed_memory: z.boolean().default(false),
+  fallback_model_version: z.string().min(1).max(80).default("china-loader-v1"),
+  labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
+});
+
+// ─── Commodities Historical ────────────────────────────────────────────────
+
+export const commoditiesHistoricalEventTypeSchema = z.enum([
+  "base_metal_squeeze",
+  "base_metal_rally",
+  "base_metal_selloff",
+  "gold_safe_haven",
+  "gold_breakout",
+  "gold_central_bank_buying",
+  "agricultural_supply_shock",
+  "grain_deal_disruption",
+  "battery_metal_surge",
+  "battery_metal_crash",
+  "uranium_bull_run",
+  "platinum_group_shock",
+  "fertilizer_spike",
+  "precious_metal_squeeze",
+  "mine_supply_disruption",
+]);
+
+export const commoditiesHistoricalCaseInputSchema = z.object({
+  case_id: z.string().min(1).max(120),
+  case_pack: z.string().min(1).max(120),
+  event_type: commoditiesHistoricalEventTypeSchema,
+  signal_bias: z.enum(["bullish", "bearish", "mixed", "neutral"]),
+  institution: z.string().min(1).max(120).optional(),
+  region: z.string().min(1).max(80).optional(),
+  focus_assets: z.array(z.string().min(1).max(40)).max(8).optional(),
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(12).max(4000),
+  occurred_at: z.iso.datetime().optional(),
+  speaker: z.string().min(1).max(120).optional(),
+  publisher: z.string().min(1).max(120).optional(),
+  realized_moves: z.array(realizedMoveSchema).min(1),
+  timing_alignment: z.number().min(0).max(1),
+  dominant_catalyst: z.string().min(1).max(240).optional(),
+  labels: historicalCaseLabelInputSchema.optional(),
+  review_hints: z.array(z.string().min(1).max(240)).max(12).optional(),
+  model_version: z.string().min(1).max(80).optional(),
+});
+
+export const commoditiesHistoricalIngestionRequestSchema = z.object({
+  items: z.array(commoditiesHistoricalCaseInputSchema).min(1).max(200),
+  store_library: z.boolean().default(true),
+  ingest_reviewed_memory: z.boolean().default(false),
+  fallback_model_version: z.string().min(1).max(80).default("commodities-loader-v1"),
+  labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
+});
+
+// ─── Geopolitical Historical ───────────────────────────────────────────────
+
+export const geopoliticalHistoricalEventTypeSchema = z.enum([
+  "us_election",
+  "em_election",
+  "geopolitical_conflict",
+  "military_escalation",
+  "sanctions_shock",
+  "shipping_disruption",
+  "strait_tension",
+  "em_currency_crisis",
+  "debt_ceiling_standoff",
+  "trade_war_escalation",
+  "nuclear_diplomacy",
+  "assassination_event",
+  "constitutional_crisis",
+  "fiscal_policy_shock",
+]);
+
+export const geopoliticalHistoricalCaseInputSchema = z.object({
+  case_id: z.string().min(1).max(120),
+  case_pack: z.string().min(1).max(120),
+  event_type: geopoliticalHistoricalEventTypeSchema,
+  signal_bias: z.enum(["bullish", "bearish", "mixed", "neutral"]),
+  institution: z.string().min(1).max(120).optional(),
+  region: z.string().min(1).max(80).optional(),
+  focus_assets: z.array(z.string().min(1).max(40)).max(8).optional(),
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(12).max(4000),
+  occurred_at: z.iso.datetime().optional(),
+  speaker: z.string().min(1).max(120).optional(),
+  publisher: z.string().min(1).max(120).optional(),
+  realized_moves: z.array(realizedMoveSchema).min(1),
+  timing_alignment: z.number().min(0).max(1),
+  dominant_catalyst: z.string().min(1).max(240).optional(),
+  labels: historicalCaseLabelInputSchema.optional(),
+  review_hints: z.array(z.string().min(1).max(240)).max(12).optional(),
+  model_version: z.string().min(1).max(80).optional(),
+});
+
+export const geopoliticalHistoricalIngestionRequestSchema = z.object({
+  items: z.array(geopoliticalHistoricalCaseInputSchema).min(1).max(200),
+  store_library: z.boolean().default(true),
+  ingest_reviewed_memory: z.boolean().default(false),
+  fallback_model_version: z.string().min(1).max(80).default("geopolitical-loader-v1"),
+  labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+
 export const coreHistoricalCorpusDomainSchema = z.enum([
   "backfill",
   "macro",
@@ -1746,6 +1893,9 @@ export const coreHistoricalCorpusDomainSchema = z.enum([
   "energy",
   "credit_banking",
   "crypto",
+  "china_macro",
+  "commodities",
+  "geopolitical",
 ]);
 
 export const coreHistoricalCorpusDomainResultSchema = z.object({
@@ -1770,6 +1920,12 @@ export const coreHistoricalCorpusIngestionRequestSchema = z
     credit_case_pack: z.string().min(1).max(120).default("credit_v1"),
     include_crypto: z.boolean().default(true),
     crypto_case_pack: z.string().min(1).max(120).default("crypto_v1"),
+    include_china_macro: z.boolean().default(true),
+    china_macro_case_pack: z.string().min(1).max(120).default("china_macro_v1"),
+    include_commodities: z.boolean().default(true),
+    commodities_case_pack: z.string().min(1).max(120).default("commodities_v1"),
+    include_geopolitical: z.boolean().default(true),
+    geopolitical_case_pack: z.string().min(1).max(120).default("geopolitical_v1"),
     store_library: z.boolean().default(true),
     ingest_reviewed_memory: z.boolean().default(true),
     fallback_model_version: z.string().min(1).max(80).default("core-corpus-loader-v1"),
@@ -1783,7 +1939,10 @@ export const coreHistoricalCorpusIngestionRequestSchema = z
       value.include_policy_fx ||
       value.include_energy ||
       value.include_credit_banking ||
-      value.include_crypto,
+      value.include_crypto ||
+      value.include_china_macro ||
+      value.include_commodities ||
+      value.include_geopolitical,
     {
       message: "Select at least one historical domain to import.",
       path: ["include_backfill"],
@@ -3826,6 +3985,12 @@ export type CreditHistoricalCaseInput = z.infer<typeof creditHistoricalCaseInput
 export type CreditHistoricalIngestionRequest = z.infer<typeof creditHistoricalIngestionRequestSchema>;
 export type CryptoHistoricalCaseInput = z.infer<typeof cryptoHistoricalCaseInputSchema>;
 export type CryptoHistoricalIngestionRequest = z.infer<typeof cryptoHistoricalIngestionRequestSchema>;
+export type ChinaHistoricalCaseInput = z.infer<typeof chinaHistoricalCaseInputSchema>;
+export type ChinaHistoricalIngestionRequest = z.infer<typeof chinaHistoricalIngestionRequestSchema>;
+export type CommoditiesHistoricalCaseInput = z.infer<typeof commoditiesHistoricalCaseInputSchema>;
+export type CommoditiesHistoricalIngestionRequest = z.infer<typeof commoditiesHistoricalIngestionRequestSchema>;
+export type GeopoliticalHistoricalCaseInput = z.infer<typeof geopoliticalHistoricalCaseInputSchema>;
+export type GeopoliticalHistoricalIngestionRequest = z.infer<typeof geopoliticalHistoricalIngestionRequestSchema>;
 export type CoreHistoricalCorpusIngestionRequest = z.infer<typeof coreHistoricalCorpusIngestionRequestSchema>;
 export type CoreHistoricalCorpusIngestionResponse = z.infer<typeof coreHistoricalCorpusIngestionResponseSchema>;
 export type HistoricalCaseLibraryReplayRequest = z.infer<typeof historicalCaseLibraryReplayRequestSchema>;

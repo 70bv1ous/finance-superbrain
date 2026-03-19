@@ -1,9 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import {
+  chinaHistoricalIngestionRequestSchema,
+  commoditiesHistoricalIngestionRequestSchema,
   coreHistoricalCorpusIngestionRequestSchema,
   creditHistoricalIngestionRequestSchema,
   cryptoHistoricalIngestionRequestSchema,
   energyHistoricalIngestionRequestSchema,
+  geopoliticalHistoricalIngestionRequestSchema,
   historicalCaseLibraryItemSchema,
   earningsHistoricalIngestionRequestSchema,
   feedPullRequestSchema,
@@ -18,12 +21,15 @@ import {
   transcriptPullRequestSchema,
 } from "@finance-superbrain/schemas";
 
+import { ingestChinaHistoricalCases } from "../lib/chinaHistoricalLoader.js";
+import { ingestCommoditiesHistoricalCases } from "../lib/commoditiesHistoricalLoader.js";
 import { ingestFeedBatch } from "../lib/feedIngestion.js";
 import { ingestCoreHistoricalCorpus } from "../lib/coreHistoricalCorpus.js";
 import { ingestCreditHistoricalCases } from "../lib/creditHistoricalLoader.js";
 import { ingestCryptoHistoricalCases } from "../lib/cryptoHistoricalLoader.js";
 import { ingestEnergyHistoricalCases } from "../lib/energyHistoricalLoader.js";
 import { ingestEarningsHistoricalCases } from "../lib/earningsHistoricalLoader.js";
+import { ingestGeopoliticalHistoricalCases } from "../lib/geopoliticalHistoricalLoader.js";
 import {
   HistoricalHighConfidencePromotionError,
   promoteHistoricalCaseToHighConfidence,
@@ -447,6 +453,57 @@ export const registerIngestionRoutes = async (
     }
 
     const result = await ingestTranscriptBatch(services, parsedRequest.data);
+    return reply.status(201).send(result);
+  });
+
+  server.post("/v1/ingestion/historical/china-macro", async (request, reply) => {
+    const parsedRequest = chinaHistoricalIngestionRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+        issues: parsedRequest.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const result = await ingestChinaHistoricalCases(services, parsedRequest.data);
+    return reply.status(201).send(result);
+  });
+
+  server.post("/v1/ingestion/historical/commodities", async (request, reply) => {
+    const parsedRequest = commoditiesHistoricalIngestionRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+        issues: parsedRequest.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const result = await ingestCommoditiesHistoricalCases(services, parsedRequest.data);
+    return reply.status(201).send(result);
+  });
+
+  server.post("/v1/ingestion/historical/geopolitical", async (request, reply) => {
+    const parsedRequest = geopoliticalHistoricalIngestionRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+        issues: parsedRequest.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const result = await ingestGeopoliticalHistoricalCases(services, parsedRequest.data);
     return reply.status(201).send(result);
   });
 
