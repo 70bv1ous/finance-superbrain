@@ -204,7 +204,7 @@ export async function processChat(
       try {
         primaryCases = (await repo.listHistoricalCaseLibraryItems?.({
           case_pack: primaryPack,
-          limit: 10,
+          limit: 30,
         })) ?? [];
       } catch { primaryCases = []; }
     })(),
@@ -213,7 +213,7 @@ export async function processChat(
       try {
         fallbackCases = (await repo.listHistoricalCaseLibraryItems?.({
           case_pack: fallbackPack,
-          limit: 5,
+          limit: 15,
         })) ?? [];
       } catch { fallbackCases = []; }
     })(),
