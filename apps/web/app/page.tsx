@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react"
 import { sendChatMessage, type ChatMessage, type ChatResponse } from "@/lib/chatApi"
 import { BrainMessage } from "@/components/BrainMessage"
+import { MarketTickerBar } from "@/components/MarketTickerBar"
+import { EventsStrip } from "@/components/EventsStrip"
 
 const SUGGESTED = [
   "CPI printed 0.4% vs 0.3% expected. What happens to equities and bonds?",
@@ -58,7 +60,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-full bg-zinc-950">
       {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center gap-3 shrink-0">
+      <header className="border-b border-zinc-800 px-6 py-4 flex items-center gap-3 shrink-0 z-10">
         <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-black text-sm font-bold">FS</div>
         <div>
           <h1 className="text-zinc-100 font-semibold text-sm">Finance Superbrain</h1>
@@ -69,6 +71,12 @@ export default function ChatPage() {
           <span className="text-zinc-500 text-xs">Live</span>
         </div>
       </header>
+
+      {/* Live market ticker */}
+      <MarketTickerBar />
+
+      {/* Upcoming macro events */}
+      <EventsStrip />
 
       {/* Messages */}
       <main className="flex-1 overflow-y-auto px-6 py-6 space-y-6">

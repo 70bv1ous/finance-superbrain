@@ -53,6 +53,7 @@ export const registerBriefingRoutes = async (
         date:        e.date.toISOString(),
         days_away:   Math.ceil((e.date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
         description: e.description,
+        importance:  e.importance,
       })),
       formatted_summary: formatted,
       next_event_analysis: aiAnalysis,

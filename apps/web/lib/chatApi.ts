@@ -1,4 +1,4 @@
-export type EventType = "cpi" | "fomc" | "nfp" | "general"
+export type EventType = "cpi" | "fomc" | "nfp" | "earnings" | "energy" | "credit" | "policy_fx" | "general"
 export type ConfidenceLevel = "high" | "medium" | "low"
 
 export type ChatResponse = {
@@ -9,6 +9,7 @@ export type ChatResponse = {
   risks: string[]
   analogues_referenced: number
   session_id: string
+  cached?: boolean
 }
 
 export type ChatMessage = {
@@ -17,6 +18,22 @@ export type ChatMessage = {
   content: string
   response?: ChatResponse
   timestamp: Date
+}
+
+export type MarketTicker = {
+  symbol: string
+  label: string
+  price: number
+  change_pct: number
+}
+
+export type UpcomingEvent = {
+  name: string
+  event_type: EventType
+  date: string
+  days_away: number
+  description: string
+  importance: "high" | "medium" | "low"
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3099"
@@ -35,4 +52,26 @@ export async function sendChatMessage(
     throw new Error((err as any).message ?? "Request failed")
   }
   return res.json() as Promise<ChatResponse>
+}
+
+export async function getMarketSnapshot(): Promise<MarketTicker[]> {
+  try {
+    const res = await fetch(`${API_URL}/v1/market`, { next: { revalidate: 0 } })
+    if (!res.ok) return []
+    const d = await res.json()
+    return (d.raw ?? []) as MarketTicker[]
+  } catch {
+    return []
+  }
+}
+
+export async function getUpcomingEvents(): Promise<UpcomingEvent[]> {
+  try {
+    const res = await fetch(`${API_URL}/v1/briefing`, { next: { revalidate: 0 } })
+    if (!res.ok) return []
+    const d = await res.json()
+    return (d.upcoming_events ?? []) as UpcomingEvent[]
+  } catch {
+    return []
+  }
 }
