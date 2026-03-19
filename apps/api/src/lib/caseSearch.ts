@@ -1,33 +1,28 @@
 /**
  * Semantic search over the historical_case_library.
  *
- * Uses the same hash-based vector encoding + cosine similarity already used
- * in lessonSearch.ts — no new dependencies, no external API, no DB migration.
+ * Phase 9A upgrade: accepts an optional EmbeddingProvider.
+ *
+ * When a real provider (e.g. VoyageEmbeddingProvider) is supplied:
+ *   - All cases are batch-embedded once per cache window (5 min) using the
+ *     finance-tuned voyage-finance-2 model.
+ *   - The query is embedded at search time.
+ *   - Cosine similarity is computed in-memory — no DB migration needed.
+ *
+ * When no provider is supplied (or the provider fails):
+ *   - Falls back to the original 192-dim FNV-1a hash-vector approach.
  *
  * Scoring:
- *   70% semantic (192-dim FNV-1a hash vectors with bigrams)
- *   30% lexical  (token overlap ratio)
- *
- * Results are cached in-memory for 5 minutes to avoid a full-table fetch on
- * every chat request.
+ *   Real embeddings:   100% cosine similarity (neural vectors capture meaning)
+ *   Hash fallback:     70% semantic + 30% lexical
  */
 
 import { buildSemanticVector, cosineSimilarity, tokenize } from "./semanticRetrieval.js";
+import type { EmbeddingProvider } from "./embeddingProvider.types.js";
 import type { Repository } from "./repository.types.js";
 
 // ─── Text representation ──────────────────────────────────────────────────────
 
-/**
- * Build a rich text blob for a case that captures every signal the query
- * might match against:
- *   - case_id tokens  (e.g. "macro-cpi-hot-jun-2022" → "macro cpi hot jun 2022")
- *   - dominant_catalyst
- *   - parsed_event.summary
- *   - labels.themes
- *   - labels.primary_assets
- *   - case_pack name
- *   - realized move tickers + direction (e.g. "SPY down TLT up")
- */
 function buildCaseText(item: any): string {
   const moves = (item.realized_moves ?? [])
     .map((m: any) => [m.ticker, m.realized_direction].filter(Boolean).join(" "))
@@ -46,7 +41,7 @@ function buildCaseText(item: any): string {
     .join(" ");
 }
 
-// ─── Lexical scorer ───────────────────────────────────────────────────────────
+// ─── Lexical scorer (hash-vector fallback only) ───────────────────────────────
 
 function lexicalScore(query: string, caseText: string): number {
   const qTokens = tokenize(query);
@@ -58,14 +53,39 @@ function lexicalScore(query: string, caseText: string): number {
 
 // ─── In-process cache ─────────────────────────────────────────────────────────
 
-let caseCache: any[] | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+let caseCache:       any[]                    | null = null;
+let caseVectors:     Map<string, number[]>    | null = null; // case_id → embedding
+let cacheTimestamp   = 0;
+const CACHE_TTL_MS   = 5 * 60 * 1000; // 5 minutes
 
 /** Invalidate cache (call after ingesting new cases). */
 export function invalidateCaseCache(): void {
-  caseCache = null;
+  caseCache    = null;
+  caseVectors  = null;
   cacheTimestamp = 0;
+}
+
+// ─── Batch embed helper ───────────────────────────────────────────────────────
+
+async function batchEmbed(
+  provider: EmbeddingProvider,
+  texts: string[],
+): Promise<number[][]> {
+  // VoyageEmbeddingProvider has embedBatch; fall back to serial embedText
+  const p = provider as any;
+  if (typeof p.embedBatch === "function") {
+    // Voyage supports 128 inputs per call — chunk if needed
+    const results: number[][] = [];
+    const CHUNK = 128;
+    for (let i = 0; i < texts.length; i += CHUNK) {
+      const chunk = texts.slice(i, i + CHUNK);
+      const vecs  = (await p.embedBatch(chunk)) as number[][];
+      results.push(...vecs);
+    }
+    return results;
+  }
+  // Serial fallback
+  return Promise.all(texts.map((t) => provider.embedText(t)));
 }
 
 // ─── Main search function ─────────────────────────────────────────────────────
@@ -79,33 +99,72 @@ export type CaseSearchOptions = {
 
 /**
  * Semantic search across ALL historical cases.
- * Returns the topK most relevant cases for the given query.
+ * Pass an EmbeddingProvider for neural embeddings (Phase 9A); omit for hash-vector fallback.
  */
 export async function searchCases(
   repository: Repository,
   query: string,
   options: CaseSearchOptions = {},
+  embeddingProvider?: EmbeddingProvider,
 ): Promise<any[]> {
   const { topK = 20, minScore = 0.04 } = options;
 
   // ── Warm or use cache ──────────────────────────────────────────────────────
   const now = Date.now();
-  if (!caseCache || now - cacheTimestamp > CACHE_TTL_MS) {
+  const cacheStale = !caseCache || now - cacheTimestamp > CACHE_TTL_MS;
+
+  if (cacheStale) {
     try {
       const repo = repository as any;
-      caseCache = (await repo.listHistoricalCaseLibraryItems?.({ limit: 500 })) ?? [];
+      caseCache  = (await repo.listHistoricalCaseLibraryItems?.({ limit: 500 })) ?? [];
     } catch {
       caseCache = [];
     }
+    caseVectors    = null; // invalidate vector cache when data changes
     cacheTimestamp = Date.now();
   }
 
-  if (caseCache.length === 0) return [];
+  if (caseCache!.length === 0) return [];
 
-  // ── Score every case ───────────────────────────────────────────────────────
+  // ── Try neural embeddings ──────────────────────────────────────────────────
+  if (embeddingProvider) {
+    try {
+      // Build case vectors if not yet cached
+      if (!caseVectors) {
+        const texts = caseCache!.map(buildCaseText);
+        const vecs  = await batchEmbed(embeddingProvider, texts);
+        caseVectors = new Map(
+          caseCache!.map((item, i) => [item.case_id as string, vecs[i]!]),
+        );
+      }
+
+      // Embed the query
+      const queryVec = await embeddingProvider.embedText(query);
+
+      // Score by cosine similarity
+      const scored = caseCache!.map((item) => {
+        const caseVec = caseVectors!.get(item.case_id as string);
+        const score   = caseVec ? cosineSimilarity(queryVec, caseVec) : 0;
+        return { item, score };
+      });
+
+      return scored
+        .filter(({ score }) => score > minScore)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK)
+        .map(({ item }) => item);
+
+    } catch (err) {
+      // Provider failed — fall through to hash-vector approach
+      console.warn("[caseSearch] Neural embedding failed, using hash fallback:", (err as Error).message);
+      caseVectors = null; // reset so next call retries
+    }
+  }
+
+  // ── Hash-vector fallback ───────────────────────────────────────────────────
   const queryVector = buildSemanticVector(query);
 
-  const scored = caseCache.map((item) => {
+  const scored = caseCache!.map((item) => {
     const caseText = buildCaseText(item);
     const semantic  = cosineSimilarity(queryVector, buildSemanticVector(caseText));
     const lexical   = lexicalScore(query, caseText);
@@ -113,7 +172,6 @@ export async function searchCases(
     return { item, score };
   });
 
-  // ── Sort, filter, return ───────────────────────────────────────────────────
   return scored
     .filter(({ score }) => score > minScore)
     .sort((a, b) => b.score - a.score)

@@ -48,6 +48,7 @@ export const registerChatRoutes = async (
       },
       services.repository,
       apiKey,
+      services.embeddingProvider,
     );
 
     return reply.status(200).send(response);

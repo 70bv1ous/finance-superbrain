@@ -4,6 +4,7 @@ import type { MarketDataProvider } from "./marketDataProvider.types.js";
 
 import { InMemoryRepository } from "./InMemoryRepository.js";
 import { LocalEmbeddingProvider } from "./LocalEmbeddingProvider.js";
+import { VoyageEmbeddingProvider } from "./VoyageEmbeddingProvider.js";
 import { MockMarketDataProvider } from "./MockMarketDataProvider.js";
 import { createPGliteRepository } from "./PGliteRepository.js";
 import { createPostgresRepository } from "./PostgresRepository.js";
@@ -54,12 +55,23 @@ const createMarketDataProviderFromEnv = (): MarketDataProvider => {
   return new MockMarketDataProvider();
 };
 
+/**
+ * Returns a VoyageEmbeddingProvider (voyage-finance-2) when VOYAGE_API_KEY is
+ * set; falls back to the in-process hash-vector LocalEmbeddingProvider so the
+ * app works without any API key configured.
+ */
 const createEmbeddingProviderFromEnv = (): EmbeddingProvider => {
+  const voyageKey = process.env.VOYAGE_API_KEY;
+  if (voyageKey) {
+    console.log("[embedding] Using VoyageEmbeddingProvider (voyage-finance-2)");
+    return new VoyageEmbeddingProvider(voyageKey);
+  }
+  console.log("[embedding] VOYAGE_API_KEY not set — using LocalEmbeddingProvider (hash vectors)");
   return new LocalEmbeddingProvider();
 };
 
 export const buildServices = (options: BuildServicesOptions = {}): AppServices => ({
-  repository: options.repository ?? buildRepositoryFromEnv(),
-  marketDataProvider: options.marketDataProvider ?? createMarketDataProviderFromEnv(),
-  embeddingProvider: options.embeddingProvider ?? createEmbeddingProviderFromEnv(),
+  repository:          options.repository          ?? buildRepositoryFromEnv(),
+  marketDataProvider:  options.marketDataProvider  ?? createMarketDataProviderFromEnv(),
+  embeddingProvider:   options.embeddingProvider   ?? createEmbeddingProviderFromEnv(),
 });

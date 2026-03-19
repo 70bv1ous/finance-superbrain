@@ -13,6 +13,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Repository } from "./repository.types.js";
+import type { EmbeddingProvider } from "./embeddingProvider.types.js";
 import { getLiveMarketSnapshot, formatMarketSnapshot } from "./marketData.js";
 import { logPrediction } from "./predictionTracker.js";
 import { getUpcomingEvents, formatUpcomingEvents } from "./eventCalendar.js";
@@ -158,6 +159,7 @@ export async function processChat(
   request: ChatRequest,
   repository: Repository,
   apiKey: string,
+  embeddingProvider?: EmbeddingProvider,
 ): Promise<ChatResponse> {
   // #2 — Daily cap check
   checkDailyLimit();
@@ -186,7 +188,7 @@ export async function processChat(
     // Semantic case retrieval — finds the most relevant cases across ALL packs
     (async () => {
       try {
-        allCases = await searchCases(repository, request.query, { topK: 25 });
+        allCases = await searchCases(repository, request.query, { topK: 25 }, embeddingProvider);
       } catch { allCases = []; }
     })(),
     // DB: lessons
