@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import Link from "next/link"
 import { sendChatMessage, type ChatMessage, type ChatResponse } from "@/lib/chatApi"
 import { BrainMessage } from "@/components/BrainMessage"
 import { MarketTickerBar } from "@/components/MarketTickerBar"
@@ -66,7 +67,8 @@ export default function ChatPage() {
           <h1 className="text-zinc-100 font-semibold text-sm">Finance Superbrain</h1>
           <p className="text-zinc-500 text-xs">Institutional-grade market intelligence · Beta</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
+          <Link href="/accuracy" className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">📊 Accuracy</Link>
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
           <span className="text-zinc-500 text-xs">Live</span>
         </div>

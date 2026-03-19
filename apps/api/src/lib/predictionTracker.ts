@@ -93,9 +93,48 @@ export async function resolveOutcome(
 }
 
 /**
+ * Returns the N most recent prediction_log rows (for the dashboard).
+ */
+export async function getRecentPredictions(limit = 20): Promise<Array<{
+  id: string;
+  session_id: string;
+  query: string;
+  event_type: string;
+  confidence_level: string;
+  answer_summary: string;
+  analogues_count: number;
+  outcome: string | null;
+  outcome_notes: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}>> {
+  try {
+    const db = getPool();
+    const res = await db.query(
+      `SELECT id, session_id, query, event_type, confidence_level,
+              answer_summary, analogues_count,
+              outcome, outcome_notes, created_at, resolved_at
+         FROM prediction_log
+        ORDER BY created_at DESC
+        LIMIT $1`,
+      [limit]
+    );
+    return res.rows.map(r => ({
+      ...r,
+      created_at:  r.created_at instanceof Date  ? r.created_at.toISOString()  : r.created_at,
+      resolved_at: r.resolved_at instanceof Date ? r.resolved_at.toISOString() : r.resolved_at,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Returns accuracy stats: overall %, by event type, by confidence level.
+ * Also returns total_logged (all predictions, not just resolved ones).
  */
 export async function getAccuracyStats(): Promise<{
+  total_logged: number;
   total_resolved: number;
   overall_accuracy_pct: number;
   by_event_type: Record<string, { correct: number; total: number; pct: number }>;
@@ -103,6 +142,10 @@ export async function getAccuracyStats(): Promise<{
 }> {
   try {
     const db = getPool();
+
+    const countRes = await db.query<{ cnt: string }>(`SELECT COUNT(*) as cnt FROM prediction_log`);
+    const totalLogged = parseInt(countRes.rows[0]?.cnt ?? "0", 10);
+
     const res = await db.query<{
       event_type: string;
       confidence_level: string;
@@ -143,12 +186,13 @@ export async function getAccuracyStats(): Promise<{
     for (const v of Object.values(byConf))  v.pct = v.total ? Math.round((v.correct / v.total) * 100) : 0;
 
     return {
+      total_logged:         totalLogged,
       total_resolved:       totalResolved,
       overall_accuracy_pct: totalResolved ? Math.round((totalCorrect / totalResolved) * 100) : 0,
       by_event_type:        byEvent,
       by_confidence:        byConf,
     };
   } catch {
-    return { total_resolved: 0, overall_accuracy_pct: 0, by_event_type: {}, by_confidence: {} };
+    return { total_logged: 0, total_resolved: 0, overall_accuracy_pct: 0, by_event_type: {}, by_confidence: {} };
   }
 }

@@ -10,7 +10,7 @@
 import type { FastifyInstance } from "fastify";
 import type { AppServices }     from "../lib/services.js";
 import { getUpcomingEvents, formatUpcomingEvents } from "../lib/eventCalendar.js";
-import { resolveOutcome, getAccuracyStats }        from "../lib/predictionTracker.js";
+import { resolveOutcome, getAccuracyStats, getRecentPredictions } from "../lib/predictionTracker.js";
 import { getDailyUsage }                           from "../lib/chatService.js";
 import { processChat }                             from "../lib/chatService.js";
 import { getLiveMarketSnapshot, formatMarketSnapshot } from "../lib/marketData.js";
@@ -94,6 +94,13 @@ export const registerBriefingRoutes = async (
       cost_estimate_usd: parseFloat((usage.used * 0.0015).toFixed(4)),
       reset_time: "midnight UTC",
     });
+  });
+
+  // ── GET /v1/accuracy/recent ───────────────────────────────────────────────
+  server.get("/v1/accuracy/recent", async (request, reply) => {
+    const limit = Math.min(parseInt((request.query as any).limit ?? "20", 10), 100);
+    const rows  = await getRecentPredictions(limit);
+    return reply.send({ predictions: rows, count: rows.length });
   });
 
   // ── GET /v1/market ─────────────────────────────────────────────────────────

@@ -75,3 +75,59 @@ export async function getUpcomingEvents(): Promise<UpcomingEvent[]> {
     return []
   }
 }
+
+// ─── Accuracy / Prediction Log ────────────────────────────────────────────────
+
+export type AccuracyStats = {
+  total_logged:         number
+  total_resolved:       number
+  overall_accuracy_pct: number
+  by_event_type: Record<string, { correct: number; total: number; pct: number }>
+  by_confidence: Record<string, { correct: number; total: number; pct: number }>
+}
+
+export type PredictionRow = {
+  id:               string
+  session_id:       string
+  query:            string
+  event_type:       string
+  confidence_level: string
+  answer_summary:   string
+  analogues_count:  number
+  outcome:          "correct" | "incorrect" | "partial" | null
+  outcome_notes:    string | null
+  created_at:       string
+  resolved_at:      string | null
+}
+
+export async function getAccuracyStats(): Promise<AccuracyStats | null> {
+  try {
+    const res = await fetch(`${API_URL}/v1/accuracy`, { next: { revalidate: 0 } })
+    if (!res.ok) return null
+    return res.json() as Promise<AccuracyStats>
+  } catch { return null }
+}
+
+export async function getRecentPredictions(limit = 20): Promise<PredictionRow[]> {
+  try {
+    const res = await fetch(`${API_URL}/v1/accuracy/recent?limit=${limit}`, { next: { revalidate: 0 } })
+    if (!res.ok) return []
+    const d = await res.json()
+    return (d.predictions ?? []) as PredictionRow[]
+  } catch { return [] }
+}
+
+export async function markOutcome(
+  sessionId: string,
+  outcome: "correct" | "incorrect" | "partial",
+  notes = ""
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_URL}/v1/outcome`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, outcome, notes }),
+    })
+    return res.ok
+  } catch { return false }
+}
