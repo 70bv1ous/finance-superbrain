@@ -117,6 +117,43 @@ export async function getRecentPredictions(limit = 20): Promise<PredictionRow[]>
   } catch { return [] }
 }
 
+// ─── Feedback Correction ──────────────────────────────────────────────────────
+
+export type CorrectionMove = {
+  ticker: string
+  direction: "up" | "down" | "flat"
+  magnitude_bp: number
+}
+
+export type CorrectionRequest = {
+  session_id?: string
+  question: string
+  brain_answer: string
+  actual_moves: CorrectionMove[]
+  occurred_at: string
+  notes: string
+}
+
+export type CorrectionResult = {
+  case_id: string
+  case_pack: string
+  status: string
+  message: string
+}
+
+export async function submitCorrection(req: CorrectionRequest): Promise<CorrectionResult> {
+  const res = await fetch(`${API_URL}/v1/feedback/correction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { message?: string }).message ?? "Failed to submit correction")
+  }
+  return res.json() as Promise<CorrectionResult>
+}
+
 export async function markOutcome(
   sessionId: string,
   outcome: "correct" | "incorrect" | "partial",

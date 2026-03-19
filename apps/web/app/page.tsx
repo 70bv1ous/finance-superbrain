@@ -116,7 +116,11 @@ export default function ChatPage() {
                 {msg.content}
               </div>
             ) : msg.response ? (
-              <BrainMessage response={msg.response} />
+              <BrainMessage
+                response={msg.response}
+                question={messages.find(m => m.role === "user" && messages.indexOf(m) === messages.indexOf(msg) - 1)?.content}
+                sessionId={sessionId}
+              />
             ) : null}
           </div>
         ))}

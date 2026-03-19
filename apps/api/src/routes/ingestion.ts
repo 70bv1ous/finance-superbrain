@@ -22,6 +22,7 @@ import {
 } from "@finance-superbrain/schemas";
 
 import { ingestChinaHistoricalCases } from "../lib/chinaHistoricalLoader.js";
+import { handleFeedbackCorrection } from "../lib/feedbackCorrectionHandler.js";
 import { ingestCommoditiesHistoricalCases } from "../lib/commoditiesHistoricalLoader.js";
 import { ingestFeedBatch } from "../lib/feedIngestion.js";
 import { ingestCoreHistoricalCorpus } from "../lib/coreHistoricalCorpus.js";
@@ -505,6 +506,45 @@ export const registerIngestionRoutes = async (
 
     const result = await ingestGeopoliticalHistoricalCases(services, parsedRequest.data);
     return reply.status(201).send(result);
+  });
+
+  // ── Feedback correction: brain learns from its mistakes ─────────────────────
+  server.post("/v1/feedback/correction", async (request, reply) => {
+    const body = request.body as Record<string, unknown>;
+
+    if (!body?.question || typeof body.question !== "string" || body.question.trim().length < 5) {
+      return reply.status(400).send({ error: "invalid_request", message: "question is required." });
+    }
+    if (!body?.notes || typeof body.notes !== "string" || body.notes.trim().length < 5) {
+      return reply.status(400).send({ error: "invalid_request", message: "notes describing what actually happened is required." });
+    }
+    if (!Array.isArray(body?.actual_moves) || body.actual_moves.length === 0) {
+      return reply.status(400).send({ error: "invalid_request", message: "actual_moves array with at least one ticker move is required." });
+    }
+    if (!body?.occurred_at || typeof body.occurred_at !== "string") {
+      return reply.status(400).send({ error: "invalid_request", message: "occurred_at date is required." });
+    }
+
+    try {
+      const result = await handleFeedbackCorrection(services, {
+        session_id:   typeof body.session_id === "string" ? body.session_id : undefined,
+        question:     String(body.question).trim(),
+        brain_answer: typeof body.brain_answer === "string" ? body.brain_answer.trim() : "",
+        actual_moves: (body.actual_moves as Array<{ ticker: string; direction: string; magnitude_bp: number }>).map(m => ({
+          ticker:        String(m.ticker).toUpperCase().trim(),
+          direction:     (m.direction === "up" || m.direction === "down") ? m.direction : "flat",
+          magnitude_bp:  Math.abs(Number(m.magnitude_bp) || 0),
+        })),
+        occurred_at: String(body.occurred_at),
+        notes:       String(body.notes).trim(),
+      });
+      return reply.status(201).send(result);
+    } catch (error) {
+      return reply.status(500).send({
+        error:   "correction_failed",
+        message: error instanceof Error ? error.message : "Failed to process correction.",
+      });
+    }
   });
 
   server.post("/v1/ingestion/live/webhooks/:provider", async (request, reply) => {
