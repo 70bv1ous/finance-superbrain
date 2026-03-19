@@ -1,0 +1,27 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Trigger Railway redeploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Railway service redeploy
+        run: |
+          response=$(curl -s -X POST https://backboard.railway.app/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "query": "mutation { serviceInstanceRedeploy(serviceId: \"6f739b8b-2205-4059-8751-942609bef8f2\", environmentId: \"2a5abbe2-80bf-431d-81f0-8f4353fb83f5\") }"
+            }')
+          echo "Railway response: $response"
+          if echo "$response" | grep -q '"serviceInstanceRedeploy":true'; then
+            echo "✅ Railway redeploy triggered successfully"
+          else
+            echo "❌ Railway redeploy failed"
+            exit 1
+          fi
