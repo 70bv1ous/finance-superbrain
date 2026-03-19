@@ -288,12 +288,36 @@ export async function processChat(
   };
 
   try {
-    // Strip markdown code fences if present
-    const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
-    parsed = JSON.parse(clean) as typeof parsed;
+    // Strategy 1: extract content between ```json ... ``` fences (handles multiline answer fields)
+    const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    const clean1 = fenceMatch ? fenceMatch[1].trim() : null;
+
+    // Strategy 2: find outermost { ... } block
+    const jsonStart = rawText.indexOf("{");
+    const jsonEnd   = rawText.lastIndexOf("}");
+    const clean2    = jsonStart !== -1 && jsonEnd > jsonStart
+      ? rawText.slice(jsonStart, jsonEnd + 1)
+      : null;
+
+    let lastErr: unknown;
+    for (const candidate of [clean1, clean2].filter(Boolean)) {
+      try {
+        parsed = JSON.parse(candidate!) as typeof parsed;
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (lastErr) throw lastErr; // fall through to catch below
   } catch {
+    // Final fallback: strip fences visually so the user at least sees readable text
+    const readable = rawText
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/, "")
+      .trim();
     parsed = {
-      answer:           rawText,
+      answer:           readable,
       confidence_level: "medium",
       evidence:         [],
       risks:            [],
