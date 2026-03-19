@@ -218,6 +218,24 @@ const EARNINGS_PRESETS: Record<EarningsHistoricalCaseInput["event_type"], Earnin
   },
 };
 
+/** Fallback preset for extended earnings event types (beat_and_raise, subscriber_miss, etc.) */
+const EARNINGS_GENERIC_PRESET: EarningsPreset = {
+  event_family: "earnings_event",
+  default_title: (item) => `${item.company} reports earnings`,
+  default_dominant_catalyst: "earnings-release",
+  primary_themes: ["earnings_guidance"],
+  tags: ["earnings_loader", "earnings_event"],
+  sectors: [],
+  peer_assets: ["SPY"],
+  buildLead: (item) =>
+    `${item.company} (${item.ticker}) released earnings results that moved the stock and generated a broader read-through for sector and market sentiment.`,
+  buildReviewHints: () => [
+    "Check whether the stock’s initial reaction was sustained or reversed into the close.",
+    "Review whether sector peers moved sympathetically or diverged from the primary stock.",
+    "Confirm whether guidance, margins, or revenue mix drove the lasting interpretation.",
+  ],
+};
+
 const defaultSector = (item: EarningsHistoricalCaseInput, preset: EarningsPreset) =>
   item.sector?.trim() ? [item.sector.trim()] : preset.sectors;
 
@@ -262,7 +280,7 @@ const buildLabels = (
 });
 
 const toHistoricalDraft = (item: EarningsHistoricalCaseInput): HistoricalCaseLibraryDraft => {
-  const preset = EARNINGS_PRESETS[item.event_type];
+  const preset = (EARNINGS_PRESETS as Record<string, EarningsPreset>)[item.event_type] ?? EARNINGS_GENERIC_PRESET;
 
   return {
     case_id: item.case_id,
