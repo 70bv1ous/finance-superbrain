@@ -1435,6 +1435,15 @@ export const macroHistoricalEventTypeSchema = z.enum([
   "nfp",
   "fomc",
   "fed_speech",
+  // Extended macro event types
+  "pce",
+  "gdp",
+  "sentiment",
+  "jolts",
+  "retail_sales",
+  "ism",
+  "trade_policy",
+  "rates",
 ]);
 
 export const macroHistoricalSignalBiasSchema = z.enum([
@@ -1446,6 +1455,10 @@ export const macroHistoricalSignalBiasSchema = z.enum([
   "hawkish",
   "mixed",
   "neutral",
+  // Extended signal bias values
+  "weaker",
+  "positive",
+  "negative",
 ]);
 
 export const macroHistoricalCaseInputSchema = z.object({

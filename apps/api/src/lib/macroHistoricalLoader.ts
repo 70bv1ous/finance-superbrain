@@ -265,6 +265,52 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
   },
 };
 
+/** Fallback preset for extended macro event types (pce, gdp, sentiment, jolts, etc.) */
+const MACRO_GENERIC_PRESET: MacroPreset = {
+  event_family: "macro_data_release",
+  source_type: "headline",
+  default_title: (bias) =>
+    ({
+      hotter:   "Macro data release surprises to the upside",
+      cooler:   "Macro data release surprises to the downside",
+      stronger: "Macro data release comes in stronger than expected",
+      softer:   "Macro data release comes in softer than expected",
+      dovish:   "Macro data release supports a dovish rates interpretation",
+      hawkish:  "Macro data release reinforces a hawkish rates view",
+      mixed:    "Macro data release delivers a mixed signal",
+      neutral:  "Macro data release lands close to expectations",
+      weaker:   "Macro data release disappoints and signals weakness",
+      positive: "Macro policy development is market-positive",
+      negative: "Macro policy development is market-negative",
+    })[bias] ?? "Macro data release",
+  default_publisher: "Government Statistical Agency",
+  default_dominant_catalyst: "macro-data-release",
+  primary_themes: ["macro", "rates", "growth"],
+  primary_assets: ["SPY", "TLT", "DXY"],
+  tags: ["macro_calendar", "macro_data"],
+  regimes: ["macro_rates", "united_states_macro"],
+  regions: ["united_states"],
+  buildLead: (bias) =>
+    ({
+      hotter:   "The macro data release came in stronger than expected, reinforcing inflation or growth pressure.",
+      cooler:   "The macro data release came in softer than expected, easing pressure on rates and growth.",
+      stronger: "The macro data release beat expectations and reinforced a positive growth or labor read.",
+      softer:   "The macro data release missed expectations and supported a softer macro interpretation.",
+      dovish:   "The macro data release supported a dovish rates interpretation, helping bonds and growth equities.",
+      hawkish:  "The macro data release reinforced a hawkish rates view and kept policy tightening concerns alive.",
+      mixed:    "The macro data release delivered a mixed signal, leaving markets to weigh competing reads.",
+      neutral:  "The macro data release landed close to expectations, leaving the macro backdrop unchanged.",
+      weaker:   "The macro data release disappointed expectations and signalled emerging weakness in the economy.",
+      positive: "The macro policy development was market-positive, reducing uncertainty and supporting risk assets.",
+      negative: "The macro policy development was market-negative, adding uncertainty and pressuring risk assets.",
+    })[bias] ?? "",
+  buildReviewHints: () => [
+    "Check whether the data release drove a lasting yield move or was quickly faded.",
+    "Review whether competing macro catalysts on the same day diluted the primary signal.",
+    "Confirm the dollar response was consistent with the rates interpretation.",
+  ],
+};
+
 const buildMacroSource = (item: MacroHistoricalCaseInput, preset: MacroPreset): CreateSourceRequest => ({
   source_type: preset.source_type,
   title: item.title?.trim() || preset.default_title(item.signal_bias),
@@ -303,7 +349,7 @@ const buildMacroLabels = (
 });
 
 const toHistoricalDraft = (item: MacroHistoricalCaseInput): HistoricalCaseLibraryDraft => {
-  const preset = MACRO_PRESETS[item.event_type];
+  const preset = (MACRO_PRESETS as Record<string, MacroPreset>)[item.event_type] ?? MACRO_GENERIC_PRESET;
 
   return {
     case_id: item.case_id,
