@@ -237,7 +237,7 @@ export async function processChat(
     // #4 — Upcoming events
     (async () => {
       try {
-        const events = getUpcomingEvents(14);
+        const events = getUpcomingEvents(30);
         upcomingEventsBriefing = formatUpcomingEvents(events);
       } catch { upcomingEventsBriefing = ""; }
     })(),
