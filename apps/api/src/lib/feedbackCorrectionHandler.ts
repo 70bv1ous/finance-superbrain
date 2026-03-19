@@ -111,10 +111,17 @@ Produce a corrective training case. Return ONLY valid JSON in this exact structu
   });
 
   const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Haiku classification returned unparseable response.");
 
-  const parsed = JSON.parse(jsonMatch[0]) as ClassifiedCase;
+  // Strip markdown code fences if Haiku wrapped the JSON in ```json ... ```
+  const stripped = text.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim();
+
+  // Find the outermost JSON object — take the last } to handle nested objects
+  const start = stripped.indexOf("{");
+  const end   = stripped.lastIndexOf("}");
+  if (start === -1 || end === -1) throw new Error("Haiku classification returned unparseable response.");
+  const jsonMatch = stripped.slice(start, end + 1);
+
+  const parsed = JSON.parse(jsonMatch) as ClassifiedCase;
   parsed.case_pack = DOMAIN_PACK_MAP[parsed.domain] ?? "macro_calendar_v1";
   return parsed;
 }
