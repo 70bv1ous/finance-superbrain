@@ -1,0 +1,32 @@
+name: Auto-Score Predictions
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC (after overnight market data is available)
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  auto-score:
+    name: Score expired predictions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger auto-score on Railway API
+        run: |
+          response=$(curl -s --max-time 120 -X POST \
+            "https://sincere-smile-production-9c3f.up.railway.app/v1/operations/auto-score" \
+            -H "Content-Type: application/json" \
+            -d '{"create_postmortems": true}')
+          echo "Response: $response"
+
+          processed=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('processed', 0))" 2>/dev/null || echo "0")
+          errors=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('errors', [])))" 2>/dev/null || echo "0")
+
+          echo "✅ Processed: $processed predictions"
+          echo "⚠️  Errors: $errors"
+
+          if echo "$response" | grep -q '"statusCode":5'; then
+            echo "❌ Auto-score endpoint returned a server error"
+            exit 1
+          fi
