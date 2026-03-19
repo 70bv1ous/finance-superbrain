@@ -22,7 +22,7 @@ export const registerBriefingRoutes = async (
 
   // ── GET /v1/briefing ──────────────────────────────────────────────────────
   server.get("/v1/briefing", async (_request, reply) => {
-    const events    = getUpcomingEvents(14);
+    const events    = getUpcomingEvents(30);
     const formatted = formatUpcomingEvents(events);
 
     // If there's an ANTHROPIC_API_KEY, also generate AI analysis for the next event
