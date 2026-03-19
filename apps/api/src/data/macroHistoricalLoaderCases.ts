@@ -554,4 +554,28 @@ export const MACRO_HISTORICAL_LOADER_CASES: MacroHistoricalCaseInput[] = [
     timing_alignment: 0.83,
     labels: { case_quality: "reviewed" },
   },
+  {
+    case_id: "macro-tariff-relief-bond-vigilante-paradox-apr-2025",
+    case_pack: "macro_calendar_v1",
+    event_type: "trade_policy",
+    signal_bias: "mixed",
+    title: "Tariff relief equity rally +9.5% but bonds sell — bond vigilante paradox",
+    summary:
+      "April 9 2025 produced the largest single-day S&P 500 gain since October 2008, with SPY +9.52% (+952bp) and QQQ +12.18% (+1,218bp) after the Trump administration announced a 90-day pause on reciprocal tariffs for all countries except China. Yet on the same day that equities had their best session in 17 years, TLT FELL -89bp and 10-year Treasury yields ROSE approximately 15bp. This bond-equity decoupling is one of the most important cross-asset lessons of the 2025 tariff cycle: TARIFF RELIEF EQUITY RALLIES ARE NOT THE SAME AS FED PIVOT RALLIES, AND THE BOND MARKET KNOWS THE DIFFERENCE. The mechanism is: (1) When equity rallies are driven by monetary easing (Fed pivot), the driver is falling real rates — both stocks and bonds benefit simultaneously, TLT rallies alongside SPY. (2) When equity rallies are driven by tariff relief, the driver is reduced near-term recession risk — but tariff-driven inflation risk PERSISTS because tariffs on China remain at 145%, keeping the Fed unable to cut. Bond vigilantes, who had already been pricing a 'fiscal premium' into US Treasuries due to deficit spending and tariff-induced inflation, refused to celebrate. The result: SPY rallied while TLT fell, breaking the standard 60/40 portfolio reflex. CRITICAL RULE: When an equity rally is caused by trade policy relief rather than by monetary policy easing, do NOT predict TLT to rally. The correct prediction is TLT flat or negative, because (a) reduced recession risk removes the flight-to-safety bid from bonds, (b) tariff inflation persists so the Fed cannot cut, and (c) bond vigilantes demand higher term premium if fiscal credibility is in question. The only scenario where TLT rallies alongside an equity tariff-relief rally is if the Fed simultaneously signals a cut — which requires a separate explicit dovish catalyst. Contrast: November 2022 CPI surprise (policy-fed-nov-2022-cpi-pivot-hope) produced SPY +551bp AND TLT +479bp simultaneously because the driver was Fed pivot expectations, not just growth relief.",
+    occurred_at: "2025-04-09T09:30:00.000Z",
+    realized_moves: [
+      { ticker: "SPY", realized_direction: "up", realized_magnitude_bp: 952 },
+      { ticker: "QQQ", realized_direction: "up", realized_magnitude_bp: 1218 },
+      { ticker: "TLT", realized_direction: "down", realized_magnitude_bp: 89 },
+      { ticker: "DXY", realized_direction: "up", realized_magnitude_bp: 64 },
+    ],
+    timing_alignment: 0.94,
+    labels: { case_quality: "reviewed" },
+    review_hints: [
+      "CRITICAL: TLT falls on tariff-relief equity rallies because inflation risk persists and recession risk is removed — this eliminates BOTH catalysts that would cause TLT to rally.",
+      "Distinguish the driver: Fed pivot → SPY up + TLT up. Tariff relief → SPY up + TLT flat/down. Never conflate these two rally types.",
+      "Bond vigilante rule: if the US fiscal deficit narrative is active (10Y yield already elevated), equity relief does NOT reset the bond risk premium. Bonds stay offered.",
+      "The Nov 2022 CPI pivot hope case (SPY +551bp + TLT +479bp) is the OPPOSITE regime — only use it as a TLT-up template when the Fed is the primary catalyst, not trade policy.",
+    ],
+  },
 ];

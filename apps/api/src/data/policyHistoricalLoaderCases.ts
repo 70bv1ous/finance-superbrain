@@ -665,4 +665,37 @@ export const POLICY_HISTORICAL_LOADER_CASES: PolicyHistoricalCaseInput[] = [
     timing_alignment: 0.84,
     labels: { case_quality: "reviewed" },
   },
+
+  // ── BOJ Carry Cascade Global Contagion — August 5 2024 ───────────────────
+  {
+    case_id: "policy-boj-carry-cascade-global-contagion-aug-2024",
+    case_pack: "policy_fx_v1",
+    event_type: "fiscal_shock",
+    signal_bias: "negative",
+    country: "Japan",
+    region: "asia",
+    currency_pair: "USD/JPY",
+    focus_assets: ["EWJ", "BTC", "EEM", "HYG", "TLT"],
+    title: "BOJ carry unwind global contagion — Nikkei -12%, VIX 65, BTC -15%, EM collapse",
+    summary:
+      "August 5 2024 was the most violent single-day global market shock since March 2020 COVID and the clearest demonstration of how catastrophically initial estimates understate carry-unwind cascade damage. The trigger was a compounding of two simultaneous shocks: (1) the BOJ's 25bp rate hike on July 31 — its second hike of the cycle — which began unwinding yen carry positions, and (2) the August 2 US jobs report showing unemployment rising to 4.3%, triggering the Sahm Rule recession indicator for the first time since 2020. Together these struck both pillars of leveraged positioning simultaneously: the yen carry trade AND the soft-landing growth narrative. The Nikkei 225 fell -12.4% (-1,240bp) in a single session — its largest single-day decline since the 1987 crash — forcing circuit breakers. VIX spiked from approximately 16 to a 65 intraday print, a 300% move, reaching the highest level since March 2020 COVID. Bitcoin fell -15.0% (-1,500bp) as it was the most liquid 24/7 market available for forced deleveraging — crypto absorbs the first and hardest hit in any leveraged unwind because positions can be closed at 3am when equity markets are shut. EEM fell -4.0% (-400bp) as emerging market carry positions unwound simultaneously across currencies. HYG (US high yield) fell -1.7% (-170bp) as credit spreads blew out on forced selling. CRITICAL MAGNITUDE RULE: The first-day estimate of carry unwind damage based on the initial BOJ hike or the first equity move will UNDERSTATE the final cascade damage by 3-5x. The cascade mechanism is sequential and self-reinforcing: BOJ hike → JPY appreciates → leveraged yen-funded long positions must be sold to repay yen borrowings → most liquid assets sold first (crypto, then large-cap US equities) → margin calls force selling in less liquid positions (EM, HY credit, small caps) → VIX spike accelerates forced deleveraging across all risk books → second-order margin calls hit previously safe positions → temporary circuit-breaker stabilisation. The cascade partially reversed beginning August 7 when BOJ Deputy Governor Uchida signaled the bank would not raise rates further during periods of market instability. CONTAGION ORDER: JPY strengthens → Bitcoin/crypto down (first, deepest) → Japan equities (direct currency impact) → US equities (SPY -300bp peak) → EM (carry positions closed) → HY credit (spread widening) → stabilisation via central bank verbal intervention.",
+    occurred_at: "2024-08-05T09:30:00.000Z",
+    publisher: "Bloomberg",
+    realized_moves: [
+      { ticker: "EWJ", realized_direction: "down", realized_magnitude_bp: 1240 },
+      { ticker: "BTC", realized_direction: "down", realized_magnitude_bp: 1500 },
+      { ticker: "EEM", realized_direction: "down", realized_magnitude_bp: 400 },
+      { ticker: "HYG", realized_direction: "down", realized_magnitude_bp: 170 },
+      { ticker: "TLT", realized_direction: "up", realized_magnitude_bp: 250 },
+    ],
+    timing_alignment: 0.93,
+    dominant_catalyst: "boj-carry-unwind-sahm-rule-cascade",
+    labels: { case_quality: "reviewed" },
+    review_hints: [
+      "MAGNITUDE RULE: Carry unwind cascade damage is 3-5x the initial estimate. If JPY appreciation suggests -200bp SPY, actual peak damage will reach -400 to -600bp before stabilisation.",
+      "CONTAGION ORDER: Crypto sells first (24/7, most liquid), then Japan equities, then US large-cap, then EM, then HY credit. This order is predictable and repeatable.",
+      "VIX at 65 signals forced deleveraging has gone parabolic — at this level, ALL risk assets are correlated. Standard diversification breaks down completely.",
+      "BOJ verbal intervention is the ONLY reliable reversal catalyst. Specifically watch for Deputy Governor language signaling rate hike pause. Fed cutting separately does NOT stop yen carry unwind.",
+    ],
+  },
 ];

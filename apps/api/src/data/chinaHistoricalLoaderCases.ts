@@ -768,4 +768,39 @@ export const CHINA_HISTORICAL_LOADER_CASES: ChinaHistoricalCaseInput[] = [
       "Confirm whether TSLA's competitive response (price cuts in China) compressed margins across the sector following BYD's Q4 report.",
     ],
   },
+
+  // ── 21. DeepSeek R1 AI Moat Shock — January 2025 ────────────────────────
+  {
+    case_id: "china-deepseek-r1-ai-moat-shock-jan-2025",
+    case_pack: "china_macro_v1",
+    event_type: "tech_sector_selloff",
+    signal_bias: "mixed",
+    institution: "DeepSeek",
+    region: "china",
+    focus_assets: ["NVDA", "SOXX", "KWEB", "FXI", "QQQ"],
+    title: "DeepSeek R1 open-source release — US AI moat collapses, Chinese tech re-rates higher",
+    summary:
+      "On January 27 2025, Chinese AI startup DeepSeek published its R1 model weights open-source and released a technical report claiming the model was trained for under $6 million — approximately 1/30th the cost of comparable US frontier models. R1 benchmarked at or above GPT-4o on key evaluations including MMLU, HumanEval, and MATH. The market reaction was the most violent AI-sector repricing since ChatGPT's debut. NVIDIA fell -17.0% (-1,700bp), the single largest single-day market capitalisation loss in US stock market history at approximately $593 billion erased in one session. SOXX (semiconductor ETF) fell -9.0% (-900bp) as the entire US AI infrastructure stack repriced. QQQ fell -3.0% (-300bp) on mega-cap semiconductor weight. Critically, the reaction was BIFURCATED: Chinese tech simultaneously rallied. KWEB gained +4.0% (+400bp) and FXI gained +2.0% (+200bp) as markets repriced Chinese AI competitiveness sharply upward. This is NOT a US-China trade war event — the export-control and tariff-escalation analogues are the WRONG framework. The correct framework is competitive moat destruction: NVIDIA's entire valuation premium was built on the assumption that training frontier AI at scale required its proprietary GPU stack. DeepSeek R1 proved you can match GPT-4 performance at 1/30th the compute cost, destroying the scarcity narrative and the AI infrastructure arms-race thesis. CRITICAL PATTERN: Any credible Chinese AI capability breakthrough — distinct from regulatory crackdowns, tariff events, or property stress — creates a BIFURCATED cross-asset trade: short US AI infrastructure incumbents (NVDA, SOXX, AMAT, ASML, SMCI) and simultaneously long Chinese AI beneficiaries (KWEB, BABA, PDD, FXI). The magnitude asymmetry is extreme: US AI infrastructure can fall 10-20% while Chinese tech gains 2-5%, because the US infrastructure premium was far larger than the existing Chinese tech discount. Do not cap NVDA downside at -250bp based on export-control analogues; AI moat-compression shocks are structurally larger because they reprice the entire earnings growth narrative, not just a single revenue stream. Key invalidation: if DeepSeek capability is debunked on real-world production benchmarks, expect NVDA +15-20% recovery and KWEB to give back the gain within 2-5 sessions.",
+    occurred_at: "2025-01-27T09:30:00.000Z",
+    publisher: "DeepSeek / Bloomberg",
+    realized_moves: [
+      { ticker: "NVDA", realized_direction: "down", realized_magnitude_bp: 1700 },
+      { ticker: "SOXX", realized_direction: "down", realized_magnitude_bp: 900 },
+      { ticker: "QQQ", realized_direction: "down", realized_magnitude_bp: 300 },
+      { ticker: "KWEB", realized_direction: "up", realized_magnitude_bp: 400 },
+      { ticker: "FXI", realized_direction: "up", realized_magnitude_bp: 200 },
+    ],
+    timing_alignment: 0.97,
+    dominant_catalyst: "deepseek-r1-ai-cost-collapse",
+    labels: {
+      primary_themes: ["china_ai", "ai_disruption", "semiconductor_repricing", "moat_compression"],
+      case_quality: "reviewed",
+    },
+    review_hints: [
+      "CRITICAL: This is NOT a US-China trade war case. Do not apply tariff, export-control, or regulatory-crackdown analogues — they will produce the wrong direction on KWEB/FXI.",
+      "The correct framework is AI moat destruction: NVDA falls because training-cost scarcity ends; KWEB rises because Chinese AI is now proven competitive. Both legs move simultaneously.",
+      "NVDA -1700bp is 7x the magnitude of a typical export-control shock (-250bp). Scale accordingly — moat compression events reprice the entire growth narrative, not just one revenue line.",
+      "Bifurcation rule: Chinese AI capability breakthrough → SHORT US AI infrastructure (NVDA, SOXX) + LONG Chinese tech (KWEB, BABA). The bigger the capability claim, the larger the NVDA downside.",
+    ],
+  },
 ];
