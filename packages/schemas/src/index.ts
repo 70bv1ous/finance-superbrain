@@ -1688,6 +1688,56 @@ export const creditHistoricalIngestionRequestSchema = z.object({
   labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
 });
 
+export const cryptoHistoricalEventTypeSchema = z.enum([
+  "exchange_collapse",
+  "stablecoin_depeg",
+  "regulatory_action",
+  "btc_halving",
+  "crypto_market_crash",
+  "crypto_market_rally",
+  "defi_exploit",
+  "institutional_adoption",
+  "macro_correlation_shock",
+  "mining_event",
+  "fork_upgrade",
+]);
+
+export const cryptoHistoricalSignalBiasSchema = z.enum([
+  "bullish",
+  "bearish",
+  "mixed",
+  "neutral",
+]);
+
+export const cryptoHistoricalCaseInputSchema = z.object({
+  case_id: z.string().min(1).max(120).optional(),
+  case_pack: z.string().min(1).max(120).default("crypto_v1"),
+  event_type: cryptoHistoricalEventTypeSchema,
+  signal_bias: cryptoHistoricalSignalBiasSchema.default("neutral"),
+  institution: z.string().min(1).max(120).optional(),
+  region: z.string().min(1).max(120).optional(),
+  focus_assets: z.array(z.string().min(1).max(40)).max(8).optional(),
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(12).max(4000),
+  occurred_at: z.iso.datetime().optional(),
+  speaker: z.string().min(1).max(120).optional(),
+  publisher: z.string().min(1).max(120).optional(),
+  realized_moves: z.array(realizedMoveSchema).min(1),
+  timing_alignment: z.number().min(0).max(1),
+  dominant_catalyst: z.string().min(1).max(240).optional(),
+  labels: historicalCaseLabelInputSchema.optional(),
+  review_hints: z.array(z.string().min(1).max(240)).max(12).optional(),
+  model_version: z.string().min(1).max(80).optional(),
+});
+
+export const cryptoHistoricalIngestionRequestSchema = z.object({
+  items: z.array(cryptoHistoricalCaseInputSchema).min(1).max(200),
+  store_library: z.boolean().default(true),
+  ingest_reviewed_memory: z.boolean().default(false),
+  fallback_model_version: z.string().min(1).max(80).default("crypto-loader-v1"),
+  labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
+});
+
 export const coreHistoricalCorpusDomainSchema = z.enum([
   "backfill",
   "macro",
@@ -1695,6 +1745,7 @@ export const coreHistoricalCorpusDomainSchema = z.enum([
   "policy_fx",
   "energy",
   "credit_banking",
+  "crypto",
 ]);
 
 export const coreHistoricalCorpusDomainResultSchema = z.object({
@@ -1717,6 +1768,8 @@ export const coreHistoricalCorpusIngestionRequestSchema = z
     energy_case_pack: z.string().min(1).max(120).default("energy_v1"),
     include_credit_banking: z.boolean().default(true),
     credit_case_pack: z.string().min(1).max(120).default("credit_v1"),
+    include_crypto: z.boolean().default(true),
+    crypto_case_pack: z.string().min(1).max(120).default("crypto_v1"),
     store_library: z.boolean().default(true),
     ingest_reviewed_memory: z.boolean().default(true),
     fallback_model_version: z.string().min(1).max(80).default("core-corpus-loader-v1"),
@@ -1729,7 +1782,8 @@ export const coreHistoricalCorpusIngestionRequestSchema = z
       value.include_earnings ||
       value.include_policy_fx ||
       value.include_energy ||
-      value.include_credit_banking,
+      value.include_credit_banking ||
+      value.include_crypto,
     {
       message: "Select at least one historical domain to import.",
       path: ["include_backfill"],
@@ -3770,6 +3824,8 @@ export type EnergyHistoricalCaseInput = z.infer<typeof energyHistoricalCaseInput
 export type EnergyHistoricalIngestionRequest = z.infer<typeof energyHistoricalIngestionRequestSchema>;
 export type CreditHistoricalCaseInput = z.infer<typeof creditHistoricalCaseInputSchema>;
 export type CreditHistoricalIngestionRequest = z.infer<typeof creditHistoricalIngestionRequestSchema>;
+export type CryptoHistoricalCaseInput = z.infer<typeof cryptoHistoricalCaseInputSchema>;
+export type CryptoHistoricalIngestionRequest = z.infer<typeof cryptoHistoricalIngestionRequestSchema>;
 export type CoreHistoricalCorpusIngestionRequest = z.infer<typeof coreHistoricalCorpusIngestionRequestSchema>;
 export type CoreHistoricalCorpusIngestionResponse = z.infer<typeof coreHistoricalCorpusIngestionResponseSchema>;
 export type HistoricalCaseLibraryReplayRequest = z.infer<typeof historicalCaseLibraryReplayRequestSchema>;

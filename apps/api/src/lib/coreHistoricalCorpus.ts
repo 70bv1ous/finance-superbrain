@@ -6,6 +6,7 @@ import type {
 } from "@finance-superbrain/schemas";
 
 import { CREDIT_HISTORICAL_LOADER_CASES } from "../data/creditHistoricalLoaderCases.js";
+import { CRYPTO_HISTORICAL_LOADER_CASES } from "../data/cryptoHistoricalLoaderCases.js";
 import { EARNINGS_HISTORICAL_LOADER_CASES } from "../data/earningsHistoricalLoaderCases.js";
 import { ENERGY_HISTORICAL_LOADER_CASES } from "../data/energyHistoricalLoaderCases.js";
 import { buildHistoricalLibraryDrafts } from "../data/historicalBackfillCases.js";
@@ -13,6 +14,7 @@ import { MACRO_HISTORICAL_LOADER_CASES } from "../data/macroHistoricalLoaderCase
 import { POLICY_HISTORICAL_LOADER_CASES } from "../data/policyHistoricalLoaderCases.js";
 
 import { buildCreditHistoricalLibraryDrafts } from "./creditHistoricalLoader.js";
+import { buildCryptoHistoricalLibraryDrafts } from "./cryptoHistoricalLoader.js";
 import { buildEarningsHistoricalLibraryDrafts } from "./earningsHistoricalLoader.js";
 import { ingestHistoricalCaseLibrary } from "./historicalCaseLibrary.js";
 import { buildEnergyHistoricalLibraryDrafts } from "./energyHistoricalLoader.js";
@@ -30,6 +32,7 @@ export const DEFAULT_CORE_HISTORICAL_CASE_PACKS = [
   "policy_fx_v1",
   "energy_v1",
   "credit_v1",
+  "crypto_v1",
 ] as const;
 
 const withCasePack = <T extends { case_pack: string }>(items: T[], casePack: string) =>
@@ -132,6 +135,17 @@ export const buildCoreHistoricalCorpusDrafts = (
       request.credit_case_pack,
       creditDrafts,
     );
+  }
+
+  if (request.include_crypto) {
+    const cryptoDrafts = buildCryptoHistoricalLibraryDrafts({
+      items: withCasePack(CRYPTO_HISTORICAL_LOADER_CASES, request.crypto_case_pack),
+      store_library: true,
+      ingest_reviewed_memory: false,
+      fallback_model_version: "crypto-loader-v1",
+      labeling_mode: request.labeling_mode,
+    });
+    appendDomain(drafts, domainBreakdown, "crypto", request.crypto_case_pack, cryptoDrafts);
   }
 
   return {

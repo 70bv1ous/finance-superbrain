@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import {
   coreHistoricalCorpusIngestionRequestSchema,
   creditHistoricalIngestionRequestSchema,
+  cryptoHistoricalIngestionRequestSchema,
   energyHistoricalIngestionRequestSchema,
   historicalCaseLibraryItemSchema,
   earningsHistoricalIngestionRequestSchema,
@@ -20,6 +21,7 @@ import {
 import { ingestFeedBatch } from "../lib/feedIngestion.js";
 import { ingestCoreHistoricalCorpus } from "../lib/coreHistoricalCorpus.js";
 import { ingestCreditHistoricalCases } from "../lib/creditHistoricalLoader.js";
+import { ingestCryptoHistoricalCases } from "../lib/cryptoHistoricalLoader.js";
 import { ingestEnergyHistoricalCases } from "../lib/energyHistoricalLoader.js";
 import { ingestEarningsHistoricalCases } from "../lib/earningsHistoricalLoader.js";
 import {
@@ -208,6 +210,23 @@ export const registerIngestionRoutes = async (
     }
 
     const result = await ingestCreditHistoricalCases(services, parsedRequest.data);
+    return reply.status(201).send(result);
+  });
+
+  server.post("/v1/ingestion/historical/crypto", async (request, reply) => {
+    const parsedRequest = cryptoHistoricalIngestionRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+        issues: parsedRequest.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const result = await ingestCryptoHistoricalCases(services, parsedRequest.data);
     return reply.status(201).send(result);
   });
 
