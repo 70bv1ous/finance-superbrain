@@ -16,6 +16,7 @@ import type { Repository } from "./repository.types.js";
 import { getLiveMarketSnapshot, formatMarketSnapshot } from "./marketData.js";
 import { logPrediction } from "./predictionTracker.js";
 import { getUpcomingEvents, formatUpcomingEvents } from "./eventCalendar.js";
+import { searchCases } from "./caseSearch.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -130,21 +131,6 @@ function detectEventType(query: string): EventType {
   return "general";
 }
 
-// ─── Case pack routing ────────────────────────────────────────────────────────
-
-function getCasePacks(eventType: EventType): [string, string] {
-  switch (eventType) {
-    case "cpi":
-    case "fomc":
-    case "nfp":     return ["macro_calendar_v1", "macro_plus_v1"];
-    case "earnings": return ["earnings_v1",        "macro_plus_v1"];
-    case "energy":   return ["energy_v1",           "macro_plus_v1"];
-    case "credit":   return ["credit_v1",           "macro_plus_v1"];
-    case "policy_fx": return ["policy_fx_v1",       "macro_plus_v1"];
-    default:         return ["macro_plus_v1",       "macro_calendar_v1"];
-  }
-}
-
 // ─── Context builder ──────────────────────────────────────────────────────────
 
 function buildCaseContext(cases: any[]): string {
@@ -185,12 +171,10 @@ export async function processChat(
   }
 
   const eventType = detectEventType(request.query);
-  const [primaryPack, fallbackPack] = getCasePacks(eventType);
 
   const repo = repository as any;
 
-  let primaryCases: any[] = [];
-  let fallbackCases: any[] = [];
+  let allCases: any[] = [];
   let lessons: any[] = [];
   let predictions: any[] = [];
 
@@ -199,23 +183,11 @@ export async function processChat(
   let upcomingEventsBriefing = "";
 
   await Promise.all([
-    // DB: primary case pack
+    // Semantic case retrieval — finds the most relevant cases across ALL packs
     (async () => {
       try {
-        primaryCases = (await repo.listHistoricalCaseLibraryItems?.({
-          case_pack: primaryPack,
-          limit: 30,
-        })) ?? [];
-      } catch { primaryCases = []; }
-    })(),
-    // DB: fallback case pack
-    (async () => {
-      try {
-        fallbackCases = (await repo.listHistoricalCaseLibraryItems?.({
-          case_pack: fallbackPack,
-          limit: 15,
-        })) ?? [];
-      } catch { fallbackCases = []; }
+        allCases = await searchCases(repository, request.query, { topK: 25 });
+      } catch { allCases = []; }
     })(),
     // DB: lessons
     (async () => {
@@ -243,11 +215,6 @@ export async function processChat(
     })(),
   ]);
 
-  // Deduplicate — primary pack takes priority
-  const primaryIds    = new Set(primaryCases.map((e: any) => e.case_id));
-  const uniqueFallback = fallbackCases.filter((e: any) => !primaryIds.has(e.case_id));
-  const allCases      = [...primaryCases, ...uniqueFallback];
-
   // Build context summary
   const caseContext   = buildCaseContext(allCases);
   const lessonContext = lessons.slice(0, 5)
@@ -257,7 +224,7 @@ export async function processChat(
     .join("\n");
 
   const contextSummary = [
-    `INTELLIGENCE LAYER — ${allCases.length} HISTORICAL CASES (query type: ${eventType}, primary pack: ${primaryPack}):`,
+    `INTELLIGENCE LAYER — ${allCases.length} SEMANTICALLY MATCHED CASES (query type: ${eventType}, ranked by relevance):`,
     caseContext || "none",
     `\nLESSONS FROM PAST PREDICTIONS (${lessons.length} total):`,
     lessonContext || "none",
