@@ -13,8 +13,9 @@ import { registerOperationRoutes } from "./routes/operations.js";
 import { registerPredictionRoutes } from "./routes/predictions.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerTranscriptSessionRoutes } from "./routes/transcriptSessions.js";
-import { registerChatRoutes }     from "./routes/chat.js";
-import { registerBriefingRoutes } from "./routes/briefing.js";
+import { registerChatRoutes }       from "./routes/chat.js";
+import { registerBriefingRoutes }   from "./routes/briefing.js";
+import { registerEvaluationRoutes } from "./routes/evaluation.js";
 
 export const buildApp = async (options: Parameters<typeof buildServices>[0] = {}) => {
   const server = Fastify({
@@ -39,6 +40,7 @@ export const buildApp = async (options: Parameters<typeof buildServices>[0] = {}
   await registerOperationRoutes(server, services);
   await registerChatRoutes(server, services);
   await registerBriefingRoutes(server, services);
+  await registerEvaluationRoutes(server, services);
 
   server.addHook("onClose", async () => {
     await services.marketDataProvider.close?.();

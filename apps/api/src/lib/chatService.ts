@@ -14,6 +14,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Repository } from "./repository.types.js";
 import type { EmbeddingProvider } from "./embeddingProvider.types.js";
+import type { DataSplit } from "./caseSplitRegistry.js";
 import { getLiveMarketSnapshot, formatMarketSnapshot } from "./marketData.js";
 import { logPrediction } from "./predictionTracker.js";
 import { getUpcomingEvents, formatUpcomingEvents } from "./eventCalendar.js";
@@ -26,6 +27,24 @@ export type EventType = "cpi" | "fomc" | "nfp" | "earnings" | "energy" | "credit
 export type ChatRequest = {
   query: string;
   session_id?: string;
+};
+
+/**
+ * Options that activate evaluation mode — a look-ahead-bias-safe query path.
+ *
+ * When evaluationMode is TRUE:
+ *   1. The response cache is BYPASSED so every eval query is independent.
+ *   2. The daily cap counter is NOT incremented (eval runs are audited separately).
+ *   3. logPrediction is NOT called — the evaluation route stores predictions itself.
+ *   4. caseSearch is called with splitFilter = evalSplitFilter (default: "train")
+ *      so the brain can only retrieve from the training window.
+ *
+ * This enforces the information barrier between training and held-out splits.
+ */
+export type EvaluationOptions = {
+  evaluationMode:   true;
+  /** Which split(s) the brain is allowed to retrieve from. Default: "train". */
+  evalSplitFilter?: DataSplit | DataSplit[];
 };
 
 export type ChatResponse = {
@@ -160,16 +179,23 @@ export async function processChat(
   repository: Repository,
   apiKey: string,
   embeddingProvider?: EmbeddingProvider,
+  evalOptions?: EvaluationOptions,
 ): Promise<ChatResponse> {
-  // #2 — Daily cap check
-  checkDailyLimit();
+  const isEvalMode = evalOptions?.evaluationMode === true;
+
+  // #2 — Daily cap check (skipped in evaluation mode — eval runs are audited separately)
+  if (!isEvalMode) {
+    checkDailyLimit();
+  }
 
   const sessionId = request.session_id ?? crypto.randomUUID();
 
-  // #2 — Cache check (return early if identical query seen in last hour)
-  const cachedResponse = getCached(request.query);
-  if (cachedResponse) {
-    return { ...cachedResponse, session_id: sessionId, cached: true };
+  // #2 — Cache check (bypassed in evaluation mode — each eval query must be independent)
+  if (!isEvalMode) {
+    const cachedResponse = getCached(request.query);
+    if (cachedResponse) {
+      return { ...cachedResponse, session_id: sessionId, cached: true };
+    }
   }
 
   const eventType = detectEventType(request.query);
@@ -184,11 +210,23 @@ export async function processChat(
   let marketSnapshot = "";
   let upcomingEventsBriefing = "";
 
+  // ── Determine split filter for case retrieval ──────────────────────────────
+  // In evaluation mode, default to "train" to prevent look-ahead bias.
+  // In production, no filter is applied (all splits are searchable).
+  const splitFilter = isEvalMode
+    ? (evalOptions.evalSplitFilter ?? "train")
+    : undefined;
+
   await Promise.all([
-    // Semantic case retrieval — finds the most relevant cases across ALL packs
+    // Semantic case retrieval — restricted to allowed splits in eval mode
     (async () => {
       try {
-        allCases = await searchCases(repository, request.query, { topK: 25 }, embeddingProvider);
+        allCases = await searchCases(
+          repository,
+          request.query,
+          { topK: 25, splitFilter },
+          embeddingProvider,
+        );
       } catch { allCases = []; }
     })(),
     // DB: lessons
@@ -304,11 +342,14 @@ export async function processChat(
     cached:               false,
   };
 
-  // #2 — Cache for 1 hour
-  setCached(request.query, result);
+  // #2 — Cache for 1 hour (skipped in evaluation mode)
+  if (!isEvalMode) {
+    setCached(request.query, result);
+  }
 
-  // #6 — Log prediction for accuracy tracking (fire-and-forget)
-  void logPrediction({
+  // #6 — Log prediction for accuracy tracking (skipped in evaluation mode —
+  //       the evaluation route handles prediction storage itself with oracle linkage)
+  if (!isEvalMode) void logPrediction({
     session_id:       sessionId,
     query:            request.query,
     event_type:       eventType,

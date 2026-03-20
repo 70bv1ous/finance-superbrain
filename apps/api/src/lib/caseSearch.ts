@@ -20,6 +20,7 @@
 import { buildSemanticVector, cosineSimilarity, tokenize } from "./semanticRetrieval.js";
 import type { EmbeddingProvider } from "./embeddingProvider.types.js";
 import type { Repository } from "./repository.types.js";
+import { getSplitForCase, type DataSplit } from "./caseSplitRegistry.js";
 
 // ─── Text representation ──────────────────────────────────────────────────────
 
@@ -95,11 +96,30 @@ export type CaseSearchOptions = {
   topK?: number;
   /** Minimum combined score threshold (0–1). Default: 0.04 */
   minScore?: number;
+  /**
+   * Restrict retrieval to cases belonging to specific data split(s).
+   *
+   * Used by the evaluation harness to enforce look-ahead bias prevention:
+   *   - Pass `"train"` (or `["train"]`) during evaluation queries so the brain
+   *     can only retrieve from the training window (occurred_at < 2023-10-01).
+   *   - Pass `["train", "validation"]` for validation-mode scoring.
+   *   - Omit (undefined) for normal production use — all splits are searchable.
+   *
+   * Split assignment is performed by caseSplitRegistry.ts using the v1 frozen
+   * temporal cutoff dates. Cases added after the freeze date receive "live" and
+   * are excluded unless "live" is explicitly included here.
+   */
+  splitFilter?: DataSplit | DataSplit[];
 };
 
 /**
- * Semantic search across ALL historical cases.
+ * Semantic search across historical cases.
+ *
  * Pass an EmbeddingProvider for neural embeddings (Phase 9A); omit for hash-vector fallback.
+ *
+ * Pass `options.splitFilter` to restrict retrieval to specific data splits.
+ * This is the primary look-ahead bias prevention mechanism: during evaluation,
+ * pass `splitFilter: "train"` so the brain cannot access held-out cases.
  */
 export async function searchCases(
   repository: Repository,
@@ -107,9 +127,12 @@ export async function searchCases(
   options: CaseSearchOptions = {},
   embeddingProvider?: EmbeddingProvider,
 ): Promise<any[]> {
-  const { topK = 20, minScore = 0.04 } = options;
+  const { topK = 20, minScore = 0.04, splitFilter } = options;
 
   // ── Warm or use cache ──────────────────────────────────────────────────────
+  // NOTE: We always cache the FULL case library. Split filtering is applied
+  // at search time (not cache time) so a single cache serves both production
+  // queries (no filter) and evaluation queries (splitFilter = "train").
   const now = Date.now();
   const cacheStale = !caseCache || now - cacheTimestamp > CACHE_TTL_MS;
 
@@ -126,10 +149,30 @@ export async function searchCases(
 
   if (caseCache!.length === 0) return [];
 
+  // ── Apply split filter (look-ahead bias prevention) ────────────────────────
+  // If a splitFilter is specified, restrict the candidate pool to only cases
+  // whose occurred_at date falls within the allowed split(s). This is checked
+  // against the v1 frozen registry in caseSplitRegistry.ts — it is NOT based
+  // on any DB column that could be mutated, ensuring tamper-proof enforcement.
+  const allowedSplits: DataSplit[] | undefined = splitFilter
+    ? (Array.isArray(splitFilter) ? splitFilter : [splitFilter])
+    : undefined;
+
+  const candidateCases = allowedSplits
+    ? caseCache!.filter((item) => {
+        const split = getSplitForCase(item.case_id as string);
+        return allowedSplits.includes(split);
+      })
+    : caseCache!;
+
+  if (candidateCases.length === 0) return [];
+
   // ── Try neural embeddings ──────────────────────────────────────────────────
   if (embeddingProvider) {
     try {
-      // Build case vectors if not yet cached
+      // Build case vectors for the FULL cache (not just candidates) so the
+      // vector map can be reused across calls with different split filters
+      // without re-embedding. The filter is applied during scoring below.
       if (!caseVectors) {
         const texts = caseCache!.map(buildCaseText);
         const vecs  = await batchEmbed(embeddingProvider, texts);
@@ -141,8 +184,8 @@ export async function searchCases(
       // Embed the query
       const queryVec = await embeddingProvider.embedText(query);
 
-      // Score by cosine similarity
-      const scored = caseCache!.map((item) => {
+      // Score by cosine similarity — restricted to candidateCases
+      const scored = candidateCases.map((item) => {
         const caseVec = caseVectors!.get(item.case_id as string);
         const score   = caseVec ? cosineSimilarity(queryVec, caseVec) : 0;
         return { item, score };
@@ -164,7 +207,7 @@ export async function searchCases(
   // ── Hash-vector fallback ───────────────────────────────────────────────────
   const queryVector = buildSemanticVector(query);
 
-  const scored = caseCache!.map((item) => {
+  const scored = candidateCases.map((item) => {
     const caseText = buildCaseText(item);
     const semantic  = cosineSimilarity(queryVector, buildSemanticVector(caseText));
     const lexical   = lexicalScore(query, caseText);

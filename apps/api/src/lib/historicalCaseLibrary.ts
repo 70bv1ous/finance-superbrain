@@ -17,6 +17,7 @@ import { ingestHistoricalCases } from "./historicalIngest.js";
 import { parseFinanceEvent } from "./parseFinanceEvent.js";
 import type { Repository } from "./repository.types.js";
 import type { AppServices } from "./services.js";
+import { getSplitForCase, SPLIT_VERSION } from "./caseSplitRegistry.js";
 
 const toReplayTags = (item: HistoricalCaseLibraryItem) =>
   Array.from(
@@ -133,9 +134,31 @@ export const ingestHistoricalCaseLibrary = async (
       updated_at: now,
     };
 
+    // ── Save the library item (schema-validated) ────────────────────────────
     const storedLibraryItem = request.store_library
       ? await services.repository.saveHistoricalCaseLibraryItem(libraryItem)
       : null;
+
+    // ── Auto-tag data_split from the v1 frozen registry ────────────────────
+    // After the schema-validated save, write the split tag as a follow-up
+    // update. This keeps the Zod schema clean while still persisting the
+    // temporal split assignment to every case row in the DB.
+    //
+    // The split is derived exclusively from the case_id → occurred_at mapping
+    // in the frozen registry — never from the request body — so it cannot be
+    // spoofed by callers.
+    if (storedLibraryItem) {
+      const dataSplit = getSplitForCase(libraryItem.case_id);
+      void (services.repository as any).updateHistoricalCaseLibraryItem?.(
+        libraryItem.case_id,
+        { data_split: dataSplit, split_version: SPLIT_VERSION },
+      ).catch((e: Error) => {
+        console.warn(
+          `[historicalCaseLibrary] Could not write data_split for ${libraryItem.case_id}:`,
+          e.message,
+        );
+      });
+    }
     const reviewedResult = request.ingest_reviewed_memory
       ? (
           await ingestHistoricalCases(services, {
