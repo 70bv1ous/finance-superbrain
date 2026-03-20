@@ -164,6 +164,7 @@ export async function handleFeedbackCorrection(
     case_id:   caseId,
     case_pack: classified.case_pack,
     source: {
+      source_type: "user_note",
       raw_text:    rawText,
       publisher:   "feedback_correction_system",
       occurred_at: input.occurred_at,
