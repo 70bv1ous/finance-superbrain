@@ -18,7 +18,10 @@ import {
   liveTranscriptProviderSchema,
   macroHistoricalIngestionRequestSchema,
   policyHistoricalIngestionRequestSchema,
+  realEstateHousingHistoricalIngestionRequestSchema,
+  sovereignDebtHistoricalIngestionRequestSchema,
   transcriptPullRequestSchema,
+  volatilityHistoricalIngestionRequestSchema,
 } from "@finance-superbrain/schemas";
 
 import { ingestChinaHistoricalCases } from "../lib/chinaHistoricalLoader.js";
@@ -31,6 +34,9 @@ import { ingestCryptoHistoricalCases } from "../lib/cryptoHistoricalLoader.js";
 import { ingestEnergyHistoricalCases } from "../lib/energyHistoricalLoader.js";
 import { ingestEarningsHistoricalCases } from "../lib/earningsHistoricalLoader.js";
 import { ingestGeopoliticalHistoricalCases } from "../lib/geopoliticalHistoricalLoader.js";
+import { ingestRealEstateHousingHistoricalCases } from "../lib/realEstateHousingHistoricalLoader.js";
+import { ingestSovereignDebtHistoricalCases } from "../lib/sovereignDebtHistoricalLoader.js";
+import { ingestVolatilityHistoricalCases } from "../lib/volatilityHistoricalLoader.js";
 import {
   HistoricalHighConfidencePromotionError,
   promoteHistoricalCaseToHighConfidence,
@@ -505,6 +511,57 @@ export const registerIngestionRoutes = async (
     }
 
     const result = await ingestGeopoliticalHistoricalCases(services, parsedRequest.data);
+    return reply.status(201).send(result);
+  });
+
+  server.post("/v1/ingestion/historical/volatility", async (request, reply) => {
+    const parsedRequest = volatilityHistoricalIngestionRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+        issues: parsedRequest.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const result = await ingestVolatilityHistoricalCases(services, parsedRequest.data);
+    return reply.status(201).send(result);
+  });
+
+  server.post("/v1/ingestion/historical/real-estate-housing", async (request, reply) => {
+    const parsedRequest = realEstateHousingHistoricalIngestionRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+        issues: parsedRequest.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const result = await ingestRealEstateHousingHistoricalCases(services, parsedRequest.data);
+    return reply.status(201).send(result);
+  });
+
+  server.post("/v1/ingestion/historical/sovereign-debt", async (request, reply) => {
+    const parsedRequest = sovereignDebtHistoricalIngestionRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+        issues: parsedRequest.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const result = await ingestSovereignDebtHistoricalCases(services, parsedRequest.data);
     return reply.status(201).send(result);
   });
 

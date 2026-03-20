@@ -52,15 +52,18 @@ type ClassifiedCase = {
 // ─── Domain → Case Pack mapping ───────────────────────────────────────────────
 
 const DOMAIN_PACK_MAP: Record<string, string> = {
-  macro:       "macro_calendar_v1",
-  earnings:    "earnings_v1",
-  energy:      "energy_v1",
-  credit:      "credit_banking_v1",
-  crypto:      "crypto_v1",
-  china:       "china_macro_v1",
-  commodities: "commodities_v1",
-  geopolitical:"geopolitical_v1",
-  policy_fx:   "policy_fx_v1",
+  macro:                "macro_calendar_v1",
+  earnings:             "earnings_v1",
+  energy:               "energy_v1",
+  credit:               "credit_banking_v1",
+  crypto:               "crypto_v1",
+  china:                "china_macro_v1",
+  commodities:          "commodities_v1",
+  geopolitical:         "geopolitical_v1",
+  policy_fx:            "policy_fx_v1",
+  volatility:           "volatility_v1",
+  real_estate_housing:  "real_estate_housing_v1",
+  sovereign_debt:       "sovereign_debt_v1",
 };
 
 // ─── Claude Haiku classification ─────────────────────────────────────────────
@@ -90,7 +93,7 @@ Event date: ${input.occurred_at}
 
 Produce a corrective training case. Return ONLY valid JSON in this exact structure:
 {
-  "domain": "<EXACTLY one of: macro, earnings, energy, credit, crypto, china, commodities, geopolitical, policy_fx>",
+  "domain": "<EXACTLY one of: macro, earnings, energy, credit, crypto, china, commodities, geopolitical, policy_fx, volatility, real_estate_housing, sovereign_debt>",
   "event_type": "<specific event type, e.g. cpi_print, fomc_decision, earnings_beat, oil_supply_shock, exchange_collapse, rate_hike>",
   "signal_bias": "<bullish | bearish | mixed | neutral — reflects the ACTUAL outcome>",
   "summary": "<300-450 word corrective summary. Structure: (1) What the event was. (2) What actually happened in markets with specific moves. (3) Why the brain's prediction was wrong — the specific framework error. (4) The correct analytical framework to apply next time. (5) Key rule to remember. Be precise and instructional.>",

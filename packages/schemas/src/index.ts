@@ -1883,6 +1883,129 @@ export const geopoliticalHistoricalIngestionRequestSchema = z.object({
   labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
 });
 
+// ── Volatility ────────────────────────────────────────────────────────────────
+
+export const volatilityHistoricalEventTypeSchema = z.enum([
+  "vix_spike",
+  "short_vol_blowup",
+  "gamma_squeeze",
+  "vol_crush",
+  "vol_regime_shift",
+  "vix_term_inversion",
+  "options_expiry_pin",
+  "realized_vol_surge",
+]);
+
+export const volatilityHistoricalCaseInputSchema = z.object({
+  case_id: z.string().min(1).max(120),
+  case_pack: z.string().min(1).max(120),
+  event_type: volatilityHistoricalEventTypeSchema,
+  signal_bias: z.enum(["bullish", "bearish", "mixed", "neutral"]),
+  vix_level_at_event: z.number().optional(),
+  vol_regime: z.string().min(1).max(80).optional(),
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(12).max(4000),
+  occurred_at: z.iso.datetime().optional(),
+  publisher: z.string().min(1).max(120).optional(),
+  realized_moves: z.array(realizedMoveSchema).min(1),
+  timing_alignment: z.number().min(0).max(1),
+  dominant_catalyst: z.string().min(1).max(240).optional(),
+  labels: historicalCaseLabelInputSchema.optional(),
+  review_hints: z.array(z.string().min(1).max(240)).max(12).optional(),
+  model_version: z.string().min(1).max(80).optional(),
+});
+
+export const volatilityHistoricalIngestionRequestSchema = z.object({
+  items: z.array(volatilityHistoricalCaseInputSchema).min(1).max(200),
+  store_library: z.boolean().default(true),
+  ingest_reviewed_memory: z.boolean().default(false),
+  fallback_model_version: z.string().min(1).max(80).default("volatility-loader-v1"),
+  labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
+});
+
+// ── Real Estate / Housing ─────────────────────────────────────────────────────
+
+export const realEstateHousingHistoricalEventTypeSchema = z.enum([
+  "housing_starts_miss",
+  "housing_starts_beat",
+  "case_shiller_decline",
+  "mortgage_rate_shock",
+  "reit_rate_compression",
+  "reit_relief_rally",
+  "nhb_sentiment_collapse",
+  "existing_home_sales_miss",
+  "existing_home_sales_beat",
+  "housing_bubble_deflation",
+]);
+
+export const realEstateHousingHistoricalCaseInputSchema = z.object({
+  case_id: z.string().min(1).max(120),
+  case_pack: z.string().min(1).max(120),
+  event_type: realEstateHousingHistoricalEventTypeSchema,
+  signal_bias: z.enum(["bullish", "bearish", "mixed", "neutral"]),
+  mortgage_rate_pct: z.number().optional(),
+  region: z.string().min(1).max(80).optional(),
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(12).max(4000),
+  occurred_at: z.iso.datetime().optional(),
+  publisher: z.string().min(1).max(120).optional(),
+  realized_moves: z.array(realizedMoveSchema).min(1),
+  timing_alignment: z.number().min(0).max(1),
+  dominant_catalyst: z.string().min(1).max(240).optional(),
+  labels: historicalCaseLabelInputSchema.optional(),
+  review_hints: z.array(z.string().min(1).max(240)).max(12).optional(),
+  model_version: z.string().min(1).max(80).optional(),
+});
+
+export const realEstateHousingHistoricalIngestionRequestSchema = z.object({
+  items: z.array(realEstateHousingHistoricalCaseInputSchema).min(1).max(200),
+  store_library: z.boolean().default(true),
+  ingest_reviewed_memory: z.boolean().default(false),
+  fallback_model_version: z.string().min(1).max(80).default("real-estate-loader-v1"),
+  labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
+});
+
+// ── Sovereign Debt ────────────────────────────────────────────────────────────
+
+export const sovereignDebtHistoricalEventTypeSchema = z.enum([
+  "treasury_auction_tail",
+  "debt_ceiling_standoff",
+  "sovereign_downgrade",
+  "gilt_crisis",
+  "btp_bund_blowout",
+  "em_sovereign_default",
+  "fiscal_shock",
+  "safe_haven_demand",
+  "treasury_supply_shock",
+]);
+
+export const sovereignDebtHistoricalCaseInputSchema = z.object({
+  case_id: z.string().min(1).max(120),
+  case_pack: z.string().min(1).max(120),
+  event_type: sovereignDebtHistoricalEventTypeSchema,
+  signal_bias: z.enum(["bullish", "bearish", "mixed", "neutral"]),
+  sovereign: z.string().min(1).max(80).optional(),
+  yield_at_event_bp: z.number().optional(),
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(12).max(4000),
+  occurred_at: z.iso.datetime().optional(),
+  publisher: z.string().min(1).max(120).optional(),
+  realized_moves: z.array(realizedMoveSchema).min(1),
+  timing_alignment: z.number().min(0).max(1),
+  dominant_catalyst: z.string().min(1).max(240).optional(),
+  labels: historicalCaseLabelInputSchema.optional(),
+  review_hints: z.array(z.string().min(1).max(240)).max(12).optional(),
+  model_version: z.string().min(1).max(80).optional(),
+});
+
+export const sovereignDebtHistoricalIngestionRequestSchema = z.object({
+  items: z.array(sovereignDebtHistoricalCaseInputSchema).min(1).max(200),
+  store_library: z.boolean().default(true),
+  ingest_reviewed_memory: z.boolean().default(false),
+  fallback_model_version: z.string().min(1).max(80).default("sovereign-debt-loader-v1"),
+  labeling_mode: historicalCaseLibraryIngestionModeSchema.default("merge"),
+});
+
 // ──────────────────────────────────────────────────────────────────────────
 
 export const coreHistoricalCorpusDomainSchema = z.enum([
@@ -1896,6 +2019,9 @@ export const coreHistoricalCorpusDomainSchema = z.enum([
   "china_macro",
   "commodities",
   "geopolitical",
+  "volatility",
+  "real_estate_housing",
+  "sovereign_debt",
 ]);
 
 export const coreHistoricalCorpusDomainResultSchema = z.object({
@@ -1926,6 +2052,12 @@ export const coreHistoricalCorpusIngestionRequestSchema = z
     commodities_case_pack: z.string().min(1).max(120).default("commodities_v1"),
     include_geopolitical: z.boolean().default(true),
     geopolitical_case_pack: z.string().min(1).max(120).default("geopolitical_v1"),
+    include_volatility: z.boolean().default(true),
+    volatility_case_pack: z.string().min(1).max(120).default("volatility_v1"),
+    include_real_estate_housing: z.boolean().default(true),
+    real_estate_housing_case_pack: z.string().min(1).max(120).default("real_estate_housing_v1"),
+    include_sovereign_debt: z.boolean().default(true),
+    sovereign_debt_case_pack: z.string().min(1).max(120).default("sovereign_debt_v1"),
     store_library: z.boolean().default(true),
     ingest_reviewed_memory: z.boolean().default(true),
     fallback_model_version: z.string().min(1).max(80).default("core-corpus-loader-v1"),
@@ -1942,7 +2074,10 @@ export const coreHistoricalCorpusIngestionRequestSchema = z
       value.include_crypto ||
       value.include_china_macro ||
       value.include_commodities ||
-      value.include_geopolitical,
+      value.include_geopolitical ||
+      value.include_volatility ||
+      value.include_real_estate_housing ||
+      value.include_sovereign_debt,
     {
       message: "Select at least one historical domain to import.",
       path: ["include_backfill"],
@@ -3991,6 +4126,12 @@ export type CommoditiesHistoricalCaseInput = z.infer<typeof commoditiesHistorica
 export type CommoditiesHistoricalIngestionRequest = z.infer<typeof commoditiesHistoricalIngestionRequestSchema>;
 export type GeopoliticalHistoricalCaseInput = z.infer<typeof geopoliticalHistoricalCaseInputSchema>;
 export type GeopoliticalHistoricalIngestionRequest = z.infer<typeof geopoliticalHistoricalIngestionRequestSchema>;
+export type VolatilityHistoricalCaseInput = z.infer<typeof volatilityHistoricalCaseInputSchema>;
+export type VolatilityHistoricalIngestionRequest = z.infer<typeof volatilityHistoricalIngestionRequestSchema>;
+export type RealEstateHousingHistoricalCaseInput = z.infer<typeof realEstateHousingHistoricalCaseInputSchema>;
+export type RealEstateHousingHistoricalIngestionRequest = z.infer<typeof realEstateHousingHistoricalIngestionRequestSchema>;
+export type SovereignDebtHistoricalCaseInput = z.infer<typeof sovereignDebtHistoricalCaseInputSchema>;
+export type SovereignDebtHistoricalIngestionRequest = z.infer<typeof sovereignDebtHistoricalIngestionRequestSchema>;
 export type CoreHistoricalCorpusIngestionRequest = z.infer<typeof coreHistoricalCorpusIngestionRequestSchema>;
 export type CoreHistoricalCorpusIngestionResponse = z.infer<typeof coreHistoricalCorpusIngestionResponseSchema>;
 export type HistoricalCaseLibraryReplayRequest = z.infer<typeof historicalCaseLibraryReplayRequestSchema>;

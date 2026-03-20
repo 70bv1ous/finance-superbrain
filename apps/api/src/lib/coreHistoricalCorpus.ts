@@ -12,6 +12,9 @@ import { CRYPTO_HISTORICAL_LOADER_CASES } from "../data/cryptoHistoricalLoaderCa
 import { EARNINGS_HISTORICAL_LOADER_CASES } from "../data/earningsHistoricalLoaderCases.js";
 import { ENERGY_HISTORICAL_LOADER_CASES } from "../data/energyHistoricalLoaderCases.js";
 import { GEOPOLITICAL_HISTORICAL_LOADER_CASES } from "../data/geopoliticalHistoricalLoaderCases.js";
+import { REAL_ESTATE_HOUSING_HISTORICAL_LOADER_CASES } from "../data/realEstateHousingHistoricalLoaderCases.js";
+import { SOVEREIGN_DEBT_HISTORICAL_LOADER_CASES } from "../data/sovereignDebtHistoricalLoaderCases.js";
+import { VOLATILITY_HISTORICAL_LOADER_CASES } from "../data/volatilityHistoricalLoaderCases.js";
 import { buildHistoricalLibraryDrafts } from "../data/historicalBackfillCases.js";
 import { MACRO_HISTORICAL_LOADER_CASES } from "../data/macroHistoricalLoaderCases.js";
 import { POLICY_HISTORICAL_LOADER_CASES } from "../data/policyHistoricalLoaderCases.js";
@@ -24,6 +27,9 @@ import { buildEarningsHistoricalLibraryDrafts } from "./earningsHistoricalLoader
 import { ingestHistoricalCaseLibrary } from "./historicalCaseLibrary.js";
 import { buildEnergyHistoricalLibraryDrafts } from "./energyHistoricalLoader.js";
 import { buildGeopoliticalHistoricalLibraryDrafts } from "./geopoliticalHistoricalLoader.js";
+import { buildRealEstateHousingHistoricalLibraryDrafts } from "./realEstateHousingHistoricalLoader.js";
+import { buildSovereignDebtHistoricalLibraryDrafts } from "./sovereignDebtHistoricalLoader.js";
+import { buildVolatilityHistoricalLibraryDrafts } from "./volatilityHistoricalLoader.js";
 import { buildMacroHistoricalLibraryDrafts } from "./macroHistoricalLoader.js";
 import { buildPolicyHistoricalLibraryDrafts } from "./policyHistoricalLoader.js";
 import type { AppServices } from "./services.js";
@@ -42,6 +48,9 @@ export const DEFAULT_CORE_HISTORICAL_CASE_PACKS = [
   "china_macro_v1",
   "commodities_v1",
   "geopolitical_v1",
+  "volatility_v1",
+  "real_estate_housing_v1",
+  "sovereign_debt_v1",
 ] as const;
 
 const withCasePack = <T extends { case_pack: string }>(items: T[], casePack: string) =>
@@ -205,6 +214,63 @@ export const buildCoreHistoricalCorpusDrafts = (
       "geopolitical",
       request.geopolitical_case_pack,
       geopoliticalDrafts,
+    );
+  }
+
+  if (request.include_volatility) {
+    const volatilityDrafts = buildVolatilityHistoricalLibraryDrafts({
+      items: withCasePack(VOLATILITY_HISTORICAL_LOADER_CASES, request.volatility_case_pack),
+      store_library: true,
+      ingest_reviewed_memory: false,
+      fallback_model_version: "volatility-loader-v1",
+      labeling_mode: request.labeling_mode,
+    });
+    appendDomain(
+      drafts,
+      domainBreakdown,
+      "volatility",
+      request.volatility_case_pack,
+      volatilityDrafts,
+    );
+  }
+
+  if (request.include_real_estate_housing) {
+    const realEstateDrafts = buildRealEstateHousingHistoricalLibraryDrafts({
+      items: withCasePack(
+        REAL_ESTATE_HOUSING_HISTORICAL_LOADER_CASES,
+        request.real_estate_housing_case_pack,
+      ),
+      store_library: true,
+      ingest_reviewed_memory: false,
+      fallback_model_version: "real-estate-loader-v1",
+      labeling_mode: request.labeling_mode,
+    });
+    appendDomain(
+      drafts,
+      domainBreakdown,
+      "real_estate_housing",
+      request.real_estate_housing_case_pack,
+      realEstateDrafts,
+    );
+  }
+
+  if (request.include_sovereign_debt) {
+    const sovereignDebtDrafts = buildSovereignDebtHistoricalLibraryDrafts({
+      items: withCasePack(
+        SOVEREIGN_DEBT_HISTORICAL_LOADER_CASES,
+        request.sovereign_debt_case_pack,
+      ),
+      store_library: true,
+      ingest_reviewed_memory: false,
+      fallback_model_version: "sovereign-debt-loader-v1",
+      labeling_mode: request.labeling_mode,
+    });
+    appendDomain(
+      drafts,
+      domainBreakdown,
+      "sovereign_debt",
+      request.sovereign_debt_case_pack,
+      sovereignDebtDrafts,
     );
   }
 
