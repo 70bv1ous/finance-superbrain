@@ -1639,6 +1639,140 @@ export class PostgresRepository implements Repository {
     return mapHistoricalCaseLibraryRow(query.rows[0]);
   }
 
+  /**
+   * Partial update for historical_case_library rows.
+   * Currently used to backfill data_split + split_version after the v1 registry freeze.
+   * Returns true if the row was found and updated, false otherwise.
+   */
+  async updateHistoricalCaseLibraryItem(
+    case_id: string,
+    fields: { data_split?: string; split_version?: string },
+  ): Promise<boolean> {
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (fields.data_split !== undefined) {
+      sets.push(`data_split = $${idx++}`);
+      values.push(fields.data_split);
+    }
+    if (fields.split_version !== undefined) {
+      sets.push(`split_version = $${idx++}`);
+      values.push(fields.split_version);
+    }
+    if (sets.length === 0) return false;
+
+    values.push(case_id);
+    const result = await this.pool.query(
+      `UPDATE historical_case_library SET ${sets.join(", ")} WHERE case_id = $${idx} RETURNING case_id`,
+      values,
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ─── Evaluation predictions ───────────────────────────────────────────────
+
+  async saveEvaluationPrediction(row: {
+    id:                   string;
+    query_text:           string;
+    domain:               string | null;
+    eval_split:           string;
+    split_version:        string;
+    oracle_case_id:       string;
+    predicted_direction:  string;
+    confidence_level:     string;
+    predicted_tickers:    unknown[];
+    retrieved_case_ids:   string[];
+    retrieved_case_count: number;
+    reasoning_summary:    string;
+    is_scored:            boolean;
+    created_at:           string;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO evaluation_predictions
+         (id, query_text, domain, eval_split, split_version, oracle_case_id,
+          predicted_direction, confidence_level, predicted_tickers,
+          retrieved_case_ids, retrieved_case_count, reasoning_summary,
+          is_scored, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        row.id, row.query_text, row.domain, row.eval_split, row.split_version,
+        row.oracle_case_id, row.predicted_direction, row.confidence_level,
+        JSON.stringify(row.predicted_tickers), row.retrieved_case_ids,
+        row.retrieved_case_count, row.reasoning_summary, row.is_scored, row.created_at,
+      ],
+    );
+  }
+
+  async getEvaluationPrediction(id: string): Promise<Record<string, unknown> | null> {
+    const result = await this.pool.query(
+      `SELECT id, query_text, domain, eval_split, split_version, oracle_case_id,
+              predicted_direction, confidence_level, predicted_tickers,
+              retrieved_case_ids, retrieved_case_count, reasoning_summary,
+              oracle_realized_moves, oracle_occurred_at,
+              direction_accuracy, tickers_scored, is_correct, is_scored, created_at
+       FROM evaluation_predictions WHERE id = $1`,
+      [id],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async updateEvaluationPrediction(
+    id: string,
+    fields: Record<string, unknown>,
+  ): Promise<void> {
+    const keys   = Object.keys(fields);
+    const values = Object.values(fields);
+    const sets   = keys.map((k, i) => {
+      // JSON columns
+      if (k === "oracle_realized_moves" || k === "predicted_tickers") {
+        return `${k} = $${i + 1}::jsonb`;
+      }
+      return `${k} = $${i + 1}`;
+    });
+    values.push(id);
+    await this.pool.query(
+      `UPDATE evaluation_predictions SET ${sets.join(", ")} WHERE id = $${values.length}`,
+      values.map((v, i) => {
+        const k = keys[i];
+        if (k === "oracle_realized_moves" || k === "predicted_tickers") {
+          return JSON.stringify(v);
+        }
+        return v;
+      }),
+    );
+  }
+
+  async listEvaluationPredictions(
+    filter: { eval_split?: string; is_scored?: boolean } = {},
+  ): Promise<Record<string, unknown>[]> {
+    const conditions: string[] = [];
+    const values: unknown[]    = [];
+    let idx = 1;
+
+    if (filter.eval_split !== undefined) {
+      conditions.push(`eval_split = $${idx++}`);
+      values.push(filter.eval_split);
+    }
+    if (filter.is_scored !== undefined) {
+      conditions.push(`is_scored = $${idx++}`);
+      values.push(filter.is_scored);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const result = await this.pool.query(
+      `SELECT id, query_text, domain, eval_split, split_version, oracle_case_id,
+              predicted_direction, confidence_level, predicted_tickers,
+              retrieved_case_ids, retrieved_case_count, reasoning_summary,
+              oracle_realized_moves, oracle_occurred_at,
+              direction_accuracy, tickers_scored, is_correct, is_scored, created_at
+       FROM evaluation_predictions ${where} ORDER BY created_at DESC`,
+      values,
+    );
+    return result.rows;
+  }
+
   async listLessons(): Promise<Lesson[]> {
     const query = await this.pool.query(
       `select id, prediction_id, lesson_type, lesson_summary, metadata, created_at

@@ -290,8 +290,13 @@ export function deduplicatePredictions(
     .map((p) => p.oracle_case_id)
     .filter((id): id is string => id !== null);
 
-  const { canonical_ids, collapsed_count } = deduplicateClusters(caseIds);
-  const canonicalSet = new Set(canonical_ids);
+  // deduplicateClusters returns the canonical (representative) case_id for each
+  // cluster — one per event cluster — as a flat string[]. Non-clustered IDs pass
+  // through unchanged. Any caseId NOT in the returned list is a duplicate that
+  // should be collapsed.
+  const canonicalIds  = deduplicateClusters(caseIds);
+  const canonicalSet  = new Set(canonicalIds);
+  const removed_count = predictions.length - canonicalSet.size;
 
   const deduplicated = predictions.filter(
     (p) => !p.oracle_case_id || canonicalSet.has(p.oracle_case_id),
@@ -299,7 +304,7 @@ export function deduplicatePredictions(
 
   return {
     deduplicated,
-    removed_count: collapsed_count,
+    removed_count: Math.max(0, removed_count),
   };
 }
 

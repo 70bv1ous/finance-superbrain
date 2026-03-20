@@ -96,7 +96,7 @@ export const SPLIT_FREEZE_DATE  = "2026-03-20T00:00:00.000Z" as const;
  * We test 13 hypotheses: 1 aggregate + 12 domain-level.
  * α_corrected = 0.05 / 13 ≈ 0.00385
  */
-export const BONFERRONI_ALPHA   = 0.05 / 13 as const;  // 0.003846...
+export const BONFERRONI_ALPHA   = 0.05 / 13;  // 0.003846...
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -204,7 +204,10 @@ function buildSplitRegistry(): { registry: Map<string, SplitEntry>; stats: Split
         split_version: SPLIT_VERSION,
       });
 
-      byDomain[domain]![split]++;
+      // "untagged" is not a trackable bucket in DomainSplitCounts — skip incrementing
+      if (split !== "untagged") {
+        (byDomain[domain]! as unknown as Record<string, number>)[split]++;
+      }
       byDomain[domain]!.total++;
     }
   }

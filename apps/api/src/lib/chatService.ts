@@ -286,12 +286,18 @@ export async function processChat(
 
   const rawText = message.content[0]?.type === "text" ? message.content[0].text : "";
 
-  // Parse structured response
+  // Parse structured response — initialised with a safe fallback so TypeScript
+  // knows it is always assigned even if all JSON.parse attempts fail.
   let parsed: {
     answer: string;
     confidence_level: "high" | "medium" | "low";
     evidence: string[];
     risks: string[];
+  } = {
+    answer:           rawText,
+    confidence_level: "medium",
+    evidence:         [],
+    risks:            [],
   };
 
   try {

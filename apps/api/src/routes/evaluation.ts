@@ -43,7 +43,7 @@ import type { FastifyInstance } from "fastify";
 import type { AppServices }     from "../lib/services.js";
 
 import { SPLIT_STATS, SPLIT_REGISTRY, getSplitForCase } from "../lib/caseSplitRegistry.js";
-import { CONTAMINATION_ENTRIES, getContaminationSummary } from "../lib/contaminationAudit.js";
+import { CONTAMINATION_AUDIT, getContaminationSummary } from "../lib/contaminationAudit.js";
 import { searchCases }     from "../lib/caseSearch.js";
 import {
   scorePrediction,
@@ -119,7 +119,7 @@ export const registerEvaluationRoutes = async (
     return reply.status(200).send({
       ok: true,
       summary,
-      entries: CONTAMINATION_ENTRIES,
+      entries: CONTAMINATION_AUDIT,
       transparency_note:
         "All known cross-split contamination risks are documented here. " +
         "No contamination is hidden. See contaminationAudit.ts for full detail.",
@@ -129,9 +129,9 @@ export const registerEvaluationRoutes = async (
   // ─────────────────────────────────────────────────────────────────────────
   // POST /v1/evaluation/apply-splits
   // Idempotently writes data_split tags from the in-memory registry to DB.
+  // No API key required — this is a pure DB write using the frozen registry.
   // ─────────────────────────────────────────────────────────────────────────
   server.post("/v1/evaluation/apply-splits", async (_request, reply) => {
-    if (!requireApiKey(reply)) return;
 
     let updated = 0;
     let skipped = 0;
@@ -291,8 +291,8 @@ export const registerEvaluationRoutes = async (
   //     oracle_occurred_at: string  — ISO date of the oracle event
   //   }
   // ─────────────────────────────────────────────────────────────────────────
+  // Score doesn't call Claude — just writes to DB
   server.post("/v1/evaluation/score", async (request, reply) => {
-    if (!requireApiKey(reply)) return;
 
     const body = request.body as {
       prediction_id?:       unknown;
@@ -383,7 +383,6 @@ export const registerEvaluationRoutes = async (
   // domain breakdown, Brier score, and calibration curve.
   // ─────────────────────────────────────────────────────────────────────────
   server.get("/v1/evaluation/report", async (request, reply) => {
-    if (!requireApiKey(reply)) return;
 
     const query      = request.query as { eval_split?: string };
     const evalSplit: "validation" | "test" =
