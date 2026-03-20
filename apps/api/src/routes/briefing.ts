@@ -10,10 +10,12 @@
 import type { FastifyInstance } from "fastify";
 import type { AppServices }     from "../lib/services.js";
 import { getUpcomingEvents, formatUpcomingEvents } from "../lib/eventCalendar.js";
-import { resolveOutcome, getAccuracyStats, getRecentPredictions } from "../lib/predictionTracker.js";
+import { resolveOutcome, getAccuracyStats, getRecentPredictions, getPredictionBySessionId } from "../lib/predictionTracker.js";
 import { getDailyUsage }                           from "../lib/chatService.js";
 import { processChat }                             from "../lib/chatService.js";
 import { getLiveMarketSnapshot, formatMarketSnapshot } from "../lib/marketData.js";
+import { shouldAutoPromote, autoPromoteCase }      from "../lib/caseAutoPromoter.js";
+import { getLibraryPackStats, getTotalCaseCount }  from "../lib/libraryStats.js";
 
 export const registerBriefingRoutes = async (
   server: FastifyInstance,
@@ -77,6 +79,36 @@ export const registerBriefingRoutes = async (
       return reply.status(404).send({ error: "prediction not found or already resolved" });
     }
 
+    // ── Case auto-promotion (fire-and-forget) ─────────────────────────────
+    // When the brain gets it right with HIGH confidence, we immediately promote
+    // that winning pattern into the case library. Future queries will find it
+    // via semantic retrieval and benefit from the reinforced signal.
+    // Only promotes: outcome ∈ {correct, partial} AND confidence_level = high.
+    void (async () => {
+      try {
+        // Quick pre-check: only "correct" or "partial" outcomes are promotable
+        if (outcome !== "correct" && outcome !== "partial") return;
+
+        // Fetch prediction row to get confidence_level (not sent by client)
+        const prediction = await getPredictionBySessionId(session_id);
+        if (!prediction) return;
+
+        if (!shouldAutoPromote(outcome, prediction.confidence_level)) return;
+
+        await autoPromoteCase(services, {
+          session_id,
+          query:            prediction.query,
+          answer_summary:   prediction.answer_summary,
+          event_type:       prediction.event_type,
+          confidence_level: prediction.confidence_level,
+          outcome:          outcome as "correct" | "partial",
+          notes:            notes ?? "",
+        });
+      } catch {
+        // Silent — auto-promotion never breaks the main outcome flow
+      }
+    })();
+
     return reply.send({ ok: true, session_id, outcome });
   });
 
@@ -113,5 +145,16 @@ export const registerBriefingRoutes = async (
       formatted: formatMarketSnapshot(tickers),
       raw: tickers,
     });
+  });
+
+  // ── GET /v1/library/packs ──────────────────────────────────────────────────
+  // Returns aggregate stats for every case pack in the historical library.
+  // Powers the frontend domain pack browser at /library.
+  server.get("/v1/library/packs", async (_request, reply) => {
+    const [packs, total] = await Promise.all([
+      getLibraryPackStats(),
+      getTotalCaseCount(),
+    ]);
+    return reply.send({ packs, total_cases: total, pack_count: packs.length });
   });
 };

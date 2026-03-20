@@ -68,6 +68,7 @@ export default function ChatPage() {
           <p className="text-zinc-500 text-xs">Institutional-grade market intelligence · Beta</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
+          <Link href="/library"  className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">📚 Library</Link>
           <Link href="/accuracy" className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">📊 Accuracy</Link>
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
           <span className="text-zinc-500 text-xs">Live</span>

@@ -168,3 +168,27 @@ export async function markOutcome(
     return res.ok
   } catch { return false }
 }
+
+// ─── Library / Domain Pack Browser ───────────────────────────────────────────
+
+export type LibraryPackStat = {
+  case_pack:      string
+  case_count:     number
+  draft_count:    number
+  reviewed_count: number
+  latest_case_at: string | null
+}
+
+export type LibraryPacksResponse = {
+  packs:       LibraryPackStat[]
+  total_cases: number
+  pack_count:  number
+}
+
+export async function getLibraryPacks(): Promise<LibraryPacksResponse | null> {
+  try {
+    const res = await fetch(`${API_URL}/v1/library/packs`, { next: { revalidate: 0 } })
+    if (!res.ok) return null
+    return res.json() as Promise<LibraryPacksResponse>
+  } catch { return null }
+}

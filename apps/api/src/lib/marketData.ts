@@ -24,19 +24,30 @@ type TickerSnapshot = {
 // ── Stooq: works from any IP, no auth ─────────────────────────────────────
 // Stooq CSV format: Symbol,Date,Time,Open,High,Low,Close,Volume
 const STOOQ_TICKERS: Array<{ symbol: string; stooq: string; label: string }> = [
-  { symbol: "SPY",      stooq: "spy.us",  label: "S&P 500 ETF"   },
-  { symbol: "QQQ",      stooq: "qqq.us",  label: "Nasdaq ETF"     },
-  { symbol: "TLT",      stooq: "tlt.us",  label: "20yr Treasury"  },
-  { symbol: "GLD",      stooq: "gld.us",  label: "Gold ETF"       },
-  { symbol: "CL=F",     stooq: "cl.f",    label: "Crude Oil"      },
-  { symbol: "EURUSD=X", stooq: "eurusd",  label: "EUR/USD"        },
-  { symbol: "DX-Y.NYB", stooq: "dx.f",    label: "DXY Dollar Idx" },
+  // Core macro
+  { symbol: "SPY",      stooq: "spy.us",  label: "S&P 500 ETF"    },
+  { symbol: "QQQ",      stooq: "qqq.us",  label: "Nasdaq ETF"      },
+  { symbol: "TLT",      stooq: "tlt.us",  label: "20yr Treasury"   },
+  { symbol: "GLD",      stooq: "gld.us",  label: "Gold ETF"        },
+  { symbol: "CL=F",     stooq: "cl.f",    label: "Crude Oil"       },
+  { symbol: "EURUSD=X", stooq: "eurusd",  label: "EUR/USD"         },
+  { symbol: "DX-Y.NYB", stooq: "dx.f",    label: "DXY Dollar Idx"  },
+  // Sector ETFs — enriches context for sector-rotation and risk-off queries
+  { symbol: "XLF",      stooq: "xlf.us",  label: "Financials ETF"  },
+  { symbol: "XLE",      stooq: "xle.us",  label: "Energy ETF"      },
+  { symbol: "XLK",      stooq: "xlk.us",  label: "Tech ETF"        },
+  { symbol: "XLV",      stooq: "xlv.us",  label: "Healthcare ETF"  },
+  // Breadth & EM
+  { symbol: "IWM",      stooq: "iwm.us",  label: "Russell 2000"    },
+  { symbol: "EEM",      stooq: "eem.us",  label: "Emg Markets ETF" },
 ];
 
 // ── Yahoo Finance: only used for tickers Stooq doesn't support ────────────
 const YAHOO_FALLBACK_TICKERS: Array<{ symbol: string; label: string }> = [
-  { symbol: "^VIX", label: "VIX"        },
-  { symbol: "^TNX", label: "10yr Yield" },
+  { symbol: "^VIX",    label: "VIX"        },
+  { symbol: "^TNX",    label: "10yr Yield" },
+  // Bitcoin — Yahoo Finance provides reliable BTC-USD data
+  { symbol: "BTC-USD", label: "Bitcoin"    },
 ];
 
 async function fetchStooqQuote(

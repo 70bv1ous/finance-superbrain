@@ -93,6 +93,46 @@ export async function resolveOutcome(
 }
 
 /**
+ * Returns a single prediction row by session_id.
+ * Used by the auto-promotion pipeline to retrieve the prediction details
+ * after an outcome is marked, so we can decide whether to promote the case.
+ */
+export async function getPredictionBySessionId(sessionId: string): Promise<{
+  session_id: string;
+  query: string;
+  event_type: string;
+  confidence_level: string;
+  answer_summary: string;
+  analogues_count: number;
+  outcome: string | null;
+} | null> {
+  try {
+    const db = getPool();
+    const res = await db.query(
+      `SELECT session_id, query, event_type, confidence_level,
+              answer_summary, analogues_count, outcome
+         FROM prediction_log
+        WHERE session_id = $1
+        LIMIT 1`,
+      [sessionId]
+    );
+    const row = res.rows[0];
+    if (!row) return null;
+    return row as {
+      session_id: string;
+      query: string;
+      event_type: string;
+      confidence_level: string;
+      answer_summary: string;
+      analogues_count: number;
+      outcome: string | null;
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Returns the N most recent prediction_log rows (for the dashboard).
  */
 export async function getRecentPredictions(limit = 20): Promise<Array<{

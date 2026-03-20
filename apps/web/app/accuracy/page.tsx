@@ -89,7 +89,8 @@ export default function AccuracyPage() {
           <p className="text-zinc-500 text-xs">Prediction Accuracy Dashboard</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <Link href="/" className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">← Back to Chat</Link>
+          <Link href="/library" className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">📚 Library</Link>
+          <Link href="/"        className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">← Back to Chat</Link>
         </div>
       </header>
 

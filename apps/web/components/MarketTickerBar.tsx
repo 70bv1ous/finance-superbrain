@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react"
 import { getMarketSnapshot, type MarketTicker } from "@/lib/chatApi"
 
-// Key tickers to show in the bar (in display order)
-const DISPLAY_ORDER = ["SPY", "QQQ", "^VIX", "TLT", "GLD", "CL=F", "^TNX", "EURUSD=X", "DX-Y.NYB"]
+// Key tickers to show in the bar (in display order).
+// Core macro first, then sector ETFs, then breadth/EM, then crypto.
+const DISPLAY_ORDER = [
+  "SPY", "QQQ", "^VIX", "TLT", "GLD", "CL=F", "^TNX", "EURUSD=X", "DX-Y.NYB",
+  "XLF", "XLE", "XLK", "XLV", "IWM", "EEM", "BTC-USD",
+]
 
 export function MarketTickerBar() {
   const [tickers, setTickers] = useState<MarketTicker[]>([])
