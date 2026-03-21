@@ -1773,6 +1773,25 @@ export class PostgresRepository implements Repository {
     return result.rows;
   }
 
+  /**
+   * Deletes evaluation predictions for a given eval_split.
+   * Pass "all" to delete every prediction regardless of split.
+   * Returns the number of rows deleted.
+   */
+  async deleteEvaluationPredictions(evalSplit: string): Promise<number> {
+    if (evalSplit === "all") {
+      const result = await this.pool.query(
+        `DELETE FROM evaluation_predictions`,
+      );
+      return result.rowCount ?? 0;
+    }
+    const result = await this.pool.query(
+      `DELETE FROM evaluation_predictions WHERE eval_split = $1`,
+      [evalSplit],
+    );
+    return result.rowCount ?? 0;
+  }
+
   async listLessons(): Promise<Lesson[]> {
     const query = await this.pool.query(
       `select id, prediction_id, lesson_type, lesson_summary, metadata, created_at

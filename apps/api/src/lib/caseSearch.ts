@@ -57,7 +57,7 @@ function lexicalScore(query: string, caseText: string): number {
 let caseCache:       any[]                    | null = null;
 let caseVectors:     Map<string, number[]>    | null = null; // case_id → embedding
 let cacheTimestamp   = 0;
-const CACHE_TTL_MS   = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS   = 30 * 60 * 1000; // 30 minutes (long enough to survive a full batch eval run)
 
 /** Invalidate cache (call after ingesting new cases). */
 export function invalidateCaseCache(): void {

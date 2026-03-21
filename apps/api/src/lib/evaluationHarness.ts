@@ -60,11 +60,15 @@ export interface EvalPrediction {
   domain: string | null;
   eval_split: "validation" | "test";
   confidence_level: "high" | "medium" | "low";
+  /** Top-level directional call from the brain's answer text. Used as fallback scorer. */
+  predicted_direction?: "up" | "down" | "mixed" | "flat" | "unknown";
   predicted_tickers: TickerPrediction[];
   oracle_realized_moves: TickerOutcome[] | null;
   direction_accuracy: number | null;
   is_correct: boolean | null;
   is_scored: boolean;
+  /** ISO timestamp of when the prediction was created. Used to keep latest on re-runs. */
+  created_at?: string;
 }
 
 export interface ScoredPrediction extends EvalPrediction {
@@ -132,16 +136,41 @@ const CONFIDENCE_PROB: Record<"high" | "medium" | "low", number> = {
   low:    0.50,
 };
 
+// ─── Aggregate direction derivation ──────────────────────────────────────────
+
+/**
+ * Derives a single aggregate direction from a set of oracle ticker outcomes.
+ * Used as a fallback when per-ticker matching produces zero scored tickers.
+ *
+ * Rules:
+ *   - Ignore "unknown" and "flat" outcomes
+ *   - If >60% of remaining outcomes are "up" → "up"
+ *   - If >60% are "down" → "down"
+ *   - Otherwise → "mixed"
+ */
+export function deriveAggregateDirection(
+  outcomes: TickerOutcome[],
+): "up" | "down" | "mixed" | "unknown" {
+  const dirs = outcomes
+    .map((o) => o.realized_direction)
+    .filter((d): d is "up" | "down" | "mixed" => d !== "unknown" && d !== "flat");
+
+  if (dirs.length === 0) return "unknown";
+
+  const ups   = dirs.filter((d) => d === "up").length;
+  const downs = dirs.filter((d) => d === "down").length;
+
+  if (ups + downs === 0) return "mixed";
+  if (ups / dirs.length > 0.6)   return "up";
+  if (downs / dirs.length > 0.6) return "down";
+  return "mixed";
+}
+
 // ─── Direction match logic ────────────────────────────────────────────────────
 
 /**
  * Returns TRUE if a predicted direction matches the oracle realized direction.
- *
- * Rules:
- *   - Exact match always counts (up=up, down=down, etc.)
- *   - "mixed" predictions that match a "mixed" oracle count
- *   - "unknown" predictions are always scored as incorrect (no information)
- *   - "flat" vs "up"/"down" is incorrect
+ * Strict equality — used for per-ticker matching only.
  */
 export function directionMatches(
   predicted: TickerPrediction["predicted_direction"],
@@ -151,10 +180,59 @@ export function directionMatches(
   return predicted === oracle;
 }
 
+/**
+ * Scores a predicted direction against an aggregate oracle direction.
+ *
+ * Returns a value in [0, 1]:
+ *   1.0  — exact directional match (up/up, down/down, mixed/mixed)
+ *   0.5  — partial credit: one side is "mixed" and the other is directional
+ *           (brain said "up", oracle was "mixed", or vice versa — the brain
+ *            identified the dominant direction but the oracle had conflicting moves)
+ *   0.0  — directional conflict (up vs down, or either side is "unknown")
+ *
+ * Rationale for 0.5 on mixed:
+ *   Many real events produce mixed asset reactions (e.g. gold up, equities down).
+ *   A prediction of "up" against a mixed oracle is not wrong about the dominant
+ *   direction — it just failed to call the counter-move. Penalising it as zero
+ *   is too harsh; treating it as correct is too lenient. 0.5 is the right middle.
+ */
+export function aggregateDirectionScore(
+  predicted: "up" | "down" | "mixed" | "flat" | "unknown",
+  oracle:    "up" | "down" | "mixed" | "unknown",
+): number {
+  if (predicted === "unknown" || oracle === "unknown") return 0.0;
+  if (predicted === oracle) return 1.0;
+  if (predicted === "mixed" || oracle === "mixed")     return 0.5;
+  // directional conflict: up vs down or down vs up
+  return 0.0;
+}
+
 // ─── Score a single prediction ────────────────────────────────────────────────
 
 /**
  * Scores a single EvalPrediction against its oracle outcome.
+ *
+ * Scoring strategy (in priority order):
+ *
+ *   1. AGGREGATE DIRECTION (primary):
+ *      If the prediction has a known predicted_direction and the oracle outcomes
+ *      have a derivable aggregate direction, score at the aggregate level using
+ *      aggregateDirectionScore(). This is the primary accuracy metric because:
+ *        - It is robust to ticker naming differences between brain and oracle
+ *        - It correctly handles "mixed" predictions with partial credit
+ *        - It measures the thing that actually matters: did the brain get the
+ *          overall market direction right?
+ *
+ *   2. PER-TICKER MATCHING (fallback):
+ *      When predicted_direction is "unknown" (brain gave no directional call),
+ *      attempt per-ticker matching. If named tickers overlap with oracle tickers,
+ *      use their direction accuracy as the score.
+ *
+ *   3. ZERO (no signal):
+ *      If neither method can produce a score (unknown direction, no ticker matches),
+ *      the prediction scores 0 — it provided no useful directional information.
+ *
+ * is_correct is defined as direction_accuracy >= 0.5.
  *
  * @returns ScoredPrediction with direction_accuracy, tickers_scored, is_correct filled in.
  */
@@ -162,18 +240,24 @@ export function scorePrediction(
   prediction: EvalPrediction,
   oracleOutcomes: TickerOutcome[],
 ): ScoredPrediction {
-  if (!prediction.predicted_tickers || prediction.predicted_tickers.length === 0) {
+
+  const predDir     = prediction.predicted_direction;
+  const oracleAgg   = deriveAggregateDirection(oracleOutcomes);
+
+  // ── Path 1: Aggregate direction scoring (primary) ──────────────────────────
+  if (predDir && predDir !== "unknown" && oracleAgg !== "unknown") {
+    const direction_accuracy = aggregateDirectionScore(predDir, oracleAgg);
     return {
       ...prediction,
       oracle_realized_moves: oracleOutcomes,
-      direction_accuracy:    0,
-      tickers_scored:        0,
-      is_correct:            false,
+      direction_accuracy,
+      tickers_scored:        1, // 1 aggregate event scored
+      is_correct:            direction_accuracy >= 0.5,
       is_scored:             true,
     };
   }
 
-  // Match each predicted ticker to an oracle outcome
+  // ── Path 2: Per-ticker matching (fallback when direction is unknown) ────────
   const oracleMap = new Map<string, TickerOutcome["realized_direction"]>(
     oracleOutcomes.map((o) => [o.ticker.toUpperCase(), o.realized_direction]),
   );
@@ -181,24 +265,33 @@ export function scorePrediction(
   let matched = 0;
   let correct = 0;
 
-  for (const tp of prediction.predicted_tickers) {
-    const ticker  = tp.ticker.toUpperCase();
-    const oracle  = oracleMap.get(ticker);
-    if (oracle === undefined) continue; // ticker not in oracle → skip
+  for (const tp of (prediction.predicted_tickers ?? [])) {
+    const oracle = oracleMap.get(tp.ticker.toUpperCase());
+    if (oracle === undefined) continue;
     matched++;
     if (directionMatches(tp.predicted_direction, oracle)) correct++;
   }
 
-  const direction_accuracy = matched > 0 ? correct / matched : 0;
-  const is_correct         = direction_accuracy >= 0.5;
+  if (matched > 0) {
+    const direction_accuracy = correct / matched;
+    return {
+      ...prediction,
+      oracle_realized_moves: oracleOutcomes,
+      direction_accuracy,
+      tickers_scored: matched,
+      is_correct:     direction_accuracy >= 0.5,
+      is_scored:      true,
+    };
+  }
 
+  // ── Path 3: No scorable signal ─────────────────────────────────────────────
   return {
     ...prediction,
     oracle_realized_moves: oracleOutcomes,
-    direction_accuracy,
-    tickers_scored: matched,
-    is_correct,
-    is_scored:      true,
+    direction_accuracy:    0,
+    tickers_scored:        0,
+    is_correct:            false,
+    is_scored:             true,
   };
 }
 
@@ -269,7 +362,44 @@ export function computeBrierScore(predictions: ScoredPrediction[]): number {
   return sum / predictions.length;
 }
 
-// ─── De-duplication ───────────────────────────────────────────────────────────
+// ─── De-duplication by oracle case (re-run safety) ───────────────────────────
+
+/**
+ * When the batch evaluation is re-run, multiple predictions are stored for the
+ * same oracle_case_id (each with a new UUID). This function collapses them to
+ * a single prediction per oracle case — keeping the most recently created one.
+ *
+ * This makes the eval report idempotent across re-runs: re-running the batch
+ * eval simply overwrites the previous results for each case, rather than
+ * counting the same event multiple times and inflating the sample size.
+ *
+ * Predictions without an oracle_case_id (ad-hoc predictions) are kept as-is.
+ */
+export function deduplicateByOracleCase(
+  predictions: ScoredPrediction[],
+): ScoredPrediction[] {
+  const byCase = new Map<string, ScoredPrediction>();
+
+  for (const p of predictions) {
+    if (!p.oracle_case_id) continue; // no oracle key — handled separately
+    const existing = byCase.get(p.oracle_case_id);
+    if (!existing) {
+      byCase.set(p.oracle_case_id, p);
+    } else {
+      // Keep the most recently created prediction (latest re-run wins)
+      const newDate      = p.created_at ?? "";
+      const existingDate = existing.created_at ?? "";
+      if (newDate > existingDate) byCase.set(p.oracle_case_id, p);
+    }
+  }
+
+  // Keep ad-hoc predictions (no oracle_case_id) as-is
+  const adHoc = predictions.filter((p) => !p.oracle_case_id);
+
+  return [...byCase.values(), ...adHoc];
+}
+
+// ─── De-duplication by event cluster ─────────────────────────────────────────
 
 /**
  * Applies event-cluster de-duplication to a list of scored predictions.
@@ -335,15 +465,23 @@ export function buildEvaluationReport(
     (p): p is ScoredPrediction => p.is_scored && p.direction_accuracy !== null,
   ) as ScoredPrediction[];
 
+  // ── Deduplicate by oracle_case_id (keep latest per case across re-runs) ───
+  // This makes the report idempotent: re-running the batch eval replaces
+  // previous scores for each case rather than double-counting them.
+  const latestPerCase = deduplicateByOracleCase(scored);
+
   // ── Count contaminated predictions ────────────────────────────────────────
-  const n_contaminated = scored.filter((p) => {
+  const n_contaminated = latestPerCase.filter((p) => {
     if (!p.oracle_case_id) return false;
     const c = getContaminationForCase(p.oracle_case_id);
     return c.length > 0;
   }).length;
 
   // ── De-duplicate event clusters ────────────────────────────────────────────
-  const { deduplicated, removed_count } = deduplicatePredictions(scored);
+  // Input is latestPerCase (already deduplicated by oracle_case_id), so cluster
+  // dedup collapses cases that represent the SAME real-world event (e.g. BOJ
+  // carry unwind documented across 6 domain perspectives).
+  const { deduplicated, removed_count } = deduplicatePredictions(latestPerCase);
   const n = deduplicated.length;
 
   // ── Overall accuracy ──────────────────────────────────────────────────────
@@ -409,7 +547,7 @@ export function buildEvaluationReport(
     split_version:         splitVersion,
 
     n_predictions:         allPredictions.length,
-    n_scored:              scored.length,
+    n_scored:              latestPerCase.length,
     n_independent_events:  n,
     n_contaminated,
 

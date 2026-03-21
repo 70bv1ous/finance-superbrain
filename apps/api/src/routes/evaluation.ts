@@ -162,6 +162,40 @@ export const registerEvaluationRoutes = async (
   });
 
   // ─────────────────────────────────────────────────────────────────────────
+  // DELETE /v1/evaluation/clear
+  //
+  // Deletes stored evaluation predictions so the batch eval can be re-run
+  // without accumulating stale rows. Protected by API key.
+  //
+  // Query params:
+  //   eval_split: "validation" | "test" | "all"  (default: "test")
+  // ─────────────────────────────────────────────────────────────────────────
+  server.delete("/v1/evaluation/clear", async (request, reply) => {
+    const apiKey = requireApiKey(reply);
+    if (!apiKey) return;
+
+    const query     = request.query as { eval_split?: string };
+    const evalSplit = ["validation", "test", "all"].includes(query.eval_split ?? "")
+      ? (query.eval_split as string)
+      : "test";
+
+    try {
+      const deleted = await repo.deleteEvaluationPredictions?.(evalSplit) ?? 0;
+      return reply.status(200).send({
+        ok:         true,
+        deleted,
+        eval_split: evalSplit,
+        note:       "Run POST /v1/evaluation/apply-splits then the batch eval to repopulate.",
+      });
+    } catch (e) {
+      return reply.status(500).send({
+        error:   "delete_failed",
+        message: (e as Error).message,
+      });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
   // POST /v1/evaluation/predict
   //
   // Runs the brain on a query using TRAIN-ONLY retrieval and stores the
@@ -436,18 +470,62 @@ export const registerEvaluationRoutes = async (
 // ─── Helpers: extract structured predictions from chat response ───────────────
 
 /**
- * Attempts to extract a top-level direction from the chat answer text.
- * Falls back to "unknown" if no clear signal found.
+ * Extracts the top-level directional call from the brain's answer text.
+ *
+ * Three-tier priority:
+ *
+ *   Tier 1 — Regime phrases (highest confidence):
+ *     Unambiguous market-regime language like "risk-off", "flight to quality",
+ *     "equity bull" can determine direction with a single match. These phrases
+ *     cannot appear accidentally in finance prose.
+ *
+ *   Tier 2 — First-sentence thesis:
+ *     The brain is instructed to lead with a one-sentence thesis. That sentence
+ *     contains the dominant directional call before nuance is introduced.
+ *     Requires a 2-count lead (not 1) to avoid false positives.
+ *
+ *   Tier 3 — Full-text word ratio:
+ *     Counts directional words across the full answer. Uses a 2.5× ratio
+ *     threshold (instead of the old ±1 count) to avoid calling "mixed" on
+ *     every nuanced finance answer that legitimately discusses both sides.
+ *
+ * Falls back to "unknown" only when the answer has no detectable direction.
  */
 function extractDirection(
   answer: string,
 ): "up" | "down" | "mixed" | "flat" | "unknown" {
   const lower = answer.toLowerCase();
-  const upCount   = (lower.match(/\b(rise|rises|higher|bull|upside|bid|rally|rallied)\b/g) ?? []).length;
-  const downCount = (lower.match(/\b(fall|falls|lower|bear|downside|sell|decline|declined)\b/g) ?? []).length;
+
+  // ── Tier 1: Regime-level phrases ─────────────────────────────────────────
+  const riskOnRx  = /risk.?on|risk appetite|equity bull|stocks? rally|equities? (rally|higher|rise)|reflationary|soft landing|buy the dip|risk assets? (rise|rally|bid|gain)/;
+  const riskOffRx = /risk.?off|risk aversion|flight to (quality|safety)|equity bear|stocks? (fall|sell)|equities? (lower|fall|sell)|deflationary|hard landing|risk assets? (fall|sell|drop)/;
+
+  const hasRiskOn  = riskOnRx.test(lower);
+  const hasRiskOff = riskOffRx.test(lower);
+
+  if (hasRiskOn  && !hasRiskOff) return "up";
+  if (hasRiskOff && !hasRiskOn)  return "down";
+  if (hasRiskOn  &&  hasRiskOff) return "mixed";
+
+  // ── Tier 2: First-sentence thesis ────────────────────────────────────────
+  // The brain leads with its primary call — extract direction from that alone.
+  const firstSentence = lower.match(/^.{10,300}?[.!?]/)?.[0] ?? lower.slice(0, 250);
+  const upFirst   = (firstSentence.match(/\b(rise|higher|bull|rally|upside|bid|gain|strength|strengthen|appreciate)\b/g) ?? []).length;
+  const downFirst = (firstSentence.match(/\b(fall|lower|bear|decline|downside|sell|weak|pressure|selloff|depreciate)\b/g) ?? []).length;
+
+  if (upFirst   >= downFirst + 2) return "up";
+  if (downFirst >= upFirst   + 2) return "down";
+
+  // ── Tier 3: Full-text word ratio (2.5× threshold) ────────────────────────
+  // Finance analysis always mentions both sides — require a clear ratio lead,
+  // not just a 1-word difference, before calling a direction.
+  const upCount   = (lower.match(/\b(rise|rises|higher|bull|upside|bid|rally|rallied|gain|gains|strengthen|strength|appreciate|appreciate)\b/g) ?? []).length;
+  const downCount = (lower.match(/\b(fall|falls|lower|bear|downside|sell|decline|declined|weaken|weakness|pressure|selloff|depreciate)\b/g) ?? []).length;
+
   if (upCount === 0 && downCount === 0) return "unknown";
-  if (Math.abs(upCount - downCount) <= 1) return "mixed";
-  return upCount > downCount ? "up" : "down";
+  if (upCount   >= downCount * 2.5) return "up";
+  if (downCount >= upCount   * 2.5) return "down";
+  return "mixed";
 }
 
 /**
