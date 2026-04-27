@@ -15,7 +15,7 @@ COPY apps/api/src ./apps/api/src
 COPY apps/api/sql ./apps/api/sql
 COPY packages/schemas/src ./packages/schemas/src
 
-RUN npm run build
+RUN npm --workspace @finance-superbrain/schemas run build && npm --workspace @finance-superbrain/api run build
 RUN npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
