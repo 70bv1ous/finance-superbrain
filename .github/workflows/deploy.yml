@@ -26,30 +26,16 @@ jobs:
       - name: Validate monorepo
         run: npm run verify
 
-      - name: Trigger Railway service deploy
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Upload current commit to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          response=$(curl -s -X POST https://backboard.railway.app/graphql/v2 \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "query": "mutation DeployPublicPilot($environmentId: String!, $serviceId: String!, $input: ServiceInstanceUpdateInput!) { serviceInstanceUpdate(environmentId: $environmentId, serviceId: $serviceId, input: $input) serviceInstanceDeployV2(environmentId: $environmentId, serviceId: $serviceId) }",
-              "variables": {
-                "environmentId": "2a5abbe2-80bf-431d-81f0-8f4353fb83f5",
-                "serviceId": "6f739b8b-2205-4059-8751-942609bef8f2",
-                "input": {
-                  "sleepApplication": true,
-                  "multiRegionConfig": {
-                    "us-east4-eqdc4a": {
-                      "numReplicas": 1
-                    }
-                  }
-                }
-              }
-            }')
-          echo "Railway response: $response"
-          if echo "$response" | grep -q '"serviceInstanceDeployV2":"'; then
-            echo "Railway deploy triggered successfully"
-          else
-            echo "Railway deploy failed"
-            exit 1
-          fi
+          railway up \
+            --ci \
+            --project a22e5528-10f6-456c-adad-87aa01ac78b9 \
+            --environment production \
+            --service sincere-smile \
+            --message "github:${{ github.sha }}"
