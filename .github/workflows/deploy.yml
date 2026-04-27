@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    name: Validate and trigger Railway redeploy
+    name: Validate public pilot baseline
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -26,16 +26,8 @@ jobs:
       - name: Validate monorepo
         run: npm run verify
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Upload current commit to Railway
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Deployment handoff note
         run: |
-          railway up \
-            --ci \
-            --project a22e5528-10f6-456c-adad-87aa01ac78b9 \
-            --environment production \
-            --service sincere-smile \
-            --message "github:${{ github.sha }}"
+          echo "Repository validation passed."
+          echo "Railway deploys this repository through its GitHub integration."
+          echo "Use npm run demo:public-pilot:smoke after Railway reports the API deployment healthy."

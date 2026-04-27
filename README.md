@@ -168,12 +168,22 @@ Current public web URL:
 
 - `https://finance-superbrain-web.vercel.app`
 
+Current hosted API URL:
+
+- `https://sincere-smile-production-9c3f.up.railway.app`
+
 Restore or create the hosted API first:
 
 1. Deploy the API runtime with the existing Docker/build entrypoint.
 2. Run database migrations against hosted Postgres with `npm run db:migrate`.
 3. Seed deterministic demo proof data with `npm run seed:demo-proof`.
 4. Confirm the API returns healthy responses for `/health`, `/ready`, and `/v1/auth/bootstrap`.
+
+Deployment handoff:
+
+- Railway is currently connected to the repository through its GitHub integration.
+- GitHub Actions validates the monorepo; Railway performs the API deploy.
+- If an emergency manual deploy is needed from an authenticated workstation, run `railway up --service sincere-smile --detach --message "public pilot manual deploy"`.
 
 Required hosted API environment:
 
@@ -196,7 +206,7 @@ Update Vercel after the API URL is known:
 Validate the hosted pilot:
 
 ```bash
-PUBLIC_PILOT_API_URL=https://your-api-host.example.com npm run demo:public-pilot:smoke
+PUBLIC_PILOT_API_URL=https://sincere-smile-production-9c3f.up.railway.app npm run demo:public-pilot:smoke
 ```
 
 The smoke check verifies:
