@@ -18,15 +18,17 @@ describe("operation worker loop invocation", () => {
   });
 
   it("falls back to the local tsx binary before npm scripts", () => {
+    const binaryName = process.platform === "win32" ? "tsx.cmd" : "tsx";
     const invocation = resolveOperationWorkerLoopInvocation({
-      cwd: "C:\\repo\\apps\\api",
-      platform: "win32",
+      cwd: "/repo/apps/api",
+      platform: process.platform,
       exec_argv: [],
-      exists: (path) => path.endsWith("node_modules\\.bin\\tsx.cmd"),
+      exists: (path) =>
+        path.replaceAll("\\", "/").endsWith(`node_modules/.bin/${binaryName}`),
     });
 
     expect(invocation.mode).toBe("tsx_binary");
-    expect(invocation.command.endsWith("node_modules\\.bin\\tsx.cmd")).toBe(true);
+    expect(invocation.command.replaceAll("\\", "/").endsWith(`node_modules/.bin/${binaryName}`)).toBe(true);
     expect(invocation.args).toHaveLength(1);
   });
 
