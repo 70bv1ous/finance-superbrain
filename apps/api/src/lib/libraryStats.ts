@@ -24,7 +24,7 @@ export type PackStat = {
   case_count:  number;
   draft_count: number;
   reviewed_count: number;
-  latest_case_at: string | null;
+  latest_case_at: string | Date | null;
 };
 
 /**
@@ -40,7 +40,7 @@ export async function getLibraryPackStats(): Promise<PackStat[]> {
       case_count:     string;
       draft_count:    string;
       reviewed_count: string;
-      latest_case_at: string | null;
+      latest_case_at: string | Date | null;
     }>(
       `SELECT
          case_pack,

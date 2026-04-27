@@ -57,4 +57,20 @@ describe("parseFinanceEvent", () => {
     expect(parsed.themes).not.toContain("defense");
     expect(parsed.candidate_assets).not.toEqual(expect.arrayContaining(["ITA", "LMT"]));
   });
+
+  it("captures dovish-but-growth-worried macro language with growth-slowdown context", () => {
+    const parsed = parseFinanceEvent({
+      source_type: "headline",
+      title: "Central bank softens inflation language",
+      raw_text:
+        "The central bank unexpectedly softened its inflation language, signaled a slower pace of quantitative tightening, and emphasized downside growth risks after a sharp decline in freight rates and industrial demand surveys.",
+    });
+
+    expect(parsed.themes).toEqual(
+      expect.arrayContaining(["central_bank", "inflation", "rates", "growth_slowdown"]),
+    );
+    expect(parsed.candidate_assets).toEqual(
+      expect.arrayContaining(["TLT", "QQQ", "SPY", "GLD", "DXY"]),
+    );
+  });
 });

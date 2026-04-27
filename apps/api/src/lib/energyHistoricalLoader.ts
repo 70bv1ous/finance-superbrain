@@ -67,7 +67,7 @@ const energySpecificRegimes = (item: EnergyHistoricalCaseInput) => {
   return [...values];
 };
 
-const ENERGY_PRESETS: Record<EnergyHistoricalCaseInput["event_type"], EnergyPreset> = {
+const ENERGY_PRESETS: Partial<Record<EnergyHistoricalCaseInput["event_type"], EnergyPreset>> = {
   opec_cut: {
     event_family: "opec_cut",
     default_title: (item) => `${defaultProducer(item)} signals an oil output cut`,

@@ -1,5 +1,14 @@
 import type {
-  BenchmarkReplaySnapshot,
+  AuthSession,
+  CreateWorkspaceUserRequest,
+  DecisionBrief,
+  DecisionCheckpoint,
+    PortfolioCandidate,
+    PortfolioCheckpoint,
+    PortfolioRebalanceProposal,
+    PortfolioReviewSession,
+    PortfolioReviewSessionItem,
+    BenchmarkReplaySnapshot,
   BenchmarkTrustRefreshRecord,
   CalibrationSnapshot,
   CreateTranscriptChunkRequest,
@@ -29,6 +38,10 @@ import type {
   SystemOperationName,
   Postmortem,
   PredictionOutcome,
+  ServerStudioDraft,
+  SharedInvestigation,
+  SharedReviewNote,
+  SharedStudioRun,
   StoredGrowthPressureAlert,
   StoredModelVersion,
   StoredEvent,
@@ -40,6 +53,12 @@ import type {
   TranscriptStreamBinding,
   TranscriptStreamBuffer,
   TranscriptSessionAnalysis,
+  Workspace,
+  WorkspaceActivity,
+  WorkspaceMembership,
+  WorkspaceRecentItem,
+  WorkspaceRole,
+  WorkspaceUser,
   WalkForwardReplaySnapshot,
 } from "@finance-superbrain/schemas";
 
@@ -141,7 +160,183 @@ export type PromotionEvaluationListOptions = {
   has_walk_forward?: boolean;
 };
 
+export type CreateWorkspaceUserInput = Omit<CreateWorkspaceUserRequest, "password"> & {
+  password_hash: string;
+  active?: boolean;
+  workspace_id?: string;
+};
+
+export type CreateUserSessionInput = {
+  user_id: string;
+  workspace_id: string;
+  token_hash: string;
+  expires_at: string;
+  last_seen_at: string;
+};
+
+export type SaveSharedInvestigationInput = Omit<SharedInvestigation, "steps">;
+
+export type SaveWorkspaceRecentItemInput = WorkspaceRecentItem & {
+  workspace_id: string;
+  actor_user_id: string;
+};
+
 export interface Repository {
+  getOrCreateDefaultWorkspace(): Promise<Workspace>;
+  countWorkspaceUsers(): Promise<number>;
+  createWorkspaceUser(input: CreateWorkspaceUserInput): Promise<WorkspaceUser>;
+  getWorkspaceUserByEmail(email: string): Promise<(WorkspaceUser & { password_hash: string }) | null>;
+  getWorkspaceUserById(id: string): Promise<WorkspaceUser | null>;
+  getWorkspaceMembership(input: {
+    workspace_id: string;
+    user_id: string;
+  }): Promise<WorkspaceMembership | null>;
+  listWorkspaceMembers(workspaceId: string): Promise<Array<{
+    user: WorkspaceUser;
+    membership: WorkspaceMembership;
+  }>>;
+  createUserSession(input: CreateUserSessionInput): Promise<AuthSession>;
+  getUserSessionByTokenHash(tokenHash: string): Promise<AuthSession | null>;
+  touchUserSession(id: string, lastSeenAt: string): Promise<AuthSession | null>;
+  revokeUserSession(id: string): Promise<void>;
+  saveServerStudioDraft(draft: ServerStudioDraft): Promise<ServerStudioDraft>;
+  getServerStudioDraft(input: {
+    workspace_id: string;
+    owner_user_id: string;
+  }): Promise<ServerStudioDraft | null>;
+  deleteServerStudioDraft(input: {
+    workspace_id: string;
+    owner_user_id: string;
+  }): Promise<void>;
+  saveSharedStudioRun(run: SharedStudioRun): Promise<SharedStudioRun>;
+  getSharedStudioRun(id: string): Promise<SharedStudioRun | null>;
+  listSharedStudioRuns(options: {
+    workspace_id: string;
+    owner_user_id?: string;
+    limit?: number;
+  }): Promise<SharedStudioRun[]>;
+  saveSharedInvestigation(
+    investigation: SaveSharedInvestigationInput,
+  ): Promise<SharedInvestigation>;
+  replaceSharedInvestigationSteps(input: {
+    investigation_id: string;
+    steps: SharedInvestigation["steps"];
+  }): Promise<SharedInvestigation["steps"]>;
+  getSharedInvestigation(id: string): Promise<SharedInvestigation | null>;
+  listSharedInvestigations(options: {
+    workspace_id: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    limit?: number;
+  }): Promise<SharedInvestigation[]>;
+  assignSharedInvestigation(input: {
+    investigation_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }): Promise<SharedInvestigation | null>;
+  saveDecisionBrief(brief: DecisionBrief): Promise<DecisionBrief>;
+  getDecisionBrief(id: string): Promise<DecisionBrief | null>;
+  listDecisionBriefs(options: {
+    workspace_id: string;
+    investigation_id?: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    statuses?: DecisionBrief["status"][];
+    limit?: number;
+  }): Promise<DecisionBrief[]>;
+  assignDecisionBrief(input: {
+    decision_brief_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }): Promise<DecisionBrief | null>;
+  updateDecisionBriefStatus(input: {
+    decision_brief_id: string;
+    status: DecisionBrief["status"];
+    last_actor_user_id: string;
+    updated_at: string;
+    next_review_due_at?: string | null;
+    closed_at?: string | null;
+  }): Promise<DecisionBrief | null>;
+  saveDecisionCheckpoint(checkpoint: DecisionCheckpoint): Promise<DecisionCheckpoint>;
+  listDecisionCheckpoints(options: {
+    decision_brief_id: string;
+    limit?: number;
+  }): Promise<DecisionCheckpoint[]>;
+  savePortfolioCandidate(candidate: PortfolioCandidate): Promise<PortfolioCandidate>;
+  getPortfolioCandidate(id: string): Promise<PortfolioCandidate | null>;
+  listPortfolioCandidates(options: {
+    workspace_id: string;
+    decision_brief_id?: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    statuses?: PortfolioCandidate["status"][];
+    limit?: number;
+  }): Promise<PortfolioCandidate[]>;
+  assignPortfolioCandidate(input: {
+    portfolio_candidate_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }): Promise<PortfolioCandidate | null>;
+  updatePortfolioCandidatePosture(input: {
+    portfolio_candidate_id: string;
+    priority: string;
+    sizing_label: string;
+    risk_budget_label: string;
+    conviction_label: string;
+    primary_theme: string;
+    secondary_themes: string[];
+    related_assets: string[];
+    next_review_due_at: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }): Promise<PortfolioCandidate | null>;
+  updatePortfolioCandidateStatus(input: {
+    portfolio_candidate_id: string;
+    status: PortfolioCandidate["status"];
+    last_actor_user_id: string;
+    updated_at: string;
+    next_review_due_at?: string | null;
+    closed_at?: string | null;
+  }): Promise<PortfolioCandidate | null>;
+  savePortfolioCheckpoint(checkpoint: PortfolioCheckpoint): Promise<PortfolioCheckpoint>;
+  listPortfolioCheckpoints(options: {
+    portfolio_candidate_id: string;
+    limit?: number;
+  }): Promise<PortfolioCheckpoint[]>;
+  savePortfolioReviewSession(session: PortfolioReviewSession): Promise<PortfolioReviewSession>;
+  getPortfolioReviewSession(id: string): Promise<PortfolioReviewSession | null>;
+  listPortfolioReviewSessions(options: {
+    workspace_id: string;
+    statuses?: PortfolioReviewSession["status"][];
+    limit?: number;
+  }): Promise<PortfolioReviewSession[]>;
+  savePortfolioReviewSessionItem(item: PortfolioReviewSessionItem): Promise<PortfolioReviewSessionItem>;
+  listPortfolioReviewSessionItems(options: {
+    review_session_id: string;
+  }): Promise<PortfolioReviewSessionItem[]>;
+  savePortfolioRebalanceProposal(proposal: PortfolioRebalanceProposal): Promise<PortfolioRebalanceProposal>;
+  listPortfolioRebalanceProposals(options: {
+    review_session_id: string;
+    portfolio_candidate_id?: string;
+  }): Promise<PortfolioRebalanceProposal[]>;
+  saveWorkspaceRecentItem(item: SaveWorkspaceRecentItemInput): Promise<WorkspaceRecentItem>;
+  listWorkspaceRecentItems(options: {
+    workspace_id: string;
+    limit?: number;
+  }): Promise<WorkspaceRecentItem[]>;
+  saveWorkspaceActivity(activity: WorkspaceActivity): Promise<WorkspaceActivity>;
+  listWorkspaceActivity(options: {
+    workspace_id: string;
+    limit?: number;
+  }): Promise<WorkspaceActivity[]>;
+  saveSharedReviewNote(note: SharedReviewNote): Promise<SharedReviewNote>;
+  getSharedReviewNote(input: {
+    workspace_id: string;
+    prediction_id: string;
+  }): Promise<SharedReviewNote | null>;
   createSource(input: CreateSourceRequest): Promise<StoredSource>;
   getSource(id: string): Promise<StoredSource | null>;
   getSourceByRawUri(rawUri: string): Promise<StoredSource | null>;

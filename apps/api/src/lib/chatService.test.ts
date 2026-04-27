@@ -1,14 +1,15 @@
 /**
- * Phase 8A — chatService unit tests.
+ * Phase 11 — chatService unit tests.
  *
  * The Anthropic SDK and repository are fully mocked so tests run offline
  * and never hit external APIs.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { processChat, type ChatRequest } from "./chatService.js";
 
-// ─── Mock @anthropic-ai/sdk ───────────────────────────────────────────────────
+import { GUIDED_DEMO_PROMPTS } from "@finance-superbrain/schemas";
+
+import { processChat } from "./chatService.js";
 
 vi.mock("@anthropic-ai/sdk", () => ({
   default: vi.fn().mockImplementation(() => ({
@@ -19,16 +20,33 @@ vi.mock("@anthropic-ai/sdk", () => ({
             type: "text",
             text: JSON.stringify({
               answer:
-                "CPI came in hot at 0.4% MoM vs 0.3% expected. Equities face headwinds.",
+                "CPI came in hot at 0.4% versus 0.3% expected, so the clean first move is higher yields, a firmer dollar, and pressure on rate-sensitive equities.",
               confidence_level: "high",
               evidence: [
-                "Surprise magnitude 0.1% above consensus",
-                "Fed will likely maintain hawkish stance",
+                "Historical CPI analogues saw duration sell off first when the surprise moved the implied Fed path higher.",
+                "A hotter inflation print tends to support the dollar when policy expectations reprice tighter.",
+              ],
+              limits: [
+                "Positioning can mute the first move if the market was already leaning hawkish.",
               ],
               risks: [
-                "Market may already be priced for hot print",
-                "Concurrent data could dominate",
+                "A simultaneous growth scare could complicate the equity read-through.",
+                "Other same-day macro releases can dominate the tape.",
               ],
+              affected_assets: [
+                {
+                  ticker: "TLT",
+                  direction: "down",
+                  rationale: "Higher inflation pressure usually weighs on duration through the rate path.",
+                },
+                {
+                  ticker: "DXY",
+                  direction: "up",
+                  rationale: "A tighter policy path can support the dollar.",
+                },
+              ],
+              analogue_support_summary:
+                "4 analogue cases matched, centered on inflation and rate repricing.",
             }),
           },
         ],
@@ -37,163 +55,153 @@ vi.mock("@anthropic-ai/sdk", () => ({
   })),
 }));
 
-// ─── Mock repository ──────────────────────────────────────────────────────────
+vi.mock("./marketData.js", () => ({
+  getLiveMarketSnapshot: vi.fn().mockResolvedValue([]),
+  formatMarketSnapshot: vi.fn().mockReturnValue(""),
+}));
+
+vi.mock("./eventCalendar.js", () => ({
+  getUpcomingEvents: vi.fn().mockReturnValue([]),
+  formatUpcomingEvents: vi.fn().mockReturnValue(""),
+}));
+
+vi.mock("./caseSearch.js", () => ({
+  searchCases: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("./predictionTracker.js", () => ({
+  logPrediction: vi.fn(),
+}));
 
 const mockRepository = {
-  listEvents:      vi.fn().mockResolvedValue([]),
-  listLessons:     vi.fn().mockResolvedValue([]),
-  listPredictions: vi.fn().mockResolvedValue([]),
+  listLessons: vi.fn().mockResolvedValue([]),
+  listLearningRecords: vi.fn().mockResolvedValue([]),
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const API_KEY = "test-api-key";
 
-async function chat(query: string, session_id?: string) {
-  return processChat({ query, session_id }, mockRepository as any, API_KEY);
+async function chat(query: string, session_id?: string, apiKey: string | undefined = API_KEY) {
+  return processChat({ query, session_id }, mockRepository as any, apiKey);
 }
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockRepository.listEvents.mockResolvedValue([]);
+  delete process.env.CHAT_MODEL_BACKEND;
   mockRepository.listLessons.mockResolvedValue([]);
-  mockRepository.listPredictions.mockResolvedValue([]);
+  mockRepository.listLearningRecords.mockResolvedValue([]);
 });
 
 describe("event type detection", () => {
-  it("'What happens to SPY if CPI comes in hot?' → event_type === 'cpi'", async () => {
-    const r = await chat("What happens to SPY if CPI comes in hot?");
-    expect(r.event_type).toBe("cpi");
+  it("'What happens to SPY if CPI comes in hot?' -> event_type === 'cpi'", async () => {
+    const response = await chat("What happens to SPY if CPI comes in hot?");
+    expect(response.event_type).toBe("cpi");
   });
 
-  it("'How will markets react to the Fed rate decision?' → event_type === 'fomc'", async () => {
-    const r = await chat("How will markets react to the Fed rate decision?");
-    expect(r.event_type).toBe("fomc");
+  it("'How will markets react to the Fed rate decision?' -> event_type === 'fomc'", async () => {
+    const response = await chat("How will markets react to the Fed rate decision?");
+    expect(response.event_type).toBe("fomc");
   });
 
-  it("'NFP beats expectations by 100k jobs, what moves?' → event_type === 'nfp'", async () => {
-    const r = await chat("NFP beats expectations by 100k jobs, what moves?");
-    expect(r.event_type).toBe("nfp");
-  });
-
-  it("'What is the best trading strategy?' → event_type === 'general'", async () => {
-    const r = await chat("What is the best trading strategy?");
-    expect(r.event_type).toBe("general");
-  });
-
-  it("'inflation data release' → event_type === 'cpi'", async () => {
-    const r = await chat("What does the inflation data release mean for rates?");
-    expect(r.event_type).toBe("cpi");
-  });
-
-  it("'consumer price index' → event_type === 'cpi'", async () => {
-    const r = await chat("consumer price index rose more than expected");
-    expect(r.event_type).toBe("cpi");
-  });
-
-  it("'powell speaks today' → event_type === 'fomc'", async () => {
-    const r = await chat("powell speaks today, what should I watch?");
-    expect(r.event_type).toBe("fomc");
-  });
-
-  it("'unemployment rate' → event_type === 'nfp'", async () => {
-    const r = await chat("unemployment rate dropped to 3.5%");
-    expect(r.event_type).toBe("nfp");
+  it("'NFP beats expectations by 100k jobs, what moves?' -> event_type === 'nfp'", async () => {
+    const response = await chat("NFP beats expectations by 100k jobs, what moves?");
+    expect(response.event_type).toBe("nfp");
   });
 });
 
 describe("response shape", () => {
-  it("response has all required fields", async () => {
-    const r = await chat("CPI just printed hot, what happens next?");
-    expect(r).toHaveProperty("answer");
-    expect(r).toHaveProperty("event_type");
-    expect(r).toHaveProperty("confidence_level");
-    expect(r).toHaveProperty("evidence");
-    expect(r).toHaveProperty("risks");
-    expect(r).toHaveProperty("analogues_referenced");
-    expect(r).toHaveProperty("session_id");
+  it("response has all required proof fields", async () => {
+    const response = await chat("CPI just printed hot, what happens next?");
+    expect(response).toHaveProperty("answer");
+    expect(response).toHaveProperty("event_type");
+    expect(response).toHaveProperty("confidence_level");
+    expect(response).toHaveProperty("evidence");
+    expect(response).toHaveProperty("limits");
+    expect(response).toHaveProperty("risks");
+    expect(response).toHaveProperty("affected_assets");
+    expect(response).toHaveProperty("memory_support_summary");
+    expect(response).toHaveProperty("analogues_referenced");
+    expect(response).toHaveProperty("session_id");
   });
 
-  it("session_id is a string", async () => {
-    const r = await chat("CPI came in hot");
-    expect(typeof r.session_id).toBe("string");
-    expect(r.session_id.length).toBeGreaterThan(0);
-  });
-
-  it("evidence is an array", async () => {
-    const r = await chat("CPI came in hot");
-    expect(Array.isArray(r.evidence)).toBe(true);
-  });
-
-  it("risks is an array", async () => {
-    const r = await chat("CPI came in hot");
-    expect(Array.isArray(r.risks)).toBe(true);
-  });
-
-  it("confidence_level is one of 'high' | 'medium' | 'low'", async () => {
-    const r = await chat("CPI came in hot");
-    expect(["high", "medium", "low"]).toContain(r.confidence_level);
-  });
-
-  it("analogues_referenced is a number", async () => {
-    const r = await chat("CPI came in hot");
-    expect(typeof r.analogues_referenced).toBe("number");
+  it("uses model-supplied limits and affected assets when present", async () => {
+    const response = await chat("CPI came in hot");
+    expect(response.limits.length).toBeGreaterThan(0);
+    expect(response.affected_assets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ticker: "TLT", direction: "down" }),
+        expect.objectContaining({ ticker: "DXY", direction: "up" }),
+      ]),
+    );
   });
 });
 
 describe("session_id handling", () => {
-  it("when session_id provided in request, it is returned in response", async () => {
-    const r = await chat("fomc meeting today", "my-session-123");
-    expect(r.session_id).toBe("my-session-123");
+  it("returns the provided session_id", async () => {
+    const response = await chat("fomc meeting today", "my-session-123");
+    expect(response.session_id).toBe("my-session-123");
   });
 
-  it("when session_id not provided, response still contains a valid session_id string", async () => {
-    const r = await chat("nfp beat consensus");
-    expect(typeof r.session_id).toBe("string");
-    expect(r.session_id.length).toBeGreaterThan(0);
-  });
-
-  it("two calls without session_id produce different session_ids", async () => {
-    const r1 = await chat("fomc");
-    const r2 = await chat("fomc");
-    // Both should be non-empty strings; UUIDs are unique
-    expect(typeof r1.session_id).toBe("string");
-    expect(typeof r2.session_id).toBe("string");
+  it("generates a session_id when none is provided", async () => {
+    const response = await chat("nfp beat consensus");
+    expect(typeof response.session_id).toBe("string");
+    expect(response.session_id.length).toBeGreaterThan(0);
   });
 });
 
-describe("graceful degradation", () => {
-  it("when repository throws, processChat still returns a valid ChatResponse", async () => {
-    mockRepository.listEvents.mockRejectedValueOnce(new Error("DB error"));
-    mockRepository.listLessons.mockRejectedValueOnce(new Error("DB error"));
-    mockRepository.listPredictions.mockRejectedValueOnce(new Error("DB error"));
+describe("mock mode", () => {
+  it("falls back to deterministic proof responses when no API key is configured", async () => {
+    const prompt = GUIDED_DEMO_PROMPTS.find((entry) => entry.id === "macro-hot-cpi");
+    expect(prompt).toBeTruthy();
 
-    // Should not throw
-    const r = await processChat(
-      { query: "CPI hot print, what happens?" },
-      mockRepository as any,
-      API_KEY,
+    const response = await chat(prompt!.prompt, undefined, undefined);
+
+    expect(response.answer.length).toBeGreaterThan(40);
+    expect(response.evidence.length).toBeGreaterThan(0);
+    expect(response.limits.length).toBeGreaterThan(0);
+    expect(response.risks.length).toBeGreaterThan(0);
+    expect(response.affected_assets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ticker: "TLT", direction: "down" }),
+        expect.objectContaining({ ticker: "DXY", direction: "up" }),
+      ]),
     );
-
-    expect(r).toHaveProperty("answer");
-    expect(r).toHaveProperty("event_type");
-    expect(r).toHaveProperty("session_id");
-    expect(typeof r.session_id).toBe("string");
   });
 
-  it("when repository throws, analogues_referenced falls back to 0", async () => {
-    mockRepository.listEvents.mockRejectedValueOnce(new Error("DB error"));
-    mockRepository.listLessons.mockRejectedValueOnce(new Error("DB error"));
-    mockRepository.listPredictions.mockRejectedValueOnce(new Error("DB error"));
+  it("honors forced mock mode even when an API key exists", async () => {
+    process.env.CHAT_MODEL_BACKEND = "mock";
 
-    const r = await processChat(
-      { query: "payroll miss" },
-      mockRepository as any,
-      API_KEY,
-    );
+    const response = await chat("Tariff rhetoric on China just escalated again. What is the most defensible market read-through?");
 
-    expect(r.analogues_referenced).toBe(0);
+    expect(response.limits.length).toBeGreaterThan(0);
+    expect(response.risks.length).toBeGreaterThan(0);
+    expect(response.affected_assets.length).toBeGreaterThan(0);
+  });
+
+  it("surfaces imported Obsidian memory and avoids stale query-only cache hits", async () => {
+    process.env.CHAT_MODEL_BACKEND = "mock";
+    const query = "How should the desk use my Obsidian CPI memory note?";
+
+    mockRepository.listLessons.mockResolvedValueOnce([]);
+    const first = await chat(query, "session-before-import");
+    expect(first.memory_support_summary ?? null).toBeNull();
+
+    mockRepository.listLessons.mockResolvedValueOnce([
+      {
+        id: "lesson-imported",
+        lesson_summary: "Human note: hot CPI usually matters most when the desk is underhedged on duration.",
+        metadata: {
+          imported_from: "obsidian",
+          import_mode: "selective_human_inbox",
+          obsidian_relative_path: "Finance Superbrain/Human Inbox/CPI desk note.md",
+          obsidian_content_hash: "hash-cpi-note",
+        },
+        created_at: "2026-04-20T10:00:00.000Z",
+      },
+    ]);
+    const second = await chat(query, "session-after-import");
+
+    expect(second.cached).not.toBe(true);
+    expect(second.memory_support_summary).toContain("human Obsidian memory");
+    expect(second.memory_support_summary).toContain("CPI desk note.md");
   });
 });

@@ -2,15 +2,14 @@ name: Auto-Score Predictions
 
 on:
   schedule:
-    # Run daily at 06:00 UTC (after overnight market data is available)
     - cron: "0 6 * * *"
   workflow_dispatch:
-    # Allow manual trigger from GitHub Actions UI
 
 jobs:
   auto-score:
     name: Score expired predictions
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Trigger auto-score on Railway API
         run: |
@@ -23,10 +22,10 @@ jobs:
           processed=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('processed', 0))" 2>/dev/null || echo "0")
           errors=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('errors', [])))" 2>/dev/null || echo "0")
 
-          echo "✅ Processed: $processed predictions"
-          echo "⚠️  Errors: $errors"
+          echo "Processed: $processed predictions"
+          echo "Errors: $errors"
 
           if echo "$response" | grep -q '"statusCode":5'; then
-            echo "❌ Auto-score endpoint returned a server error"
+            echo "Auto-score endpoint returned a server error"
             exit 1
           fi

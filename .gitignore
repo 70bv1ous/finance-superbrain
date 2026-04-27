@@ -36,3 +36,5 @@ Thumbs.db
 # PGlite local DB
 *.db
 pglite-data/
+
+.vercel

@@ -1,35 +1,395 @@
-# Trade Journal Site
+# Finance Superbrain
 
-This folder is ready to host as a static website.
+This repository is now a full monorepo for the AI financial self-learning platform, not a static single-page site.
 
-## Files
+Primary workspaces:
 
-- `index.html`: the full app
+- `apps/api`: Fastify API, operations runtime, worker-service supervision, historical loaders, and passive monitoring surfaces
+- `apps/web`: authenticated team workspace and decision operating desk built on the shared backend read models
+- `packages/schemas`: shared runtime and product schemas
 
-## How to host it
+## Fast start
 
-### Netlify
+1. Install dependencies with `npm install`
+2. Validate the repository with `npm run verify`
+3. Start the API locally with `npm run dev:api`
+4. Start the web app locally with `npm run dev:web`
+5. Open:
+   - `http://localhost:3001/health`
+   - `http://localhost:3001/ready`
+   - `http://localhost:3001/ops`
+   - `http://localhost:3000/`
 
-1. Create a new site from drag and drop.
-2. Upload this `trade-journal-site` folder or just `index.html`.
-3. Netlify will give you a public URL to share.
+## Production-style Docker runtime
 
-### Vercel
+The repository is prepared to run the production API and supervised worker-service under Docker using the built `dist` entrypoints:
 
-1. Create a new project.
-2. Upload this folder.
-3. Deploy it as a static site with no build command.
+- `db`: Postgres
+- `migrate`: one-shot schema migration
+- `api`: `node apps/api/dist/index.js`
+- `worker-service`: `node apps/api/dist/scripts/runOperationWorkerService.js`
 
-### GitHub Pages
+Build and start the stack with:
 
-1. Create a repository.
-2. Add `index.html` to the repository root.
-3. Turn on GitHub Pages in the repository settings.
+```bash
+docker compose up --build
+```
 
-## Important note
+The worker container uses the repository-backed supervisor check for health:
 
-This is a static client-side app. Each person who opens the site gets their own browser-stored journal.
-If you want one shared database for multiple people editing the same history, the next step would be adding a backend such as Supabase or Firebase.
+- `node apps/api/dist/scripts/checkOperationWorkerService.js --mode=liveness --service-id=worker-service-main`
+
+Use `docker compose down` to stop the stack. Add `-v` only if you intentionally want to remove the Postgres volume too.
+
+## Validation commands
+
+- `npm run lint`
+- `npm run build`
+- `npm test`
+- `npm run ops:drain-operation-jobs`
+- `npm run verify`
+- `npm run test:e2e:smoke`
+- `npm run test:e2e`
+
+### Test tiers
+
+The API integration surface is intentionally split into smaller deterministic chunks so everyday validation does not depend on one very large `app.test.ts` process.
+
+- `npm --workspace @finance-superbrain/api run test:unit`: API intelligence, library, and script-level tests
+- `npm --workspace @finance-superbrain/api run test:app`: all API app-route integration tests, split by route/workflow group
+- `npm --workspace @finance-superbrain/api run test:app:workspace`: fastest workspace/auth/decision/portfolio app-route confidence
+- `npm --workspace @finance-superbrain/api run test:app:full`: legacy single-file app integration sweep for deep manual debugging
+
+Use `npm test` for the normal repository gate. Use `npm run test:e2e:smoke` after UI or routing changes, and reserve `test:app:full` for targeted investigation because the legacy app monolith is intentionally slower.
+
+## Curated investor demo runbook
+
+This is the canonical local demo path for the current public shell, guided workspace proof, and Obsidian second-brain export.
+
+Recommended local environment for repeatable proof:
+
+- `REPOSITORY_BACKEND=pglite`
+- `PGLITE_DATA_DIR` pointed at a local non-synced path
+- `MARKET_DATA_BACKEND=mock`
+- `CHAT_MODEL_BACKEND=mock`
+- `AUTH_COOKIE_SECURE=false`
+
+Windows note:
+
+- prefer a non-OneDrive path for `PGLITE_DATA_DIR`
+- a safe example is `%LOCALAPPDATA%\\finance-superbrain\\demo-proof`
+
+Important for local PGlite:
+
+- seed before starting the API
+- PGlite is easiest when the seed script and API do not hit the same data directory at the same time
+
+Trusted local sequence:
+
+1. Install dependencies with `npm install`
+2. Seed the deterministic demo workspace with `npm run demo:proof:seed:local`
+3. Start the API with `npm run dev:api`
+4. Start the web app with `npm run dev:web`
+5. Open [http://localhost:3000](http://localhost:3000)
+6. Sign in with:
+   - `lead.operator@finance-superbrain.local` / `workspace-admin-password`
+   - or `macro.analyst@finance-superbrain.local` / `workspace-analyst-password`
+7. Walk the guided proof in this order:
+   - public shell `/`
+   - workspace home `/workspace`
+   - guided evidence desk `/workspace#intelligence-proof`
+   - seeded decision brief `/decisions/demo-decision-cpi-discipline`
+   - seeded portfolio candidate `/portfolio/demo-portfolio-cpi-discipline`
+   - library memory `/library?focus=demo-investigation-cpi-discipline`
+   - settings audit `/settings`
+
+Guided prompt order:
+
+1. `Hot CPI cross-asset reaction`
+2. `Tariff escalation into China risk`
+3. `Trim versus move to watching`
+
+Pre-demo confidence checks:
+
+- `npm run test:e2e:smoke`
+- `npm run demo:proof:hosted-like`
+- `npm run demo:proof:acceptance` when you want the smoke browser pass plus hosted-like validation in one command
+- `npm run demo:phase13:acceptance` when you want the full Phase 13 demo-ready gate: unit/app tests, smoke browser proof, hosted-like startup, seeded data, and Obsidian export
+
+Hosted-preview notes:
+
+- enable `NEXT_PUBLIC_DEMO_MODE=true` when you want the login page to expose deterministic demo quick-fill accounts
+- optionally set `NEXT_PUBLIC_DEMO_CONTACT_URL` if the public shell should send investors or partners to a real demo-request destination
+- keep the preview data deterministic by seeding the workspace with the same `lead.operator` and `macro.analyst` accounts used by `seed:demo-proof`
+- when the web app and API are on different domains, set `AUTH_COOKIE_SAME_SITE=none`, `AUTH_COOKIE_SECURE=true`, and `AUTH_ALLOWED_ORIGINS` to a comma-separated list of allowed web origins such as your Vercel preview and production URLs
+
+Operator pre-demo checklist:
+
+1. Run `npm run demo:proof:seed:local`
+2. Start the API and web app
+3. Confirm login works with the seeded lead-operator account
+4. Walk the guided proof path from `/` -> `/workspace` -> `/workspace#intelligence-proof`
+5. Open the seeded decision brief, portfolio candidate, Library, and Settings audit views
+6. Run `npm run demo:proof:acceptance` before an important walkthrough
+
+### Phase 13 demo-ready pilot gate
+
+Phase 13 is the stabilization gate for investor and pilot walkthroughs. Use it when the question is: "Are we ready to show this end to end?"
+
+Run:
+
+```bash
+npm run demo:phase13:acceptance
+```
+
+This validates:
+
+- API and web test suites
+- public shell and protected workspace smoke flow
+- deterministic demo seed behavior
+- hosted-like API and web startup
+- login against seeded demo accounts
+- generated Obsidian second-brain export
+
+Manual walkthrough after the command passes:
+
+1. Open `/` and confirm the public narrative is clear.
+2. Open `/workspace` and confirm protected-route login is clean.
+3. Run the guided evidence-desk prompt flow.
+4. Open the seeded decision brief and portfolio candidate.
+5. Open Library, Evaluation, and Settings to confirm continuity and audit proof.
+6. Export to a real Obsidian vault when you want to show the visible second brain.
+
+## Phase 14 public pilot deployment
+
+The public web shell is intended to run on Vercel, while the API runs as a hosted backend service. Use this checklist when turning the local demo-ready baseline into a public pilot preview.
+
+Current public web URL:
+
+- `https://finance-superbrain-web.vercel.app`
+
+Restore or create the hosted API first:
+
+1. Deploy the API runtime with the existing Docker/build entrypoint.
+2. Run database migrations against hosted Postgres with `npm run db:migrate`.
+3. Seed deterministic demo proof data with `npm run seed:demo-proof`.
+4. Confirm the API returns healthy responses for `/health`, `/ready`, and `/v1/auth/bootstrap`.
+
+Required hosted API environment:
+
+- `REPOSITORY_BACKEND=postgres`
+- `DATABASE_URL=<hosted postgres url>`
+- `MARKET_DATA_BACKEND=mock`
+- `CHAT_MODEL_BACKEND=mock`
+- `AUTH_COOKIE_SAME_SITE=none`
+- `AUTH_COOKIE_SECURE=true`
+- `AUTH_ALLOWED_ORIGINS=https://finance-superbrain-web.vercel.app`
+- `HOST=0.0.0.0`
+- `PORT=3001`
+
+Update Vercel after the API URL is known:
+
+1. Set `NEXT_PUBLIC_API_URL` in the Vercel project environment to the hosted API base URL.
+2. Redeploy production with `vercel deploy --prod --archive=tgz`.
+3. Keep `NEXT_PUBLIC_DEMO_MODE=true` only for guided demo/pilot previews where exposing quick-fill accounts is intentional.
+
+Validate the hosted pilot:
+
+```bash
+PUBLIC_PILOT_API_URL=https://your-api-host.example.com npm run demo:public-pilot:smoke
+```
+
+The smoke check verifies:
+
+- public shell returns `200`
+- login page returns `200`
+- API health and readiness are healthy
+- workspace bootstrap responds
+- seeded demo login succeeds
+- hosted auth cookie includes `SameSite=None` and `Secure`
+- authenticated workspace state contains seeded investigation, decision, and portfolio data
+
+Known boundary:
+
+- Obsidian remains local-first. The hosted website does not write to an Obsidian vault; use the local `npm run ops:obsidian-export` flow when showing the visible second brain.
+
+## Real Obsidian demo flow
+
+Use a real vault when you want to show the second-brain proof, not only the dry-run summary.
+
+Required environment variables:
+
+- `OBSIDIAN_VAULT_PATH`: absolute path to an existing Obsidian vault
+- `OBSIDIAN_EXPORT_ROOT`: optional, defaults to `Finance Superbrain`
+- `FINANCE_SUPERBRAIN_APP_URL`: recommended for route links, for example `http://localhost:3000`
+
+Real-vault acceptance sequence:
+
+1. Run `npm run demo:proof:seed:local`
+2. Start the API and web app
+3. Walk the guided demo or inspect the seeded decision and portfolio objects
+4. Run `npm run ops:obsidian-export`
+5. Open the generated `Finance Superbrain` subtree inside the vault
+6. Confirm:
+   - investigation notes exist
+   - decision brief notes exist
+   - portfolio candidate notes exist
+   - lesson notes exist
+   - index notes exist
+   - wikilinks resolve inside the vault
+   - app links open the expected workspace routes
+7. Rerun `npm run ops:obsidian-export` and confirm the managed files update deterministically
+
+This bridge remains one-way export only. Finance Superbrain stays the source of truth, while Obsidian acts as the human-readable memory layer.
+
+## Obsidian memory bridge
+
+Phase 12 adds a local-first, one-way Obsidian export so Finance Superbrain can publish a generated knowledge graph into a real vault without making Obsidian the source of truth.
+
+Required environment variables:
+
+- `OBSIDIAN_VAULT_PATH`: absolute path to an existing Obsidian vault directory
+- `OBSIDIAN_EXPORT_ROOT`: optional generated subtree name, defaults to `Finance Superbrain`
+- `FINANCE_SUPERBRAIN_APP_URL`: optional app base URL used for links back into the workspace, for example `http://localhost:3000`
+
+Run the exporter with:
+
+```bash
+npm run ops:obsidian-export
+```
+
+Dry-run without writing files:
+
+```bash
+npm run ops:obsidian-export -- --dry-run
+```
+
+The exporter creates or refreshes only the generated subtree:
+
+- `Finance Superbrain/Investigations/`
+- `Finance Superbrain/Decisions/`
+- `Finance Superbrain/Portfolio/`
+- `Finance Superbrain/Lessons/`
+- `Finance Superbrain/Activity/`
+- `Finance Superbrain/Indexes/`
+
+Important rules:
+
+- this is one-way export only
+- Finance Superbrain remains the canonical source of truth
+- generated notes are marked with `managed_by: finance_superbrain`
+- only files inside `OBSIDIAN_VAULT_PATH/<OBSIDIAN_EXPORT_ROOT>` are touched
+- user-authored notes outside that subtree are never modified
+
+Current non-goals:
+
+- no broad vault import
+- no bidirectional sync
+- no file watcher
+- no Obsidian plugin
+
+## Selective Obsidian memory import
+
+The first import path is intentionally conservative. It reads only a dedicated human inbox inside your vault, dry-runs by default, and only imports notes that are explicitly marked for Finance Superbrain.
+
+Default inbox:
+
+- `OBSIDIAN_VAULT_PATH/<OBSIDIAN_IMPORT_INBOX>`
+- default `OBSIDIAN_IMPORT_INBOX`: `Finance Superbrain/Human Inbox`
+
+Eligible notes must include frontmatter like:
+
+```markdown
+---
+fs_import: true
+title: Rates breadth reminder
+lesson_type: reinforcement
+themes: [rates, breadth]
+assets: [TLT, DXY]
+tags: [human-memory, demo]
+---
+
+# Rates breadth reminder
+
+When yields reprice higher after inflation, do not upgrade cyclicals until breadth confirms that tighter conditions are not spreading.
+```
+
+Dry-run first:
+
+```bash
+npm run ops:obsidian-import
+```
+
+Apply only after reviewing the dry-run output:
+
+```bash
+npm run ops:obsidian-import -- --apply
+```
+
+Safety rules:
+
+- only notes under `OBSIDIAN_IMPORT_INBOX` are scanned
+- generated Finance Superbrain export notes are skipped
+- notes without `fs_import: true` are skipped
+- duplicate imports are prevented with a content hash
+- apply mode creates retrieval memory only
+- apply mode does not create investigations, decisions, portfolio candidates, assignments, or status changes
+
+How imported memory is represented:
+
+- each imported note becomes a clearly labeled `obsidian_human_import` retrieval lesson
+- when no linked prediction is provided, the importer creates a synthetic `user_note` source, neutral event, reviewed prediction, and lesson wrapper so existing retrieval/search paths can use the memory
+- provenance is stored on the lesson metadata, including the Obsidian path and content hash
+
+Likely next expansion path after this phase:
+
+- add a review UI for import candidates before apply
+- support richer links back to decision briefs and portfolio candidates
+- optionally enrich chat retrieval from imported human notes more visibly
+- only later consider watchers, plugins, or bidirectional sync
+
+## Phase 6 team-alpha acceptance
+
+Use this sequence when you want to prove the shared workspace is healthy enough to keep building on.
+
+1. Run `npm run build`
+2. Run `npm test`
+3. Run `npm run ops:drain-operation-jobs`
+4. Run `npm run test:e2e:smoke` for fast browser confidence
+5. Run `npm run demo:proof:hosted-like` for build-startup-seed-export proof against a temporary hosted-like environment
+6. Run `npm run test:e2e` when you want the fuller local/manual browser pass
+7. Run `docker compose up --build -d` and verify:
+   - `http://localhost:3001/health`
+   - `http://localhost:3001/ready`
+   - `node apps/api/dist/scripts/checkOperationWorkerService.js --mode=liveness --service-id=worker-service-main`
+
+The PR CI workflow runs the smoke browser pass. The nightly/manual runtime-acceptance workflow is reserved for the slower Docker-runtime proof.
+
+## Phase 7 decision-workflow acceptance
+
+Use this sequence when you want to prove the intelligence-to-decision loop is healthy enough to keep building on.
+
+1. Run `npm run verify`
+2. Run `npm run test:e2e:smoke`
+3. In the product, validate the shared decision loop:
+   - log in as an internal workspace user
+   - create a Studio investigation
+   - generate predictions
+   - promote the lead prediction into a decision brief
+   - assign the brief
+   - set a review cadence
+   - save a checkpoint
+   - move the brief through active, watching, and closed states
+4. Confirm the resulting decision state appears consistently on:
+   - `/`
+   - `/decisions`
+   - `/decisions/[decisionBriefId]`
+   - `/investigations`
+   - `/library`
+   - `/evaluation`
+   - `/settings`
+
+Phase 7 is considered healthy when the team can move smoothly from research into a shared brief, maintain the brief with cadence and checkpoints, and then use closed outcomes as retrieval and evaluation evidence.
 
 ## Intelligence core scaffold
 
@@ -73,6 +433,44 @@ The worker container uses the repository-backed supervisor check for health:
 If you need to stop and remove the stack, run `docker compose down`. Add `-v` if you also want to remove the Postgres volume.
 
 The health route now reflects execution telemetry too. If the latest major backend job failed, `/health` reports that failure instead of only returning a static success payload, and it now includes queued-job and active-lease counts. It also exposes `worker_monitoring`, `worker_service_monitoring`, `integration_monitoring`, `integration_governance_monitoring`, and `incident_monitoring`, so you can see whether the queue boundary is healthy, whether supervisor churn is building, and whether feed/transcript dependencies are actively being throttled or suppressed. The readiness route performs lightweight dependency probes against the repository and embedding provider and returns `503` if either one is degraded.
+
+### Docker operations runbook
+
+Use these checks to validate the production-style Docker stack after `docker compose up --build -d`.
+
+Startup and health:
+
+1. Run `docker compose ps` and confirm `db`, `api`, and `worker-service` are healthy and `migrate` exited successfully.
+2. Open `http://localhost:3001/health` and confirm `ok: true`.
+3. Open `http://localhost:3001/ready` and confirm dependency readiness is healthy.
+4. Open `http://localhost:3001/ops` for the operator view.
+5. Optionally inspect `GET /v1/metrics/system/worker-services` to confirm an active supervised worker-service boundary is present.
+
+Worker restart drill:
+
+1. Run `docker compose restart worker-service`.
+2. Run `docker compose ps` and confirm `worker-service` returns to `healthy`.
+3. Re-check `http://localhost:3001/health`.
+4. Inspect `GET /v1/metrics/system/worker-services` and confirm a fresh `supervisor_instance_id` / `started_at` is visible after the restart.
+
+Persistence drill:
+
+1. Queue a background job, for example with `POST /v1/operations/jobs`.
+2. Record the returned `job_id`.
+3. Run `docker compose down`.
+4. Run `docker compose up -d`.
+5. Re-check `GET /v1/operations/jobs/:jobId` and confirm the completed job is still present after restart.
+
+Logs:
+
+- `docker compose logs -f api`
+- `docker compose logs -f worker-service`
+- `docker compose logs -f db`
+
+Stop commands:
+
+- `docker compose down` stops the stack and keeps the Postgres volume.
+- `docker compose down -v` removes the Postgres volume and should only be used when you intentionally want to destroy durable state.
 
 ### Environment
 
@@ -121,13 +519,18 @@ Important flags:
 - `QUEUE_DEFAULT_BENCHMARK_TRUST_REFRESH=true` to enqueue benchmark trust refresh runs by default
 - `QUEUE_DEFAULT_FEED_PULL=true` to enqueue feed pulls by default
 - `QUEUE_DEFAULT_TRANSCRIPT_PULL=true` to enqueue transcript pulls by default
+- `AUTH_SESSION_TTL_HOURS=168` to control internal workspace session lifetime
+- `AUTH_COOKIE_SECURE=false` for local non-HTTPS development, or `true` behind TLS
+- `AUTH_LOGIN_MAX_ATTEMPTS=5` to cap failed sign-in attempts per email/IP window
+- `AUTH_LOGIN_WINDOW_MINUTES=15` to define the failed-login counting window
+- `AUTH_LOGIN_BLOCK_MINUTES=15` to define how long sign-in is throttled after repeated failures
 
 ### Local durable mode with PGlite
 
 This is the easiest way to make the memory cloud survive restarts on a machine that does not already have Postgres running.
 
 1. Set `REPOSITORY_BACKEND=pglite`
-2. Optionally set `PGLITE_DATA_DIR` or use the default `.pglite/finance-superbrain`
+2. Optionally set `PGLITE_DATA_DIR` or use the safer seeded-demo wrapper `npm run demo:proof:seed:local`
 3. Run `npm run db:migrate` if you want an explicit initialization step, or let the first API/script run auto-create the schema
 4. Seed reviewed memory with `npm run backfill:historical` or `npm run seed:demo`
 5. Start the API with `npm run dev:api`

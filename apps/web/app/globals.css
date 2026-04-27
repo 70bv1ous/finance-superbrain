@@ -1,8 +1,30 @@
 @import "tailwindcss";
 
+:root {
+  --font-sans: "Aptos", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", "IBM Plex Mono", ui-monospace, monospace;
+}
+
 * { box-sizing: border-box; }
 html, body { height: 100%; }
-body { background: #09090b; color: #f4f4f5; font-family: 'Inter', system-ui, sans-serif; }
+html { color-scheme: dark; }
+body {
+  background:
+    radial-gradient(circle at top, rgba(16, 185, 129, 0.14), transparent 28%),
+    linear-gradient(180deg, #09090b 0%, #111827 100%);
+  color: #f4f4f5;
+  font-family: var(--font-sans);
+}
+
+.font-display {
+  font-family: var(--font-sans);
+}
+
+code,
+pre,
+.font-mono {
+  font-family: var(--font-mono);
+}
 
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #09090b; }

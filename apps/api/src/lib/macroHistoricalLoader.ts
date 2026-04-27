@@ -77,7 +77,7 @@ const macroBiasRegimes = (
   return [...values];
 };
 
-const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset> = {
+const MACRO_PRESETS: Partial<Record<MacroHistoricalCaseInput["event_type"], MacroPreset>> = {
   cpi: {
     event_family: "cpi_release",
     source_type: "headline",
@@ -91,6 +91,9 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
         softer: "US CPI softens modestly",
         dovish: "US CPI cools and supports a dovish read",
         hawkish: "US CPI stays sticky and keeps a hawkish tone alive",
+        weaker: "US CPI data points to softer macro conditions",
+        positive: "US CPI lands in a market-friendly range",
+        negative: "US CPI reinforces a market-negative inflation read",
       })[bias] ?? "US CPI update",
     default_publisher: "Bureau of Labor Statistics",
     default_dominant_catalyst: "cpi-release",
@@ -117,7 +120,13 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
           "US CPI cooled enough to support a more dovish rates interpretation across bonds and growth equities.",
         hawkish:
           "US CPI stayed sticky enough to preserve a hawkish rates interpretation across yields and the dollar.",
-      })[bias],
+        weaker:
+          "US CPI pointed to softer macro conditions and helped ease immediate pressure on rates-sensitive assets.",
+        positive:
+          "US CPI landed in a market-friendly range that supported risk appetite and calmer rates pricing.",
+        negative:
+          "US CPI reinforced a market-negative inflation read and pressured bonds and long-duration equities.",
+      })[bias] ?? "US CPI delivered a macro update that markets had to reprice.",
     buildReviewHints: () => [
       "Confirm whether the initial yield move held through the close or fully faded.",
       "Check if equities reacted to the inflation impulse or a same-day competing catalyst.",
@@ -137,6 +146,9 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
         cooler: "US payrolls cool the labor and rates outlook",
         dovish: "US payrolls support a dovish labor read",
         hawkish: "US payrolls preserve a hawkish rates read",
+        weaker: "US payrolls signal softer labor conditions",
+        positive: "US payrolls land in a market-positive range",
+        negative: "US payrolls create a market-negative macro surprise",
       })[bias] ?? "US payrolls update",
     default_publisher: "Bureau of Labor Statistics",
     default_dominant_catalyst: "nfp-release",
@@ -163,7 +175,13 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
           "US payrolls helped reinforce a dovish labor interpretation for bonds and growth equities.",
         hawkish:
           "US payrolls reinforced a hawkish labor interpretation and kept the bond market defensive.",
-      })[bias],
+        weaker:
+          "US payrolls pointed to softer labor conditions and pushed markets to reassess the growth and rates outlook.",
+        positive:
+          "US payrolls landed in a market-positive range that supported risk assets without reigniting rate fears.",
+        negative:
+          "US payrolls created a market-negative macro surprise that increased uncertainty around growth and policy.",
+      })[bias] ?? "US payrolls delivered a macro update that markets had to absorb.",
     buildReviewHints: () => [
       "Check whether wages, revisions, or participation drove the move more than the headline payroll number.",
       "Confirm whether yields and the dollar led the reaction or whether equities diverged.",
@@ -183,6 +201,9 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
         cooler: "FOMC opens room for easing as inflation cools",
         stronger: "FOMC responds to stronger growth conditions",
         softer: "FOMC acknowledges softer growth conditions",
+        weaker: "FOMC responds to weaker macro conditions",
+        positive: "FOMC outcome is market-positive",
+        negative: "FOMC outcome is market-negative",
       })[bias] ?? "FOMC policy decision",
     default_publisher: "Federal Reserve",
     default_dominant_catalyst: "fomc-decision",
@@ -209,7 +230,13 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
           "The FOMC highlighted stronger growth and labor resilience, keeping policy restrictive for longer.",
         softer:
           "The FOMC acknowledged softer growth and labor conditions, which helped support a more dovish read.",
-      })[bias],
+        weaker:
+          "The FOMC responded to weaker macro conditions and markets repriced the policy path accordingly.",
+        positive:
+          "The FOMC outcome was market-positive and helped improve risk sentiment across rates-sensitive assets.",
+        negative:
+          "The FOMC outcome was market-negative and pressured risk assets through a tougher policy interpretation.",
+      })[bias] ?? "The FOMC delivered a policy update that markets had to reprice.",
     buildReviewHints: () => [
       "Check whether the statement, dot plot, or press conference drove the final market move.",
       "Confirm whether the first move reversed once Powell Q&A began.",
@@ -229,6 +256,9 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
         cooler: "Fed speaker points to cooling inflation",
         stronger: "Fed speaker highlights stronger growth",
         softer: "Fed speaker highlights softer labor and growth",
+        weaker: "Fed speaker highlights weaker macro conditions",
+        positive: "Fed speaker delivers a market-positive message",
+        negative: "Fed speaker delivers a market-negative message",
       })[bias] ?? "Fed speech",
     default_speaker: "Jerome Powell",
     default_publisher: "Federal Reserve",
@@ -256,7 +286,13 @@ const MACRO_PRESETS: Record<MacroHistoricalCaseInput["event_type"], MacroPreset>
           "A Federal Reserve speaker pointed to stronger growth and labor conditions as reasons to stay patient on cuts.",
         softer:
           "A Federal Reserve speaker highlighted softer labor and growth conditions, supporting a more dovish market read.",
-      })[bias],
+        weaker:
+          "A Federal Reserve speaker highlighted weaker macro conditions and markets repriced the policy path more defensively.",
+        positive:
+          "A Federal Reserve speaker delivered a market-positive message that supported bonds and risk assets.",
+        negative:
+          "A Federal Reserve speaker delivered a market-negative message that pressured rates-sensitive assets.",
+      })[bias] ?? "A Federal Reserve speaker delivered remarks that markets had to digest.",
     buildReviewHints: () => [
       "Confirm whether prepared remarks or Q&A drove the lasting market interpretation.",
       "Check if the speech changed the path implied by the latest FOMC pricing or simply echoed it.",

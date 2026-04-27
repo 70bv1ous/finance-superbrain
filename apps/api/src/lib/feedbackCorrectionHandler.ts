@@ -173,11 +173,11 @@ export async function handleFeedbackCorrection(
       occurred_at: input.occurred_at,
     },
     horizon:           "1d",
-    realized_moves:    input.actual_moves.map(m => ({
-      ticker:                  m.ticker,
-      realized_direction:      m.direction,
-      realized_magnitude_bp:   m.magnitude_bp,
-    })),
+      realized_moves:    input.actual_moves.map(m => ({
+        ticker:                  m.ticker,
+        realized_direction:      m.direction === "flat" ? "mixed" : m.direction,
+        realized_magnitude_bp:   m.magnitude_bp,
+      })),
     timing_alignment:  0.95,
     dominant_catalyst: classified.dominant_catalyst,
     labels: {

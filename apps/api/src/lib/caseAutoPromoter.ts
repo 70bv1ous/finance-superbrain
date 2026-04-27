@@ -207,12 +207,12 @@ export async function autoPromoteCase(
     },
     horizon:  "1d",
     realized_moves: structured.predicted_moves
-      .filter(m => m.ticker)
-      .map(m => ({
-        ticker:                m.ticker,
-        realized_direction:    m.direction,
-        realized_magnitude_bp: m.magnitude_bp,
-      })),
+        .filter(m => m.ticker)
+        .map(m => ({
+          ticker:                m.ticker,
+          realized_direction:    m.direction === "flat" ? "mixed" : m.direction,
+          realized_magnitude_bp: m.magnitude_bp,
+        })),
     timing_alignment:  input.outcome === "correct" ? 0.90 : 0.70,
     dominant_catalyst: structured.dominant_catalyst,
     labels: {

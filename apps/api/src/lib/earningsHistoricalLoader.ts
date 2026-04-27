@@ -71,7 +71,7 @@ const earningsSpecificRegimes = (item: EarningsHistoricalCaseInput) => {
   return [...values];
 };
 
-const EARNINGS_PRESETS: Record<EarningsHistoricalCaseInput["event_type"], EarningsPreset> = {
+const EARNINGS_PRESETS: Partial<Record<EarningsHistoricalCaseInput["event_type"], EarningsPreset>> = {
   earnings_beat: {
     event_family: "earnings_beat",
     default_title: (item) => `${item.company} beats and reinforces the quarter`,

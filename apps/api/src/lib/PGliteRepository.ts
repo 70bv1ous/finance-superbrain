@@ -4,11 +4,36 @@ import { mkdir } from "node:fs/promises";
 import { PGlite, type Transaction } from "@electric-sql/pglite";
 import { NodeFS } from "@electric-sql/pglite/nodefs";
 import {
+  authSessionSchema,
+  decisionBriefSchema,
+  decisionCheckpointSchema,
+  portfolioCandidateSchema,
+  portfolioCheckpointSchema,
+  portfolioRebalanceProposalSchema,
+  portfolioReviewSessionItemSchema,
+  portfolioReviewSessionSchema,
+  serverStudioDraftSchema,
+  sharedInvestigationSchema,
+  sharedReviewNoteSchema,
+  sharedStudioRunSchema,
   storedEventSchema,
   storedPredictionSchema,
   storedSourceSchema,
+  workspaceActivitySchema,
+  workspaceMembershipSchema,
+  workspaceRecentItemSchema,
+  workspaceSchema,
+  workspaceUserSchema,
 } from "@finance-superbrain/schemas";
 import type {
+  AuthSession,
+  DecisionBrief,
+  DecisionCheckpoint,
+  PortfolioCandidate,
+  PortfolioCheckpoint,
+  PortfolioRebalanceProposal,
+  PortfolioReviewSession,
+  PortfolioReviewSessionItem,
   BenchmarkReplaySnapshot,
   BenchmarkTrustRefreshRecord,
   CalibrationSnapshot,
@@ -35,6 +60,10 @@ import type {
   OperationRunRecord,
   Postmortem,
   PredictionOutcome,
+  ServerStudioDraft,
+  SharedInvestigation,
+  SharedReviewNote,
+  SharedStudioRun,
   StoredGrowthPressureAlert,
   StoredModelVersion,
   StoredEvent,
@@ -46,11 +75,18 @@ import type {
   TranscriptStreamBinding,
   TranscriptStreamBuffer,
   TranscriptSessionAnalysis,
+  Workspace,
+  WorkspaceActivity,
+  WorkspaceMembership,
+  WorkspaceRecentItem,
+  WorkspaceUser,
   WalkForwardReplaySnapshot,
 } from "@finance-superbrain/schemas";
 
 import { normalizeEmbedding } from "./LocalEmbeddingProvider.js";
 import type {
+  CreateUserSessionInput,
+  CreateWorkspaceUserInput,
   OperationIntegrationTrendSummaryBucket,
   OperationIntegrationQueueSummary,
   OperationWorkerEventSummaryBucket,
@@ -58,6 +94,8 @@ import type {
   PendingPredictionRecord,
   PredictionLearningRecord,
   Repository,
+  SaveSharedInvestigationInput,
+  SaveWorkspaceRecentItemInput,
 } from "./repository.types.js";
 import { loadPhase1SchemaSql } from "./schema.js";
 
@@ -89,8 +127,294 @@ const parseJsonObject = <T extends object>(value: unknown, fallback: T): T => {
   return fallback;
 };
 
+const parseNullableJson = <T>(value: unknown): T | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return JSON.parse(value) as T;
+  }
+
+  return value as T;
+};
+
 const toNullableIsoString = (value: unknown) =>
   value === null || value === undefined ? null : new Date(String(value)).toISOString();
+
+const DEFAULT_WORKSPACE_ID = "00000000-0000-4000-8000-000000000001";
+
+const mapWorkspaceRow = (row: DbRow): Workspace =>
+  workspaceSchema.parse({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    created_at: new Date(String(row.created_at)).toISOString(),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+  });
+
+const mapWorkspaceUserRow = (row: DbRow): WorkspaceUser =>
+  workspaceUserSchema.parse({
+    id: row.id,
+    email: row.email,
+    display_name: row.display_name,
+    role: row.role,
+    active: Boolean(row.active),
+    created_at: new Date(String(row.created_at)).toISOString(),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+  });
+
+const mapWorkspaceMembershipRow = (row: DbRow): WorkspaceMembership =>
+  workspaceMembershipSchema.parse({
+    workspace_id: row.workspace_id,
+    user_id: row.user_id,
+    role: row.role,
+    joined_at: new Date(String(row.joined_at)).toISOString(),
+  });
+
+const mapAuthSessionRow = (row: DbRow): AuthSession =>
+  authSessionSchema.parse({
+    id: row.id,
+    user_id: row.user_id,
+    workspace_id: row.workspace_id,
+    expires_at: new Date(String(row.expires_at)).toISOString(),
+    created_at: new Date(String(row.created_at)).toISOString(),
+    last_seen_at: new Date(String(row.last_seen_at)).toISOString(),
+  });
+
+const mapServerStudioDraftRow = (row: DbRow): ServerStudioDraft =>
+  serverStudioDraftSchema.parse({
+    id: row.id,
+    owner_user_id: row.owner_user_id,
+    form: parseJsonObject(row.form, {
+      source_type: "headline",
+      title: "",
+      speaker: "",
+      publisher: "",
+      raw_uri: "",
+      occurred_at: "",
+      raw_text: "",
+      model_version: "gpt-5",
+      horizons: [],
+    }),
+    preview: parseNullableJson(row.preview),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+  });
+
+const mapSharedStudioRunRow = (row: DbRow): SharedStudioRun =>
+  sharedStudioRunSchema.parse({
+    id: row.id,
+    workspace_id: row.workspace_id,
+    owner_user_id: row.owner_user_id,
+    last_actor_user_id: row.last_actor_user_id,
+    title: row.title,
+    source_type: row.source_type,
+    stage: row.stage,
+    form: parseJsonObject(row.form, {
+      source_type: "headline",
+      title: "",
+      speaker: "",
+      publisher: "",
+      raw_uri: "",
+      occurred_at: "",
+      raw_text: "",
+      model_version: "gpt-5",
+      horizons: [],
+    }),
+    preview: parseNullableJson(row.preview),
+    source: parseNullableJson(row.source),
+    event: parseNullableJson(row.event),
+    predictions: parseJsonArray(row.predictions, []),
+    analogs: parseJsonArray(row.analogs, []),
+    event_summary: String(row.event_summary ?? ""),
+    event_id: typeof row.event_id === "string" ? row.event_id : null,
+    prediction_ids: parseJsonArray(row.prediction_ids, []),
+    analog_prediction_ids: parseJsonArray(row.analog_prediction_ids, []),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+    created_at: new Date(String(row.created_at)).toISOString(),
+  });
+
+const mapSharedInvestigationStepRow = (row: DbRow): SharedInvestigation["steps"][number] => ({
+  id: String(row.id),
+  kind: row.kind as SharedInvestigation["steps"][number]["kind"],
+  status: row.status as SharedInvestigation["steps"][number]["status"],
+  href: String(row.href),
+  title: String(row.title),
+  detail: String(row.detail),
+  updated_at: new Date(String(row.updated_at)).toISOString(),
+});
+
+const mapSharedInvestigationRow = (
+  row: DbRow,
+  steps: SharedInvestigation["steps"],
+): SharedInvestigation =>
+  sharedInvestigationSchema.parse({
+    id: row.id,
+    workspace_id: row.workspace_id,
+    title: row.title,
+    event_id: typeof row.event_id === "string" ? row.event_id : null,
+    prediction_ids: parseJsonArray(row.prediction_ids, []),
+    status: row.status,
+    owner_user_id: row.owner_user_id,
+    assignee_user_id: typeof row.assignee_user_id === "string" ? row.assignee_user_id : null,
+    last_actor_user_id: row.last_actor_user_id,
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+    created_at: new Date(String(row.created_at)).toISOString(),
+    steps,
+  });
+
+const mapWorkspaceRecentItemRow = (row: DbRow): WorkspaceRecentItem =>
+  workspaceRecentItemSchema.parse({
+    id: row.id,
+    kind: row.kind,
+    href: row.href,
+    title: row.title,
+    description: row.description,
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+  });
+
+const mapWorkspaceActivityRow = (row: DbRow): WorkspaceActivity =>
+  workspaceActivitySchema.parse({
+    id: row.id,
+    workspace_id: row.workspace_id,
+    actor_user_id: row.actor_user_id,
+    kind: row.kind,
+    investigation_id: typeof row.investigation_id === "string" ? row.investigation_id : null,
+    studio_run_id: typeof row.studio_run_id === "string" ? row.studio_run_id : null,
+    prediction_id: typeof row.prediction_id === "string" ? row.prediction_id : null,
+    detail: String(row.detail),
+    metadata: parseJsonObject(row.metadata, {}),
+    created_at: new Date(String(row.created_at)).toISOString(),
+  });
+
+const mapSharedReviewNoteRow = (row: DbRow): SharedReviewNote =>
+  sharedReviewNoteSchema.parse({
+    workspace_id: row.workspace_id,
+    prediction_id: row.prediction_id,
+    note: row.note,
+    owner_user_id: row.owner_user_id,
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+    created_at: new Date(String(row.created_at)).toISOString(),
+  });
+
+const mapDecisionBriefRow = (row: DbRow): DecisionBrief =>
+  decisionBriefSchema.parse({
+    id: row.id,
+    workspace_id: row.workspace_id,
+    investigation_id: row.investigation_id,
+    lead_prediction_id: row.lead_prediction_id,
+    title: row.title,
+    summary: row.summary,
+    thesis: row.thesis,
+    scenario: row.scenario,
+    confidence_label: row.confidence_label,
+    key_assets: parseJsonArray(row.key_assets, []),
+    triggers: parseJsonArray(row.triggers, []),
+    invalidations: parseJsonArray(row.invalidations, []),
+    status: row.status,
+    owner_user_id: row.owner_user_id,
+    assignee_user_id: typeof row.assignee_user_id === "string" ? row.assignee_user_id : null,
+    last_actor_user_id: row.last_actor_user_id,
+    next_review_due_at: toNullableIsoString(row.next_review_due_at),
+    closed_at: toNullableIsoString(row.closed_at),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+    created_at: new Date(String(row.created_at)).toISOString(),
+  });
+
+const mapDecisionCheckpointRow = (row: DbRow): DecisionCheckpoint =>
+  decisionCheckpointSchema.parse({
+    id: row.id,
+    decision_brief_id: row.decision_brief_id,
+    workspace_id: row.workspace_id,
+    actor_user_id: row.actor_user_id,
+    summary: row.summary,
+    thesis_state: row.thesis_state,
+    action: row.action,
+    created_at: new Date(String(row.created_at)).toISOString(),
+  });
+
+const mapPortfolioCandidateRow = (row: DbRow): PortfolioCandidate =>
+  portfolioCandidateSchema.parse({
+    id: row.id,
+    workspace_id: row.workspace_id,
+    decision_brief_id: row.decision_brief_id,
+    investigation_id: row.investigation_id,
+    lead_prediction_id: row.lead_prediction_id,
+    title: row.title,
+    summary: row.summary,
+    status: row.status,
+    priority: row.priority,
+    sizing_label: row.sizing_label,
+    risk_budget_label: row.risk_budget_label,
+    conviction_label: row.conviction_label,
+    primary_theme: row.primary_theme,
+    secondary_themes: parseJsonArray(row.secondary_themes, []),
+    related_assets: parseJsonArray(row.related_assets, []),
+    owner_user_id: row.owner_user_id,
+    assignee_user_id: typeof row.assignee_user_id === "string" ? row.assignee_user_id : null,
+    last_actor_user_id: row.last_actor_user_id,
+    next_review_due_at: toNullableIsoString(row.next_review_due_at),
+    closed_at: toNullableIsoString(row.closed_at),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+    created_at: new Date(String(row.created_at)).toISOString(),
+  });
+
+const mapPortfolioCheckpointRow = (row: DbRow): PortfolioCheckpoint =>
+  portfolioCheckpointSchema.parse({
+    id: row.id,
+    portfolio_candidate_id: row.portfolio_candidate_id,
+    workspace_id: row.workspace_id,
+    actor_user_id: row.actor_user_id,
+    summary: row.summary,
+    thesis_state: row.thesis_state,
+    action: row.action,
+    created_at: new Date(String(row.created_at)).toISOString(),
+  });
+
+const mapPortfolioReviewSessionRow = (row: DbRow): PortfolioReviewSession =>
+  portfolioReviewSessionSchema.parse({
+    id: row.id,
+    workspace_id: row.workspace_id,
+    title: row.title,
+    summary: row.summary,
+    status: row.status,
+    owner_user_id: row.owner_user_id,
+    last_actor_user_id: row.last_actor_user_id,
+    opened_at: new Date(String(row.opened_at)).toISOString(),
+    finalized_at: toNullableIsoString(row.finalized_at),
+    created_at: new Date(String(row.created_at)).toISOString(),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+  });
+
+const mapPortfolioReviewSessionItemRow = (row: DbRow): PortfolioReviewSessionItem =>
+  portfolioReviewSessionItemSchema.parse({
+    id: row.id,
+    review_session_id: row.review_session_id,
+    portfolio_candidate_id: row.portfolio_candidate_id,
+    snapshot_status: row.snapshot_status,
+    snapshot_priority: row.snapshot_priority,
+    snapshot_primary_theme: row.snapshot_primary_theme,
+    snapshot_assignee_user_id: typeof row.snapshot_assignee_user_id === "string" ? row.snapshot_assignee_user_id : null,
+    snapshot_next_review_due_at: toNullableIsoString(row.snapshot_next_review_due_at),
+    created_at: new Date(String(row.created_at)).toISOString(),
+  });
+
+const mapPortfolioRebalanceProposalRow = (row: DbRow): PortfolioRebalanceProposal =>
+  portfolioRebalanceProposalSchema.parse({
+    id: row.id,
+    review_session_id: row.review_session_id,
+    portfolio_candidate_id: row.portfolio_candidate_id,
+    actor_user_id: row.actor_user_id,
+    action: row.action,
+    status: row.status,
+    rationale: row.rationale,
+    dependency_note: typeof row.dependency_note === "string" ? row.dependency_note : null,
+    next_review_expectation:
+      typeof row.next_review_expectation === "string" ? row.next_review_expectation : null,
+    decided_at: toNullableIsoString(row.decided_at),
+    created_at: new Date(String(row.created_at)).toISOString(),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+  });
 
 const mapSourceRow = (row: DbRow): StoredSource =>
   storedSourceSchema.parse({
@@ -1077,6 +1401,1198 @@ export class PGliteRepository implements Repository {
 
   private async getDb() {
     return this.ready;
+  }
+
+  private async getSharedInvestigationSteps(investigationId: string) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select id, kind, status, href, title, detail, updated_at
+       from shared_investigation_steps
+       where investigation_id = $1
+       order by updated_at desc`,
+      [investigationId],
+    );
+
+    return (query.rows as DbRow[]).map(mapSharedInvestigationStepRow);
+  }
+
+  async getOrCreateDefaultWorkspace(): Promise<Workspace> {
+    const db = await this.getDb();
+    const existing = await db.query(
+      `select id, slug, name, created_at, updated_at
+       from workspaces
+       where id = $1`,
+      [DEFAULT_WORKSPACE_ID],
+    );
+
+    if (hasRows(existing.rows)) {
+      return mapWorkspaceRow(existing.rows[0]);
+    }
+
+    const created = await db.query(
+      `insert into workspaces (id, slug, name)
+       values ($1, $2, $3)
+       on conflict (id) do update set
+         slug = excluded.slug,
+         name = excluded.name,
+         updated_at = now()
+       returning id, slug, name, created_at, updated_at`,
+      [DEFAULT_WORKSPACE_ID, "internal-alpha", "Internal Alpha"],
+    );
+
+    return mapWorkspaceRow(created.rows[0] as DbRow);
+  }
+
+  async countWorkspaceUsers(): Promise<number> {
+    const db = await this.getDb();
+    const query = await db.query(`select count(*)::int as count from workspace_users`);
+    return Number((query.rows[0] as DbRow | undefined)?.count ?? 0);
+  }
+
+  async createWorkspaceUser(input: CreateWorkspaceUserInput): Promise<WorkspaceUser> {
+    const db = await this.getDb();
+    const workspace = await this.getOrCreateDefaultWorkspace();
+    const query = await db.query(
+      `insert into workspace_users (
+         id, email, display_name, password_hash, role, active
+       ) values ($1, $2, $3, $4, $5, $6)
+       returning id, email, display_name, role, active, created_at, updated_at`,
+      [randomUUID(), input.email.toLowerCase(), input.display_name, input.password_hash, input.role, input.active ?? true],
+    );
+    const user = mapWorkspaceUserRow(query.rows[0] as DbRow);
+
+    await db.query(
+      `insert into workspace_memberships (
+         workspace_id, user_id, role
+       ) values ($1, $2, $3)
+       on conflict (workspace_id, user_id) do update set
+         role = excluded.role,
+         updated_at = now()`,
+      [input.workspace_id ?? workspace.id, user.id, user.role],
+    );
+
+    return user;
+  }
+
+  async getWorkspaceUserByEmail(email: string) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select id, email, display_name, password_hash, role, active, created_at, updated_at
+       from workspace_users
+       where lower(email) = lower($1)
+       limit 1`,
+      [email],
+    );
+
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+
+    const row = query.rows[0] as DbRow;
+    return {
+      ...mapWorkspaceUserRow(row),
+      password_hash: String(row.password_hash),
+    };
+  }
+
+  async getWorkspaceUserById(id: string) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select id, email, display_name, role, active, created_at, updated_at
+       from workspace_users
+       where id = $1
+       limit 1`,
+      [id],
+    );
+
+    return hasRows(query.rows) ? mapWorkspaceUserRow(query.rows[0] as DbRow) : null;
+  }
+
+  async getWorkspaceMembership(input: { workspace_id: string; user_id: string }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select workspace_id, user_id, role, created_at as joined_at
+       from workspace_memberships
+       where workspace_id = $1 and user_id = $2
+       limit 1`,
+      [input.workspace_id, input.user_id],
+    );
+
+    return hasRows(query.rows) ? mapWorkspaceMembershipRow(query.rows[0] as DbRow) : null;
+  }
+
+  async listWorkspaceMembers(workspaceId: string) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select
+         u.id,
+         u.email,
+         u.display_name,
+         u.role as user_role,
+         u.active,
+         u.created_at as user_created_at,
+         u.updated_at as user_updated_at,
+         m.workspace_id,
+         m.user_id,
+         m.role as membership_role,
+         m.created_at as membership_joined_at
+       from workspace_memberships m
+       join workspace_users u on u.id = m.user_id
+       where m.workspace_id = $1
+       order by m.created_at desc`,
+      [workspaceId],
+    );
+
+    return (query.rows as DbRow[]).map((row) => ({
+      user: mapWorkspaceUserRow({
+        id: row.id,
+        email: row.email,
+        display_name: row.display_name,
+        role: row.user_role,
+        active: row.active,
+        created_at: row.user_created_at,
+        updated_at: row.user_updated_at,
+      }),
+      membership: mapWorkspaceMembershipRow({
+        workspace_id: row.workspace_id,
+        user_id: row.user_id,
+        role: row.membership_role,
+        joined_at: row.membership_joined_at,
+      }),
+    }));
+  }
+
+  async createUserSession(input: CreateUserSessionInput): Promise<AuthSession> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into user_sessions (
+         id, user_id, workspace_id, token_hash, expires_at, last_seen_at
+       ) values ($1, $2, $3, $4, $5, $6)
+       returning id, user_id, workspace_id, expires_at, created_at, last_seen_at`,
+      [randomUUID(), input.user_id, input.workspace_id, input.token_hash, input.expires_at, input.last_seen_at],
+    );
+
+    return mapAuthSessionRow(query.rows[0] as DbRow);
+  }
+
+  async getUserSessionByTokenHash(tokenHash: string) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select id, user_id, workspace_id, expires_at, created_at, last_seen_at
+       from user_sessions
+       where token_hash = $1 and revoked_at is null
+       limit 1`,
+      [tokenHash],
+    );
+
+    return hasRows(query.rows) ? mapAuthSessionRow(query.rows[0] as DbRow) : null;
+  }
+
+  async touchUserSession(id: string, lastSeenAt: string) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `update user_sessions
+       set last_seen_at = $2
+       where id = $1 and revoked_at is null
+       returning id, user_id, workspace_id, expires_at, created_at, last_seen_at`,
+      [id, lastSeenAt],
+    );
+
+    return hasRows(query.rows) ? mapAuthSessionRow(query.rows[0] as DbRow) : null;
+  }
+
+  async revokeUserSession(id: string): Promise<void> {
+    const db = await this.getDb();
+    await db.query(
+      `update user_sessions
+       set revoked_at = now()
+       where id = $1`,
+      [id],
+    );
+  }
+
+  async saveServerStudioDraft(draft: ServerStudioDraft): Promise<ServerStudioDraft> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into shared_studio_drafts (
+         id, workspace_id, owner_user_id, form, preview, updated_at
+       ) values ($1, $2, $3, $4::jsonb, $5::jsonb, $6)
+       on conflict (id) do update set
+         form = excluded.form,
+         preview = excluded.preview,
+         updated_at = excluded.updated_at
+       returning id, owner_user_id, form, preview, updated_at`,
+      [draft.id, DEFAULT_WORKSPACE_ID, draft.owner_user_id, JSON.stringify(draft.form), draft.preview ? JSON.stringify(draft.preview) : null, draft.updated_at],
+    );
+
+    return mapServerStudioDraftRow(query.rows[0] as DbRow);
+  }
+
+  async getServerStudioDraft(input: { workspace_id: string; owner_user_id: string }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select id, owner_user_id, form, preview, updated_at
+       from shared_studio_drafts
+       where workspace_id = $1 and owner_user_id = $2
+       order by updated_at desc
+       limit 1`,
+      [input.workspace_id, input.owner_user_id],
+    );
+
+    return hasRows(query.rows) ? mapServerStudioDraftRow(query.rows[0] as DbRow) : null;
+  }
+
+  async deleteServerStudioDraft(input: { workspace_id: string; owner_user_id: string }) {
+    const db = await this.getDb();
+    await db.query(
+      `delete from shared_studio_drafts
+       where workspace_id = $1 and owner_user_id = $2`,
+      [input.workspace_id, input.owner_user_id],
+    );
+  }
+
+  async saveSharedStudioRun(run: SharedStudioRun): Promise<SharedStudioRun> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into shared_studio_runs (
+         id, workspace_id, owner_user_id, last_actor_user_id, title, source_type, stage,
+         form, preview, source, event, predictions, analogs, event_summary, event_id,
+         prediction_ids, analog_prediction_ids, updated_at
+       ) values (
+         $1, $2, $3, $4, $5, $6, $7,
+         $8::jsonb, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14, $15,
+         $16::jsonb, $17::jsonb, $18
+       )
+       on conflict (id) do update set
+         last_actor_user_id = excluded.last_actor_user_id,
+         title = excluded.title,
+         source_type = excluded.source_type,
+         stage = excluded.stage,
+         form = excluded.form,
+         preview = excluded.preview,
+         source = excluded.source,
+         event = excluded.event,
+         predictions = excluded.predictions,
+         analogs = excluded.analogs,
+         event_summary = excluded.event_summary,
+         event_id = excluded.event_id,
+         prediction_ids = excluded.prediction_ids,
+         analog_prediction_ids = excluded.analog_prediction_ids,
+         updated_at = excluded.updated_at
+       returning *`,
+      [
+        run.id,
+        run.workspace_id,
+        run.owner_user_id,
+        run.last_actor_user_id,
+        run.title,
+        run.source_type,
+        run.stage,
+        JSON.stringify(run.form),
+        run.preview ? JSON.stringify(run.preview) : null,
+        run.source ? JSON.stringify(run.source) : null,
+        run.event ? JSON.stringify(run.event) : null,
+        JSON.stringify(run.predictions),
+        JSON.stringify(run.analogs),
+        run.event_summary,
+        run.event_id,
+        JSON.stringify(run.prediction_ids),
+        JSON.stringify(run.analog_prediction_ids),
+        run.updated_at,
+      ],
+    );
+
+    return mapSharedStudioRunRow(query.rows[0] as DbRow);
+  }
+
+  async getSharedStudioRun(id: string) {
+    const db = await this.getDb();
+    const query = await db.query(`select * from shared_studio_runs where id = $1 limit 1`, [id]);
+    return hasRows(query.rows) ? mapSharedStudioRunRow(query.rows[0] as DbRow) : null;
+  }
+
+  async listSharedStudioRuns(options: { workspace_id: string; owner_user_id?: string; limit?: number }) {
+    const db = await this.getDb();
+    const params: unknown[] = [options.workspace_id];
+    const where = [`workspace_id = $1`];
+    if (options.owner_user_id) {
+      params.push(options.owner_user_id);
+      where.push(`owner_user_id = $${params.length}`);
+    }
+    params.push(options.limit ?? 20);
+    const query = await db.query(
+      `select * from shared_studio_runs
+       where ${where.join(" and ")}
+       order by updated_at desc
+       limit $${params.length}`,
+      params,
+    );
+
+    return (query.rows as DbRow[]).map(mapSharedStudioRunRow);
+  }
+
+  async saveSharedInvestigation(investigation: SaveSharedInvestigationInput): Promise<SharedInvestigation> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into shared_investigations (
+         id, workspace_id, title, event_id, prediction_ids, status,
+         owner_user_id, assignee_user_id, last_actor_user_id, updated_at, created_at
+       ) values ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11)
+       on conflict (id) do update set
+         title = excluded.title,
+         event_id = excluded.event_id,
+         prediction_ids = excluded.prediction_ids,
+         status = excluded.status,
+         owner_user_id = excluded.owner_user_id,
+         assignee_user_id = excluded.assignee_user_id,
+         last_actor_user_id = excluded.last_actor_user_id,
+         updated_at = excluded.updated_at
+       returning *`,
+      [
+        investigation.id,
+        investigation.workspace_id,
+        investigation.title,
+        investigation.event_id,
+        JSON.stringify(investigation.prediction_ids),
+        investigation.status,
+        investigation.owner_user_id,
+        investigation.assignee_user_id,
+        investigation.last_actor_user_id,
+        investigation.updated_at,
+        investigation.created_at,
+      ],
+    );
+    const row = query.rows[0] as DbRow;
+    const steps = await this.getSharedInvestigationSteps(String(row.id));
+    return mapSharedInvestigationRow(row, steps);
+  }
+
+  async replaceSharedInvestigationSteps(input: { investigation_id: string; steps: SharedInvestigation["steps"] }) {
+    const db = await this.getDb();
+    await db.query(`delete from shared_investigation_steps where investigation_id = $1`, [input.investigation_id]);
+    for (const step of input.steps) {
+      await db.query(
+        `insert into shared_investigation_steps (
+           investigation_id, id, kind, status, href, title, detail, updated_at
+         ) values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [input.investigation_id, step.id, step.kind, step.status, step.href, step.title, step.detail, step.updated_at],
+      );
+    }
+    return this.getSharedInvestigationSteps(input.investigation_id);
+  }
+
+  async getSharedInvestigation(id: string) {
+    const db = await this.getDb();
+    const query = await db.query(`select * from shared_investigations where id = $1 limit 1`, [id]);
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapSharedInvestigationRow(query.rows[0] as DbRow, await this.getSharedInvestigationSteps(id));
+  }
+
+  async listSharedInvestigations(options: {
+    workspace_id: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    limit?: number;
+  }) {
+    const db = await this.getDb();
+    const params: unknown[] = [options.workspace_id];
+    const where = [`workspace_id = $1`];
+    if (options.owner_user_id) {
+      params.push(options.owner_user_id);
+      where.push(`owner_user_id = $${params.length}`);
+    }
+    if (options.assignee_user_id !== undefined) {
+      if (options.assignee_user_id === null) {
+        where.push(`assignee_user_id is null`);
+      } else {
+        params.push(options.assignee_user_id);
+        where.push(`assignee_user_id = $${params.length}`);
+      }
+    }
+    params.push(options.limit ?? 24);
+    const query = await db.query(
+      `select * from shared_investigations
+       where ${where.join(" and ")}
+       order by updated_at desc
+       limit $${params.length}`,
+      params,
+    );
+
+    return Promise.all(
+      (query.rows as DbRow[]).map(async (row) =>
+        mapSharedInvestigationRow(row, await this.getSharedInvestigationSteps(String(row.id))),
+      ),
+    );
+  }
+
+  async assignSharedInvestigation(input: {
+    investigation_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `update shared_investigations
+       set assignee_user_id = $2,
+           last_actor_user_id = $3,
+           updated_at = $4
+       where id = $1
+       returning *`,
+      [input.investigation_id, input.assignee_user_id, input.last_actor_user_id, input.updated_at],
+    );
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapSharedInvestigationRow(
+      query.rows[0] as DbRow,
+      await this.getSharedInvestigationSteps(input.investigation_id),
+    );
+  }
+
+  async saveDecisionBrief(brief: DecisionBrief): Promise<DecisionBrief> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into decision_briefs (
+         id, workspace_id, investigation_id, lead_prediction_id, title, summary, thesis,
+         scenario, confidence_label, key_assets, triggers, invalidations, status,
+         owner_user_id, assignee_user_id, last_actor_user_id, next_review_due_at,
+         closed_at, updated_at, created_at
+       ) values (
+         $1, $2, $3, $4, $5, $6, $7,
+         $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13,
+         $14, $15, $16, $17, $18, $19, $20
+       )
+       on conflict (id) do update set
+         lead_prediction_id = excluded.lead_prediction_id,
+         title = excluded.title,
+         summary = excluded.summary,
+         thesis = excluded.thesis,
+         scenario = excluded.scenario,
+         confidence_label = excluded.confidence_label,
+         key_assets = excluded.key_assets,
+         triggers = excluded.triggers,
+         invalidations = excluded.invalidations,
+         status = excluded.status,
+         owner_user_id = excluded.owner_user_id,
+         assignee_user_id = excluded.assignee_user_id,
+         last_actor_user_id = excluded.last_actor_user_id,
+         next_review_due_at = excluded.next_review_due_at,
+         closed_at = excluded.closed_at,
+         updated_at = excluded.updated_at
+       returning *`,
+      [
+        brief.id,
+        brief.workspace_id,
+        brief.investigation_id,
+        brief.lead_prediction_id,
+        brief.title,
+        brief.summary,
+        brief.thesis,
+        brief.scenario,
+        brief.confidence_label,
+        JSON.stringify(brief.key_assets),
+        JSON.stringify(brief.triggers),
+        JSON.stringify(brief.invalidations),
+        brief.status,
+        brief.owner_user_id,
+        brief.assignee_user_id,
+        brief.last_actor_user_id,
+        brief.next_review_due_at,
+        brief.closed_at,
+        brief.updated_at,
+        brief.created_at,
+      ],
+    );
+    return mapDecisionBriefRow(query.rows[0] as DbRow);
+  }
+
+  async getDecisionBrief(id: string) {
+    const db = await this.getDb();
+    const query = await db.query(`select * from decision_briefs where id = $1 limit 1`, [id]);
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapDecisionBriefRow(query.rows[0] as DbRow);
+  }
+
+  async listDecisionBriefs(options: {
+    workspace_id: string;
+    investigation_id?: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    statuses?: DecisionBrief["status"][];
+    limit?: number;
+  }) {
+    const db = await this.getDb();
+    const params: unknown[] = [options.workspace_id];
+    const where = [`workspace_id = $1`];
+
+    if (options.investigation_id) {
+      params.push(options.investigation_id);
+      where.push(`investigation_id = $${params.length}`);
+    }
+    if (options.owner_user_id) {
+      params.push(options.owner_user_id);
+      where.push(`owner_user_id = $${params.length}`);
+    }
+    if (options.assignee_user_id !== undefined) {
+      if (options.assignee_user_id === null) {
+        where.push(`assignee_user_id is null`);
+      } else {
+        params.push(options.assignee_user_id);
+        where.push(`assignee_user_id = $${params.length}`);
+      }
+    }
+    if (options.statuses?.length) {
+      params.push(options.statuses);
+      where.push(`status = any($${params.length}::text[])`);
+    }
+
+    params.push(options.limit ?? 24);
+    const query = await db.query(
+      `select *
+       from decision_briefs
+       where ${where.join(" and ")}
+       order by updated_at desc
+       limit $${params.length}`,
+      params,
+    );
+
+    return (query.rows as DbRow[]).map(mapDecisionBriefRow);
+  }
+
+  async assignDecisionBrief(input: {
+    decision_brief_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `update decision_briefs
+       set assignee_user_id = $2,
+           last_actor_user_id = $3,
+           updated_at = $4
+       where id = $1
+       returning *`,
+      [input.decision_brief_id, input.assignee_user_id, input.last_actor_user_id, input.updated_at],
+    );
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapDecisionBriefRow(query.rows[0] as DbRow);
+  }
+
+  async updateDecisionBriefStatus(input: {
+    decision_brief_id: string;
+    status: DecisionBrief["status"];
+    last_actor_user_id: string;
+    updated_at: string;
+    next_review_due_at?: string | null;
+    closed_at?: string | null;
+  }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `update decision_briefs
+       set status = $2,
+           last_actor_user_id = $3,
+           updated_at = $4,
+           next_review_due_at = $5,
+           closed_at = $6
+       where id = $1
+       returning *`,
+      [
+        input.decision_brief_id,
+        input.status,
+        input.last_actor_user_id,
+        input.updated_at,
+        input.next_review_due_at ?? null,
+        input.closed_at ?? null,
+      ],
+    );
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapDecisionBriefRow(query.rows[0] as DbRow);
+  }
+
+  async saveDecisionCheckpoint(checkpoint: DecisionCheckpoint): Promise<DecisionCheckpoint> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into decision_checkpoints (
+         id, decision_brief_id, workspace_id, actor_user_id, summary, thesis_state, action, created_at
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict (id) do update set
+         summary = excluded.summary,
+         thesis_state = excluded.thesis_state,
+         action = excluded.action
+       returning *`,
+      [
+        checkpoint.id,
+        checkpoint.decision_brief_id,
+        checkpoint.workspace_id,
+        checkpoint.actor_user_id,
+        checkpoint.summary,
+        checkpoint.thesis_state,
+        checkpoint.action,
+        checkpoint.created_at,
+      ],
+    );
+    return mapDecisionCheckpointRow(query.rows[0] as DbRow);
+  }
+
+  async listDecisionCheckpoints(options: { decision_brief_id: string; limit?: number }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select *
+       from decision_checkpoints
+       where decision_brief_id = $1
+       order by created_at desc
+       limit $2`,
+      [options.decision_brief_id, options.limit ?? 32],
+    );
+    return (query.rows as DbRow[]).map(mapDecisionCheckpointRow);
+  }
+
+  async savePortfolioCandidate(candidate: PortfolioCandidate): Promise<PortfolioCandidate> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into portfolio_candidates (
+         id, workspace_id, decision_brief_id, investigation_id, lead_prediction_id, title, summary,
+         status, priority, sizing_label, risk_budget_label, conviction_label, primary_theme,
+         secondary_themes, related_assets, owner_user_id, assignee_user_id, last_actor_user_id,
+         next_review_due_at, closed_at, updated_at, created_at
+       ) values (
+         $1, $2, $3, $4, $5, $6, $7,
+         $8, $9, $10, $11, $12, $13,
+         $14::jsonb, $15::jsonb, $16, $17, $18,
+         $19, $20, $21, $22
+       )
+       on conflict (id) do update set
+         decision_brief_id = excluded.decision_brief_id,
+         investigation_id = excluded.investigation_id,
+         lead_prediction_id = excluded.lead_prediction_id,
+         title = excluded.title,
+         summary = excluded.summary,
+         status = excluded.status,
+         priority = excluded.priority,
+         sizing_label = excluded.sizing_label,
+         risk_budget_label = excluded.risk_budget_label,
+         conviction_label = excluded.conviction_label,
+         primary_theme = excluded.primary_theme,
+         secondary_themes = excluded.secondary_themes,
+         related_assets = excluded.related_assets,
+         owner_user_id = excluded.owner_user_id,
+         assignee_user_id = excluded.assignee_user_id,
+         last_actor_user_id = excluded.last_actor_user_id,
+         next_review_due_at = excluded.next_review_due_at,
+         closed_at = excluded.closed_at,
+         updated_at = excluded.updated_at
+       returning *`,
+      [
+        candidate.id,
+        candidate.workspace_id,
+        candidate.decision_brief_id,
+        candidate.investigation_id,
+        candidate.lead_prediction_id,
+        candidate.title,
+        candidate.summary,
+        candidate.status,
+        candidate.priority,
+        candidate.sizing_label,
+        candidate.risk_budget_label,
+        candidate.conviction_label,
+        candidate.primary_theme,
+        JSON.stringify(candidate.secondary_themes),
+        JSON.stringify(candidate.related_assets),
+        candidate.owner_user_id,
+        candidate.assignee_user_id,
+        candidate.last_actor_user_id,
+        candidate.next_review_due_at,
+        candidate.closed_at,
+        candidate.updated_at,
+        candidate.created_at,
+      ],
+    );
+    return mapPortfolioCandidateRow(query.rows[0] as DbRow);
+  }
+
+  async getPortfolioCandidate(id: string) {
+    const db = await this.getDb();
+    const query = await db.query(`select * from portfolio_candidates where id = $1 limit 1`, [id]);
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapPortfolioCandidateRow(query.rows[0] as DbRow);
+  }
+
+  async listPortfolioCandidates(options: {
+    workspace_id: string;
+    decision_brief_id?: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    statuses?: PortfolioCandidate["status"][];
+    limit?: number;
+  }) {
+    const db = await this.getDb();
+    const params: unknown[] = [options.workspace_id];
+    const where = [`workspace_id = $1`];
+
+    if (options.decision_brief_id) {
+      params.push(options.decision_brief_id);
+      where.push(`decision_brief_id = $${params.length}`);
+    }
+    if (options.owner_user_id) {
+      params.push(options.owner_user_id);
+      where.push(`owner_user_id = $${params.length}`);
+    }
+    if (options.assignee_user_id !== undefined) {
+      if (options.assignee_user_id === null) {
+        where.push(`assignee_user_id is null`);
+      } else {
+        params.push(options.assignee_user_id);
+        where.push(`assignee_user_id = $${params.length}`);
+      }
+    }
+    if (options.statuses?.length) {
+      params.push(options.statuses);
+      where.push(`status = any($${params.length}::text[])`);
+    }
+
+    params.push(options.limit ?? 24);
+    const query = await db.query(
+      `select *
+       from portfolio_candidates
+       where ${where.join(" and ")}
+       order by updated_at desc
+       limit $${params.length}`,
+      params,
+    );
+
+    return (query.rows as DbRow[]).map(mapPortfolioCandidateRow);
+  }
+
+  async assignPortfolioCandidate(input: {
+    portfolio_candidate_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `update portfolio_candidates
+       set assignee_user_id = $2,
+           last_actor_user_id = $3,
+           updated_at = $4
+       where id = $1
+       returning *`,
+      [input.portfolio_candidate_id, input.assignee_user_id, input.last_actor_user_id, input.updated_at],
+    );
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapPortfolioCandidateRow(query.rows[0] as DbRow);
+  }
+
+  async updatePortfolioCandidatePosture(input: {
+    portfolio_candidate_id: string;
+    priority: string;
+    sizing_label: string;
+    risk_budget_label: string;
+    conviction_label: string;
+    primary_theme: string;
+    secondary_themes: string[];
+    related_assets: string[];
+    next_review_due_at: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `update portfolio_candidates
+       set priority = $2,
+           sizing_label = $3,
+           risk_budget_label = $4,
+           conviction_label = $5,
+           primary_theme = $6,
+           secondary_themes = $7,
+           related_assets = $8,
+           next_review_due_at = $9,
+           last_actor_user_id = $10,
+           updated_at = $11
+       where id = $1
+       returning *`,
+      [
+        input.portfolio_candidate_id,
+        input.priority,
+        input.sizing_label,
+        input.risk_budget_label,
+        input.conviction_label,
+        input.primary_theme,
+        input.secondary_themes,
+        input.related_assets,
+        input.next_review_due_at,
+        input.last_actor_user_id,
+        input.updated_at,
+      ],
+    );
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapPortfolioCandidateRow(query.rows[0] as DbRow);
+  }
+
+  async updatePortfolioCandidateStatus(input: {
+    portfolio_candidate_id: string;
+    status: PortfolioCandidate["status"];
+    last_actor_user_id: string;
+    updated_at: string;
+    next_review_due_at?: string | null;
+    closed_at?: string | null;
+  }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `update portfolio_candidates
+       set status = $2,
+           last_actor_user_id = $3,
+           updated_at = $4,
+           next_review_due_at = $5,
+           closed_at = $6
+       where id = $1
+       returning *`,
+      [
+        input.portfolio_candidate_id,
+        input.status,
+        input.last_actor_user_id,
+        input.updated_at,
+        input.next_review_due_at ?? null,
+        input.closed_at ?? null,
+      ],
+    );
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapPortfolioCandidateRow(query.rows[0] as DbRow);
+  }
+
+  async savePortfolioCheckpoint(checkpoint: PortfolioCheckpoint): Promise<PortfolioCheckpoint> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into portfolio_checkpoints (
+         id, portfolio_candidate_id, workspace_id, actor_user_id, summary, thesis_state, action, created_at
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict (id) do update set
+         summary = excluded.summary,
+         thesis_state = excluded.thesis_state,
+         action = excluded.action
+       returning *`,
+      [
+        checkpoint.id,
+        checkpoint.portfolio_candidate_id,
+        checkpoint.workspace_id,
+        checkpoint.actor_user_id,
+        checkpoint.summary,
+        checkpoint.thesis_state,
+        checkpoint.action,
+        checkpoint.created_at,
+      ],
+    );
+    return mapPortfolioCheckpointRow(query.rows[0] as DbRow);
+  }
+
+  async listPortfolioCheckpoints(options: { portfolio_candidate_id: string; limit?: number }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select *
+       from portfolio_checkpoints
+       where portfolio_candidate_id = $1
+       order by created_at desc
+       limit $2`,
+      [options.portfolio_candidate_id, options.limit ?? 32],
+    );
+    return (query.rows as DbRow[]).map(mapPortfolioCheckpointRow);
+  }
+
+  async savePortfolioReviewSession(session: PortfolioReviewSession): Promise<PortfolioReviewSession> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into portfolio_review_sessions (
+         id, workspace_id, title, summary, status, owner_user_id, last_actor_user_id,
+         opened_at, finalized_at, updated_at, created_at
+       ) values (
+         $1, $2, $3, $4, $5, $6, $7,
+         $8, $9, $10, $11
+       )
+       on conflict (id) do update set
+         title = excluded.title,
+         summary = excluded.summary,
+         status = excluded.status,
+         last_actor_user_id = excluded.last_actor_user_id,
+         opened_at = excluded.opened_at,
+         finalized_at = excluded.finalized_at,
+         updated_at = excluded.updated_at
+       returning *`,
+      [
+        session.id,
+        session.workspace_id,
+        session.title,
+        session.summary,
+        session.status,
+        session.owner_user_id,
+        session.last_actor_user_id,
+        session.opened_at,
+        session.finalized_at,
+        session.updated_at,
+        session.created_at,
+      ],
+    );
+    return mapPortfolioReviewSessionRow(query.rows[0] as DbRow);
+  }
+
+  async getPortfolioReviewSession(id: string) {
+    const db = await this.getDb();
+    const query = await db.query(`select * from portfolio_review_sessions where id = $1 limit 1`, [id]);
+    if (!hasRows(query.rows)) {
+      return null;
+    }
+    return mapPortfolioReviewSessionRow(query.rows[0] as DbRow);
+  }
+
+  async listPortfolioReviewSessions(options: {
+    workspace_id: string;
+    statuses?: PortfolioReviewSession["status"][];
+    limit?: number;
+  }) {
+    const db = await this.getDb();
+    const params: unknown[] = [options.workspace_id];
+    const where = [`workspace_id = $1`];
+
+    if (options.statuses?.length) {
+      params.push(options.statuses);
+      where.push(`status = any($${params.length})`);
+    }
+
+    params.push(options.limit ?? 24);
+
+    const query = await db.query(
+      `select *
+       from portfolio_review_sessions
+       where ${where.join(" and ")}
+       order by updated_at desc
+       limit $${params.length}`,
+      params,
+    );
+    return (query.rows as DbRow[]).map(mapPortfolioReviewSessionRow);
+  }
+
+  async savePortfolioReviewSessionItem(item: PortfolioReviewSessionItem): Promise<PortfolioReviewSessionItem> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into portfolio_review_session_items (
+         id, review_session_id, portfolio_candidate_id, snapshot_status, snapshot_priority,
+         snapshot_primary_theme, snapshot_assignee_user_id, snapshot_next_review_due_at, created_at
+       ) values (
+         $1, $2, $3, $4, $5,
+         $6, $7, $8, $9
+       )
+       on conflict (id) do update set
+         snapshot_status = excluded.snapshot_status,
+         snapshot_priority = excluded.snapshot_priority,
+         snapshot_primary_theme = excluded.snapshot_primary_theme,
+         snapshot_assignee_user_id = excluded.snapshot_assignee_user_id,
+         snapshot_next_review_due_at = excluded.snapshot_next_review_due_at
+       returning *`,
+      [
+        item.id,
+        item.review_session_id,
+        item.portfolio_candidate_id,
+        item.snapshot_status,
+        item.snapshot_priority,
+        item.snapshot_primary_theme,
+        item.snapshot_assignee_user_id,
+        item.snapshot_next_review_due_at,
+        item.created_at,
+      ],
+    );
+    return mapPortfolioReviewSessionItemRow(query.rows[0] as DbRow);
+  }
+
+  async listPortfolioReviewSessionItems(options: { review_session_id: string }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select *
+       from portfolio_review_session_items
+       where review_session_id = $1
+       order by created_at asc`,
+      [options.review_session_id],
+    );
+    return (query.rows as DbRow[]).map(mapPortfolioReviewSessionItemRow);
+  }
+
+  async savePortfolioRebalanceProposal(proposal: PortfolioRebalanceProposal): Promise<PortfolioRebalanceProposal> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into portfolio_rebalance_proposals (
+         id, review_session_id, portfolio_candidate_id, actor_user_id, action, status,
+         rationale, dependency_note, next_review_expectation, decided_at, updated_at, created_at
+       ) values (
+         $1, $2, $3, $4, $5, $6,
+         $7, $8, $9, $10, $11, $12
+       )
+       on conflict (id) do update set
+         actor_user_id = excluded.actor_user_id,
+         action = excluded.action,
+         status = excluded.status,
+         rationale = excluded.rationale,
+         dependency_note = excluded.dependency_note,
+         next_review_expectation = excluded.next_review_expectation,
+         decided_at = excluded.decided_at,
+         updated_at = excluded.updated_at
+       returning *`,
+      [
+        proposal.id,
+        proposal.review_session_id,
+        proposal.portfolio_candidate_id,
+        proposal.actor_user_id,
+        proposal.action,
+        proposal.status,
+        proposal.rationale,
+        proposal.dependency_note,
+        proposal.next_review_expectation,
+        proposal.decided_at,
+        proposal.updated_at,
+        proposal.created_at,
+      ],
+    );
+    return mapPortfolioRebalanceProposalRow(query.rows[0] as DbRow);
+  }
+
+  async listPortfolioRebalanceProposals(options: {
+    review_session_id: string;
+    portfolio_candidate_id?: string;
+  }) {
+    const db = await this.getDb();
+    const params: unknown[] = [options.review_session_id];
+    const where = [`review_session_id = $1`];
+
+    if (options.portfolio_candidate_id) {
+      params.push(options.portfolio_candidate_id);
+      where.push(`portfolio_candidate_id = $${params.length}`);
+    }
+
+    const query = await db.query(
+      `select *
+       from portfolio_rebalance_proposals
+       where ${where.join(" and ")}
+       order by updated_at desc`,
+      params,
+    );
+    return (query.rows as DbRow[]).map(mapPortfolioRebalanceProposalRow);
+  }
+
+  async saveWorkspaceRecentItem(item: SaveWorkspaceRecentItemInput): Promise<WorkspaceRecentItem> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into workspace_recent_items (
+         workspace_id, id, kind, href, title, description, actor_user_id, updated_at
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict (workspace_id, id) do update set
+         kind = excluded.kind,
+         href = excluded.href,
+         title = excluded.title,
+         description = excluded.description,
+         actor_user_id = excluded.actor_user_id,
+         updated_at = excluded.updated_at
+       returning id, kind, href, title, description, updated_at`,
+      [item.workspace_id, item.id, item.kind, item.href, item.title, item.description, item.actor_user_id, item.updated_at],
+    );
+    return mapWorkspaceRecentItemRow(query.rows[0] as DbRow);
+  }
+
+  async listWorkspaceRecentItems(options: { workspace_id: string; limit?: number }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select id, kind, href, title, description, updated_at
+       from workspace_recent_items
+       where workspace_id = $1
+       order by updated_at desc
+       limit $2`,
+      [options.workspace_id, options.limit ?? 16],
+    );
+    return (query.rows as DbRow[]).map(mapWorkspaceRecentItemRow);
+  }
+
+  async saveWorkspaceActivity(activity: WorkspaceActivity): Promise<WorkspaceActivity> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into workspace_activity_events (
+         id, workspace_id, actor_user_id, kind, investigation_id, studio_run_id,
+         prediction_id, detail, metadata, created_at
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+       on conflict (id) do update set
+         detail = excluded.detail,
+         metadata = excluded.metadata
+       returning id, workspace_id, actor_user_id, kind, investigation_id, studio_run_id,
+         prediction_id, detail, metadata, created_at`,
+      [
+        activity.id,
+        activity.workspace_id,
+        activity.actor_user_id,
+        activity.kind,
+        activity.investigation_id,
+        activity.studio_run_id,
+        activity.prediction_id,
+        activity.detail,
+        JSON.stringify(activity.metadata),
+        activity.created_at,
+      ],
+    );
+    return mapWorkspaceActivityRow(query.rows[0] as DbRow);
+  }
+
+  async listWorkspaceActivity(options: { workspace_id: string; limit?: number }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select id, workspace_id, actor_user_id, kind, investigation_id, studio_run_id,
+         prediction_id, detail, metadata, created_at
+       from workspace_activity_events
+       where workspace_id = $1
+       order by created_at desc
+       limit $2`,
+      [options.workspace_id, options.limit ?? 32],
+    );
+    return (query.rows as DbRow[]).map(mapWorkspaceActivityRow);
+  }
+
+  async saveSharedReviewNote(note: SharedReviewNote): Promise<SharedReviewNote> {
+    const db = await this.getDb();
+    const query = await db.query(
+      `insert into shared_review_notes (
+         workspace_id, prediction_id, note, owner_user_id, updated_at, created_at
+       ) values ($1, $2, $3, $4, $5, $6)
+       on conflict (workspace_id, prediction_id) do update set
+         note = excluded.note,
+         owner_user_id = excluded.owner_user_id,
+         updated_at = excluded.updated_at
+       returning workspace_id, prediction_id, note, owner_user_id, updated_at, created_at`,
+      [note.workspace_id, note.prediction_id, note.note, note.owner_user_id, note.updated_at, note.created_at],
+    );
+    return mapSharedReviewNoteRow(query.rows[0] as DbRow);
+  }
+
+  async getSharedReviewNote(input: { workspace_id: string; prediction_id: string }) {
+    const db = await this.getDb();
+    const query = await db.query(
+      `select workspace_id, prediction_id, note, owner_user_id, updated_at, created_at
+       from shared_review_notes
+       where workspace_id = $1 and prediction_id = $2
+       limit 1`,
+      [input.workspace_id, input.prediction_id],
+    );
+    return hasRows(query.rows) ? mapSharedReviewNoteRow(query.rows[0] as DbRow) : null;
   }
 
   async createSource(input: CreateSourceRequest): Promise<StoredSource> {
@@ -4052,29 +5568,58 @@ export class PGliteRepository implements Repository {
   async reset() {
     const db = await this.getDb();
     await db.exec(`
-      drop table if exists transcript_session_analyses;
-      drop table if exists transcript_chunks;
-      drop table if exists transcript_stream_buffers;
-      drop table if exists transcript_stream_bindings;
-      drop table if exists transcript_sessions;
-      drop table if exists growth_pressure_action_plans;
-      drop table if exists growth_pressure_alerts;
-      drop table if exists growth_pressure_policies;
-      drop table if exists historical_case_library;
-      drop table if exists model_registry;
-      drop table if exists operation_runs;
-      drop table if exists promotion_evaluations;
-      drop table if exists calibration_snapshots;
-      drop table if exists lessons;
-      drop table if exists postmortems;
-      drop table if exists prediction_outcomes;
-      drop table if exists prediction_assets;
-      drop table if exists predictions;
-      drop table if exists evolution_schedule_configs;
-      drop table if exists lineage_snapshots;
-      drop table if exists event_assets;
-      drop table if exists events;
-      drop table if exists sources;
+      drop table if exists portfolio_rebalance_proposals cascade;
+      drop table if exists portfolio_review_session_items cascade;
+      drop table if exists portfolio_review_sessions cascade;
+      drop table if exists portfolio_checkpoints cascade;
+      drop table if exists portfolio_candidates cascade;
+      drop table if exists decision_checkpoints cascade;
+      drop table if exists decision_briefs cascade;
+      drop table if exists shared_review_notes cascade;
+      drop table if exists workspace_activity_events cascade;
+      drop table if exists workspace_recent_items cascade;
+      drop table if exists shared_investigation_steps cascade;
+      drop table if exists shared_investigations cascade;
+      drop table if exists shared_studio_runs cascade;
+      drop table if exists shared_studio_drafts cascade;
+      drop table if exists user_sessions cascade;
+      drop table if exists workspace_memberships cascade;
+      drop table if exists workspace_users cascade;
+      drop table if exists workspaces cascade;
+      drop table if exists transcript_session_analyses cascade;
+      drop table if exists transcript_chunks cascade;
+      drop table if exists transcript_stream_buffers cascade;
+      drop table if exists transcript_stream_bindings cascade;
+      drop table if exists transcript_sessions cascade;
+      drop table if exists growth_pressure_action_plans cascade;
+      drop table if exists growth_pressure_alerts cascade;
+      drop table if exists growth_pressure_policies cascade;
+      drop table if exists system_integration_probe_states cascade;
+      drop table if exists system_integration_governance_states cascade;
+      drop table if exists operation_worker_service_events cascade;
+      drop table if exists operation_worker_events cascade;
+      drop table if exists operation_worker_services cascade;
+      drop table if exists operation_workers cascade;
+      drop table if exists operation_jobs cascade;
+      drop table if exists operation_leases cascade;
+      drop table if exists operation_runs cascade;
+      drop table if exists promotion_evaluations cascade;
+      drop table if exists benchmark_trust_refreshes cascade;
+      drop table if exists walk_forward_replay_snapshots cascade;
+      drop table if exists benchmark_replay_snapshots cascade;
+      drop table if exists calibration_snapshots cascade;
+      drop table if exists lessons cascade;
+      drop table if exists postmortems cascade;
+      drop table if exists prediction_outcomes cascade;
+      drop table if exists prediction_assets cascade;
+      drop table if exists predictions cascade;
+      drop table if exists evolution_schedule_configs cascade;
+      drop table if exists lineage_snapshots cascade;
+      drop table if exists historical_case_library cascade;
+      drop table if exists model_registry cascade;
+      drop table if exists event_assets cascade;
+      drop table if exists events cascade;
+      drop table if exists sources cascade;
     `);
     await db.exec(await loadPhase1SchemaSql());
   }

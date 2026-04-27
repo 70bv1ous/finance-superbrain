@@ -1,14 +1,40 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  authSessionSchema,
+  decisionBriefSchema,
+  decisionCheckpointSchema,
+  portfolioCandidateSchema,
+  portfolioCheckpointSchema,
+  portfolioRebalanceProposalSchema,
+  portfolioReviewSessionItemSchema,
+  portfolioReviewSessionSchema,
+  serverStudioDraftSchema,
+  sharedInvestigationSchema,
+  sharedReviewNoteSchema,
+  sharedStudioRunSchema,
   storedEventSchema,
   storedPredictionSchema,
   storedSourceSchema,
+  workspaceActivitySchema,
+  workspaceMembershipSchema,
+  workspaceRecentItemSchema,
+  workspaceSchema,
+  workspaceUserSchema,
 } from "@finance-superbrain/schemas";
 import type {
+  AuthSession,
+  DecisionBrief,
+  DecisionCheckpoint,
+  PortfolioCandidate,
+  PortfolioCheckpoint,
+  PortfolioRebalanceProposal,
+  PortfolioReviewSession,
+  PortfolioReviewSessionItem,
   BenchmarkReplaySnapshot,
   BenchmarkTrustRefreshRecord,
   CalibrationSnapshot,
+  CreateWorkspaceUserRequest,
   CreateTranscriptChunkRequest,
   CreateTranscriptSessionRequest,
   CreateModelVersionRequest,
@@ -32,6 +58,10 @@ import type {
   OperationRunRecord,
   Postmortem,
   PredictionOutcome,
+  ServerStudioDraft,
+  SharedInvestigation,
+  SharedReviewNote,
+  SharedStudioRun,
   StoredGrowthPressureAlert,
   StoredModelVersion,
   StoredEvent,
@@ -43,11 +73,18 @@ import type {
   TranscriptStreamBinding,
   TranscriptStreamBuffer,
   TranscriptSessionAnalysis,
+  Workspace,
+  WorkspaceActivity,
+  WorkspaceMembership,
+  WorkspaceRecentItem,
+  WorkspaceUser,
   WalkForwardReplaySnapshot,
 } from "@finance-superbrain/schemas";
 
 import type {
-    OperationIntegrationTrendSummaryBucket,
+  CreateUserSessionInput,
+  CreateWorkspaceUserInput,
+  OperationIntegrationTrendSummaryBucket,
     OperationIntegrationQueueSummary,
     OperationWorkerEventSummaryBucket,
     OperationWorkerServiceEventSummaryBucket,
@@ -55,6 +92,8 @@ import type {
   PendingPredictionRecord,
   PredictionLearningRecord,
   Repository,
+  SaveSharedInvestigationInput,
+  SaveWorkspaceRecentItemInput,
 } from "./repository.types.js";
 
 const HORIZON_TO_MS: Record<StoredPrediction["horizon"], number> = {
@@ -63,7 +102,29 @@ const HORIZON_TO_MS: Record<StoredPrediction["horizon"], number> = {
   "5d": 5 * 24 * 60 * 60 * 1000,
 };
 
+const DEFAULT_WORKSPACE_ID = "00000000-0000-4000-8000-000000000001";
+
 export class InMemoryRepository implements Repository {
+  private defaultWorkspace: Workspace | null = null;
+  private readonly workspaceUsers = new Map<string, WorkspaceUser>();
+  private readonly workspaceUserPasswords = new Map<string, string>();
+  private readonly workspaceUsersByEmail = new Map<string, string>();
+  private readonly workspaceMemberships = new Map<string, WorkspaceMembership>();
+  private readonly userSessions = new Map<string, AuthSession>();
+  private readonly userSessionsByTokenHash = new Map<string, string>();
+  private readonly serverStudioDrafts = new Map<string, ServerStudioDraft>();
+  private readonly sharedStudioRuns = new Map<string, SharedStudioRun>();
+  private readonly sharedInvestigations = new Map<string, SharedInvestigation>();
+  private readonly decisionBriefs = new Map<string, DecisionBrief>();
+  private readonly decisionCheckpoints = new Map<string, DecisionCheckpoint>();
+  private readonly portfolioCandidates = new Map<string, PortfolioCandidate>();
+  private readonly portfolioCheckpoints = new Map<string, PortfolioCheckpoint>();
+  private readonly portfolioReviewSessions = new Map<string, PortfolioReviewSession>();
+  private readonly portfolioReviewSessionItems = new Map<string, PortfolioReviewSessionItem>();
+  private readonly portfolioRebalanceProposals = new Map<string, PortfolioRebalanceProposal>();
+  private readonly workspaceRecentItems = new Map<string, WorkspaceRecentItem>();
+  private readonly workspaceActivity = new Map<string, WorkspaceActivity>();
+  private readonly sharedReviewNotes = new Map<string, SharedReviewNote>();
   private readonly sources = new Map<string, StoredSource>();
   private readonly events = new Map<string, StoredEvent>();
   private readonly predictions = new Map<string, StoredPrediction>();
@@ -104,6 +165,578 @@ export class InMemoryRepository implements Repository {
 
   private operationLeaseKey(operationName: string, scopeKey: string) {
     return `${operationName}::${scopeKey}`;
+  }
+
+  private workspaceMembershipKey(workspaceId: string, userId: string) {
+    return `${workspaceId}::${userId}`;
+  }
+
+  private draftKey(workspaceId: string, ownerUserId: string) {
+    return `${workspaceId}::${ownerUserId}`;
+  }
+
+  private recentItemKey(workspaceId: string, itemId: string) {
+    return `${workspaceId}::${itemId}`;
+  }
+
+  private reviewNoteKey(workspaceId: string, predictionId: string) {
+    return `${workspaceId}::${predictionId}`;
+  }
+
+  async getOrCreateDefaultWorkspace(): Promise<Workspace> {
+    if (this.defaultWorkspace) {
+      return this.defaultWorkspace;
+    }
+
+    const now = new Date().toISOString();
+    this.defaultWorkspace = workspaceSchema.parse({
+      id: DEFAULT_WORKSPACE_ID,
+      slug: "internal-alpha",
+      name: "Internal Alpha",
+      created_at: now,
+      updated_at: now,
+    });
+
+    return this.defaultWorkspace;
+  }
+
+  async countWorkspaceUsers(): Promise<number> {
+    return this.workspaceUsers.size;
+  }
+
+  async createWorkspaceUser(input: CreateWorkspaceUserInput): Promise<WorkspaceUser> {
+    const workspace = await this.getOrCreateDefaultWorkspace();
+    const now = new Date().toISOString();
+    const user = workspaceUserSchema.parse({
+      id: randomUUID(),
+      email: input.email.toLowerCase(),
+      display_name: input.display_name,
+      role: input.role,
+      active: input.active ?? true,
+      created_at: now,
+      updated_at: now,
+    });
+    const membership = workspaceMembershipSchema.parse({
+      workspace_id: input.workspace_id ?? workspace.id,
+      user_id: user.id,
+      role: user.role,
+      joined_at: now,
+    });
+
+    this.workspaceUsers.set(user.id, user);
+    this.workspaceUserPasswords.set(user.id, input.password_hash);
+    this.workspaceUsersByEmail.set(user.email, user.id);
+    this.workspaceMemberships.set(this.workspaceMembershipKey(membership.workspace_id, membership.user_id), membership);
+
+    return user;
+  }
+
+  async getWorkspaceUserByEmail(email: string) {
+    const userId = this.workspaceUsersByEmail.get(email.toLowerCase());
+    if (!userId) {
+      return null;
+    }
+
+    const user = this.workspaceUsers.get(userId);
+    const password_hash = this.workspaceUserPasswords.get(userId);
+
+    if (!user || !password_hash) {
+      return null;
+    }
+
+    return {
+      ...user,
+      password_hash,
+    };
+  }
+
+  async getWorkspaceUserById(id: string) {
+    return this.workspaceUsers.get(id) ?? null;
+  }
+
+  async getWorkspaceMembership(input: { workspace_id: string; user_id: string }) {
+    return this.workspaceMemberships.get(this.workspaceMembershipKey(input.workspace_id, input.user_id)) ?? null;
+  }
+
+  async listWorkspaceMembers(workspaceId: string) {
+    return [...this.workspaceMemberships.values()]
+      .filter((membership) => membership.workspace_id === workspaceId)
+      .map((membership) => ({
+        membership,
+        user: this.workspaceUsers.get(membership.user_id),
+      }))
+      .filter((entry): entry is { user: WorkspaceUser; membership: WorkspaceMembership } => Boolean(entry.user))
+      .sort((left, right) => right.membership.joined_at.localeCompare(left.membership.joined_at));
+  }
+
+  async createUserSession(input: CreateUserSessionInput): Promise<AuthSession> {
+    const session = authSessionSchema.parse({
+      id: randomUUID(),
+      user_id: input.user_id,
+      workspace_id: input.workspace_id,
+      expires_at: input.expires_at,
+      created_at: new Date().toISOString(),
+      last_seen_at: input.last_seen_at,
+    });
+
+    this.userSessions.set(session.id, session);
+    this.userSessionsByTokenHash.set(input.token_hash, session.id);
+
+    return session;
+  }
+
+  async getUserSessionByTokenHash(tokenHash: string) {
+    const sessionId = this.userSessionsByTokenHash.get(tokenHash);
+    return sessionId ? this.userSessions.get(sessionId) ?? null : null;
+  }
+
+  async touchUserSession(id: string, lastSeenAt: string) {
+    const current = this.userSessions.get(id);
+    if (!current) {
+      return null;
+    }
+
+    const next = authSessionSchema.parse({
+      ...current,
+      last_seen_at: lastSeenAt,
+    });
+    this.userSessions.set(id, next);
+    return next;
+  }
+
+  async revokeUserSession(id: string): Promise<void> {
+    this.userSessions.delete(id);
+    for (const [tokenHash, sessionId] of this.userSessionsByTokenHash.entries()) {
+      if (sessionId === id) {
+        this.userSessionsByTokenHash.delete(tokenHash);
+      }
+    }
+  }
+
+  async saveServerStudioDraft(draft: ServerStudioDraft): Promise<ServerStudioDraft> {
+    const parsed = serverStudioDraftSchema.parse(draft);
+    const workspace = await this.getOrCreateDefaultWorkspace();
+    this.serverStudioDrafts.set(this.draftKey(workspace.id, parsed.owner_user_id), parsed);
+    return parsed;
+  }
+
+  async getServerStudioDraft(input: { workspace_id: string; owner_user_id: string }) {
+    return this.serverStudioDrafts.get(this.draftKey(input.workspace_id, input.owner_user_id)) ?? null;
+  }
+
+  async deleteServerStudioDraft(input: { workspace_id: string; owner_user_id: string }) {
+    this.serverStudioDrafts.delete(this.draftKey(input.workspace_id, input.owner_user_id));
+  }
+
+  async saveSharedStudioRun(run: SharedStudioRun): Promise<SharedStudioRun> {
+    const parsed = sharedStudioRunSchema.parse(run);
+    this.sharedStudioRuns.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async getSharedStudioRun(id: string) {
+    return this.sharedStudioRuns.get(id) ?? null;
+  }
+
+  async listSharedStudioRuns(options: { workspace_id: string; owner_user_id?: string; limit?: number }) {
+    return [...this.sharedStudioRuns.values()]
+      .filter((run) => run.workspace_id === options.workspace_id)
+      .filter((run) => !options.owner_user_id || run.owner_user_id === options.owner_user_id)
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async saveSharedInvestigation(investigation: SaveSharedInvestigationInput): Promise<SharedInvestigation> {
+    const existing = this.sharedInvestigations.get(investigation.id);
+    const parsed = sharedInvestigationSchema.parse({
+      ...investigation,
+      created_at: existing?.created_at ?? investigation.created_at,
+      steps: existing?.steps ?? [],
+    });
+    this.sharedInvestigations.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async replaceSharedInvestigationSteps(input: { investigation_id: string; steps: SharedInvestigation["steps"] }) {
+    const current = this.sharedInvestigations.get(input.investigation_id);
+    if (!current) {
+      return [];
+    }
+
+    const next = sharedInvestigationSchema.parse({
+      ...current,
+      steps: input.steps,
+    });
+    this.sharedInvestigations.set(next.id, next);
+    return next.steps;
+  }
+
+  async getSharedInvestigation(id: string) {
+    return this.sharedInvestigations.get(id) ?? null;
+  }
+
+  async listSharedInvestigations(options: {
+    workspace_id: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    limit?: number;
+  }) {
+    return [...this.sharedInvestigations.values()]
+      .filter((investigation) => investigation.workspace_id === options.workspace_id)
+      .filter((investigation) => !options.owner_user_id || investigation.owner_user_id === options.owner_user_id)
+      .filter((investigation) =>
+        options.assignee_user_id === undefined
+          ? true
+          : investigation.assignee_user_id === options.assignee_user_id,
+      )
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async assignSharedInvestigation(input: {
+    investigation_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }) {
+    const current = this.sharedInvestigations.get(input.investigation_id);
+    if (!current) {
+      return null;
+    }
+
+    const next = sharedInvestigationSchema.parse({
+      ...current,
+      assignee_user_id: input.assignee_user_id,
+      last_actor_user_id: input.last_actor_user_id,
+      updated_at: input.updated_at,
+    });
+    this.sharedInvestigations.set(next.id, next);
+    return next;
+  }
+
+  async saveDecisionBrief(brief: DecisionBrief): Promise<DecisionBrief> {
+    const existing = this.decisionBriefs.get(brief.id);
+    const parsed = decisionBriefSchema.parse({
+      ...brief,
+      created_at: existing?.created_at ?? brief.created_at,
+    });
+    this.decisionBriefs.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async getDecisionBrief(id: string) {
+    return this.decisionBriefs.get(id) ?? null;
+  }
+
+  async listDecisionBriefs(options: {
+    workspace_id: string;
+    investigation_id?: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    statuses?: DecisionBrief["status"][];
+    limit?: number;
+  }) {
+    const statusSet = options.statuses?.length ? new Set(options.statuses) : null;
+
+    return [...this.decisionBriefs.values()]
+      .filter((brief) => brief.workspace_id === options.workspace_id)
+      .filter((brief) => !options.investigation_id || brief.investigation_id === options.investigation_id)
+      .filter((brief) => !options.owner_user_id || brief.owner_user_id === options.owner_user_id)
+      .filter((brief) =>
+        options.assignee_user_id === undefined ? true : brief.assignee_user_id === options.assignee_user_id,
+      )
+      .filter((brief) => (statusSet ? statusSet.has(brief.status) : true))
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async assignDecisionBrief(input: {
+    decision_brief_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }) {
+    const current = this.decisionBriefs.get(input.decision_brief_id);
+    if (!current) {
+      return null;
+    }
+
+    const next = decisionBriefSchema.parse({
+      ...current,
+      assignee_user_id: input.assignee_user_id,
+      last_actor_user_id: input.last_actor_user_id,
+      updated_at: input.updated_at,
+    });
+    this.decisionBriefs.set(next.id, next);
+    return next;
+  }
+
+  async updateDecisionBriefStatus(input: {
+    decision_brief_id: string;
+    status: DecisionBrief["status"];
+    last_actor_user_id: string;
+    updated_at: string;
+    next_review_due_at?: string | null;
+    closed_at?: string | null;
+  }) {
+    const current = this.decisionBriefs.get(input.decision_brief_id);
+    if (!current) {
+      return null;
+    }
+
+    const next = decisionBriefSchema.parse({
+      ...current,
+      status: input.status,
+      last_actor_user_id: input.last_actor_user_id,
+      next_review_due_at:
+        input.next_review_due_at === undefined ? current.next_review_due_at : input.next_review_due_at,
+      closed_at: input.closed_at === undefined ? current.closed_at : input.closed_at,
+      updated_at: input.updated_at,
+    });
+    this.decisionBriefs.set(next.id, next);
+    return next;
+  }
+
+  async saveDecisionCheckpoint(checkpoint: DecisionCheckpoint): Promise<DecisionCheckpoint> {
+    const parsed = decisionCheckpointSchema.parse(checkpoint);
+    this.decisionCheckpoints.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async listDecisionCheckpoints(options: { decision_brief_id: string; limit?: number }) {
+    return [...this.decisionCheckpoints.values()]
+      .filter((checkpoint) => checkpoint.decision_brief_id === options.decision_brief_id)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async savePortfolioCandidate(candidate: PortfolioCandidate): Promise<PortfolioCandidate> {
+    const existing = this.portfolioCandidates.get(candidate.id);
+    const parsed = portfolioCandidateSchema.parse({
+      ...candidate,
+      created_at: existing?.created_at ?? candidate.created_at,
+    });
+    this.portfolioCandidates.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async getPortfolioCandidate(id: string) {
+    return this.portfolioCandidates.get(id) ?? null;
+  }
+
+  async listPortfolioCandidates(options: {
+    workspace_id: string;
+    decision_brief_id?: string;
+    owner_user_id?: string;
+    assignee_user_id?: string | null;
+    statuses?: PortfolioCandidate["status"][];
+    limit?: number;
+  }) {
+    const statusSet = options.statuses?.length ? new Set(options.statuses) : null;
+
+    return [...this.portfolioCandidates.values()]
+      .filter((candidate) => candidate.workspace_id === options.workspace_id)
+      .filter((candidate) => !options.decision_brief_id || candidate.decision_brief_id === options.decision_brief_id)
+      .filter((candidate) => !options.owner_user_id || candidate.owner_user_id === options.owner_user_id)
+      .filter((candidate) =>
+        options.assignee_user_id === undefined ? true : candidate.assignee_user_id === options.assignee_user_id,
+      )
+      .filter((candidate) => (statusSet ? statusSet.has(candidate.status) : true))
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async assignPortfolioCandidate(input: {
+    portfolio_candidate_id: string;
+    assignee_user_id: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }) {
+    const current = this.portfolioCandidates.get(input.portfolio_candidate_id);
+    if (!current) {
+      return null;
+    }
+
+    const next = portfolioCandidateSchema.parse({
+      ...current,
+      assignee_user_id: input.assignee_user_id,
+      last_actor_user_id: input.last_actor_user_id,
+      updated_at: input.updated_at,
+    });
+    this.portfolioCandidates.set(next.id, next);
+    return next;
+  }
+
+  async updatePortfolioCandidatePosture(input: {
+    portfolio_candidate_id: string;
+    priority: string;
+    sizing_label: string;
+    risk_budget_label: string;
+    conviction_label: string;
+    primary_theme: string;
+    secondary_themes: string[];
+    related_assets: string[];
+    next_review_due_at: string | null;
+    last_actor_user_id: string;
+    updated_at: string;
+  }) {
+    const current = this.portfolioCandidates.get(input.portfolio_candidate_id);
+    if (!current) {
+      return null;
+    }
+
+    const next = portfolioCandidateSchema.parse({
+      ...current,
+      priority: input.priority,
+      sizing_label: input.sizing_label,
+      risk_budget_label: input.risk_budget_label,
+      conviction_label: input.conviction_label,
+      primary_theme: input.primary_theme,
+      secondary_themes: input.secondary_themes,
+      related_assets: input.related_assets,
+      next_review_due_at: input.next_review_due_at,
+      last_actor_user_id: input.last_actor_user_id,
+      updated_at: input.updated_at,
+    });
+    this.portfolioCandidates.set(next.id, next);
+    return next;
+  }
+
+  async updatePortfolioCandidateStatus(input: {
+    portfolio_candidate_id: string;
+    status: PortfolioCandidate["status"];
+    last_actor_user_id: string;
+    updated_at: string;
+    next_review_due_at?: string | null;
+    closed_at?: string | null;
+  }) {
+    const current = this.portfolioCandidates.get(input.portfolio_candidate_id);
+    if (!current) {
+      return null;
+    }
+
+    const next = portfolioCandidateSchema.parse({
+      ...current,
+      status: input.status,
+      last_actor_user_id: input.last_actor_user_id,
+      updated_at: input.updated_at,
+      next_review_due_at: input.next_review_due_at ?? current.next_review_due_at,
+      closed_at: input.closed_at ?? current.closed_at,
+    });
+    this.portfolioCandidates.set(next.id, next);
+    return next;
+  }
+
+  async savePortfolioCheckpoint(checkpoint: PortfolioCheckpoint): Promise<PortfolioCheckpoint> {
+    const parsed = portfolioCheckpointSchema.parse(checkpoint);
+    this.portfolioCheckpoints.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async listPortfolioCheckpoints(options: { portfolio_candidate_id: string; limit?: number }) {
+    return [...this.portfolioCheckpoints.values()]
+      .filter((checkpoint) => checkpoint.portfolio_candidate_id === options.portfolio_candidate_id)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async savePortfolioReviewSession(session: PortfolioReviewSession): Promise<PortfolioReviewSession> {
+    const existing = this.portfolioReviewSessions.get(session.id);
+    const parsed = portfolioReviewSessionSchema.parse({
+      ...session,
+      created_at: existing?.created_at ?? session.created_at,
+    });
+    this.portfolioReviewSessions.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async getPortfolioReviewSession(id: string) {
+    return this.portfolioReviewSessions.get(id) ?? null;
+  }
+
+  async listPortfolioReviewSessions(options: {
+    workspace_id: string;
+    statuses?: PortfolioReviewSession["status"][];
+    limit?: number;
+  }) {
+    const statusSet = options.statuses?.length ? new Set(options.statuses) : null;
+
+    return [...this.portfolioReviewSessions.values()]
+      .filter((session) => session.workspace_id === options.workspace_id)
+      .filter((session) => (statusSet ? statusSet.has(session.status) : true))
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async savePortfolioReviewSessionItem(item: PortfolioReviewSessionItem): Promise<PortfolioReviewSessionItem> {
+    const parsed = portfolioReviewSessionItemSchema.parse(item);
+    this.portfolioReviewSessionItems.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async listPortfolioReviewSessionItems(options: { review_session_id: string }) {
+    return [...this.portfolioReviewSessionItems.values()]
+      .filter((item) => item.review_session_id === options.review_session_id)
+      .sort((left, right) => left.created_at.localeCompare(right.created_at));
+  }
+
+  async savePortfolioRebalanceProposal(proposal: PortfolioRebalanceProposal): Promise<PortfolioRebalanceProposal> {
+    const existing = this.portfolioRebalanceProposals.get(proposal.id);
+    const parsed = portfolioRebalanceProposalSchema.parse({
+      ...proposal,
+      created_at: existing?.created_at ?? proposal.created_at,
+    });
+    this.portfolioRebalanceProposals.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async listPortfolioRebalanceProposals(options: {
+    review_session_id: string;
+    portfolio_candidate_id?: string;
+  }) {
+    return [...this.portfolioRebalanceProposals.values()]
+      .filter((proposal) => proposal.review_session_id === options.review_session_id)
+      .filter((proposal) =>
+        options.portfolio_candidate_id ? proposal.portfolio_candidate_id === options.portfolio_candidate_id : true,
+      )
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+  }
+
+  async saveWorkspaceRecentItem(item: SaveWorkspaceRecentItemInput): Promise<WorkspaceRecentItem> {
+    const parsed = workspaceRecentItemSchema.parse(item);
+    this.workspaceRecentItems.set(this.recentItemKey(item.workspace_id, parsed.id), parsed);
+    return parsed;
+  }
+
+  async listWorkspaceRecentItems(options: { workspace_id: string; limit?: number }) {
+    return [...this.workspaceRecentItems.entries()]
+      .filter(([key]) => key.startsWith(`${options.workspace_id}::`))
+      .map(([, item]) => item)
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async saveWorkspaceActivity(activity: WorkspaceActivity): Promise<WorkspaceActivity> {
+    const parsed = workspaceActivitySchema.parse(activity);
+    this.workspaceActivity.set(parsed.id, parsed);
+    return parsed;
+  }
+
+  async listWorkspaceActivity(options: { workspace_id: string; limit?: number }) {
+    return [...this.workspaceActivity.values()]
+      .filter((activity) => activity.workspace_id === options.workspace_id)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+  }
+
+  async saveSharedReviewNote(note: SharedReviewNote): Promise<SharedReviewNote> {
+    const parsed = sharedReviewNoteSchema.parse(note);
+    this.sharedReviewNotes.set(this.reviewNoteKey(parsed.workspace_id, parsed.prediction_id), parsed);
+    return parsed;
+  }
+
+  async getSharedReviewNote(input: { workspace_id: string; prediction_id: string }) {
+    return this.sharedReviewNotes.get(this.reviewNoteKey(input.workspace_id, input.prediction_id)) ?? null;
   }
 
   async createSource(input: CreateSourceRequest): Promise<StoredSource> {
@@ -203,8 +836,18 @@ export class InMemoryRepository implements Repository {
   async listLearningRecords(options: { limit?: number } = {}): Promise<PredictionLearningRecord[]> {
     const records: PredictionLearningRecord[] = [];
     const predictions = [...this.predictions.values()]
-      .sort((left, right) => right.created_at.localeCompare(left.created_at))
-      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit));
+      .map((prediction, index) => ({ prediction, index }))
+      .sort((left, right) => {
+        const createdAtDelta = right.prediction.created_at.localeCompare(left.prediction.created_at);
+
+        if (createdAtDelta !== 0) {
+          return createdAtDelta;
+        }
+
+        return right.index - left.index;
+      })
+      .slice(0, options.limit === undefined ? undefined : Math.max(1, options.limit))
+      .map(({ prediction }) => prediction);
 
     for (const prediction of predictions) {
       const event = this.events.get(prediction.event_id);
@@ -1699,6 +2342,26 @@ export class InMemoryRepository implements Repository {
   }
 
   async reset() {
+    this.defaultWorkspace = null;
+    this.workspaceUsers.clear();
+    this.workspaceUserPasswords.clear();
+    this.workspaceUsersByEmail.clear();
+    this.workspaceMemberships.clear();
+    this.userSessions.clear();
+    this.userSessionsByTokenHash.clear();
+    this.serverStudioDrafts.clear();
+    this.sharedStudioRuns.clear();
+    this.sharedInvestigations.clear();
+    this.decisionBriefs.clear();
+    this.decisionCheckpoints.clear();
+    this.portfolioCandidates.clear();
+    this.portfolioCheckpoints.clear();
+    this.portfolioReviewSessions.clear();
+    this.portfolioReviewSessionItems.clear();
+    this.portfolioRebalanceProposals.clear();
+    this.workspaceRecentItems.clear();
+    this.workspaceActivity.clear();
+    this.sharedReviewNotes.clear();
     this.sources.clear();
     this.events.clear();
     this.predictions.clear();

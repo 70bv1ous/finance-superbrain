@@ -107,7 +107,7 @@ const policySpecificRegimes = (item: PolicyHistoricalCaseInput) => {
   return [...values];
 };
 
-const POLICY_PRESETS: Record<PolicyHistoricalCaseInput["event_type"], PolicyPreset> = {
+const POLICY_PRESETS: Partial<Record<PolicyHistoricalCaseInput["event_type"], PolicyPreset>> = {
   trade_escalation: {
     event_family: "trade_escalation",
     source_type: "headline",

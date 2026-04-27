@@ -1,4 +1,6 @@
 import { z } from "zod";
+export * from "./guidedDemo.js";
+export * from "./obsidian.js";
 
 export const sourceTypeSchema = z.enum([
   "headline",
@@ -194,6 +196,8 @@ export const predictionDetailSchema = z.object({
   prediction: storedPredictionSchema,
   outcome: predictionOutcomeSchema.nullable(),
   postmortem: postmortemSchema.nullable(),
+  event: storedEventSchema,
+  source: storedSourceSchema,
 });
 
 export const postmortemResponseSchema = z.object({
@@ -349,6 +353,26 @@ export const lessonSearchResultSchema = z.object({
 export const lessonSearchResponseSchema = z.object({
   query: z.string().min(1),
   results: z.array(lessonSearchResultSchema),
+});
+
+export const lessonExplorerItemSchema = z.object({
+  lesson_id: z.string().uuid(),
+  prediction_id: z.string().uuid(),
+  event_id: z.string().uuid(),
+  lesson_type: z.enum(["mistake", "reinforcement"]),
+  lesson_summary: z.string().min(1),
+  event_summary: z.string().min(1),
+  themes: z.array(z.string().min(1)),
+  horizon: predictionHorizonSchema,
+  verdict: z.enum(["correct", "partially_correct", "wrong"]).nullable(),
+  total_score: z.number().min(0).max(1).nullable(),
+  sentiment: z.enum(["risk_on", "risk_off", "neutral"]),
+  failure_tags: z.array(failureTagSchema),
+  created_at: z.iso.datetime(),
+});
+
+export const lessonExplorerResponseSchema = z.object({
+  items: z.array(lessonExplorerItemSchema),
 });
 
 export const dashboardThemeStatSchema = z.object({
@@ -543,6 +567,594 @@ export const operationQueueAlertReportSchema = z.object({
     high: z.number().int().min(0),
   }),
   alerts: z.array(operationQueueAlertSchema),
+});
+
+export const workspaceRoleSchema = z.enum(["admin", "member"]);
+
+export const workspaceSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string().min(1).max(120),
+  name: z.string().min(1).max(160),
+  created_at: z.iso.datetime(),
+  updated_at: z.iso.datetime(),
+});
+
+export const workspaceUserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.email(),
+  display_name: z.string().min(1).max(120),
+  role: workspaceRoleSchema,
+  active: z.boolean(),
+  created_at: z.iso.datetime(),
+  updated_at: z.iso.datetime(),
+});
+
+export const workspaceMembershipSchema = z.object({
+  workspace_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  role: workspaceRoleSchema,
+  joined_at: z.iso.datetime(),
+});
+
+export const authSessionSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  workspace_id: z.string().uuid(),
+  expires_at: z.iso.datetime(),
+  created_at: z.iso.datetime(),
+  last_seen_at: z.iso.datetime(),
+});
+
+export const authSessionResponseSchema = z.object({
+  authenticated: z.boolean(),
+  user: workspaceUserSchema.nullable(),
+  workspace: workspaceSchema.nullable(),
+  membership: workspaceMembershipSchema.nullable(),
+  session: authSessionSchema.nullable(),
+});
+
+export const loginRequestSchema = z.object({
+  email: z.email(),
+  password: z.string().min(8).max(200),
+});
+
+export const createWorkspaceUserRequestSchema = z.object({
+  email: z.email(),
+  password: z.string().min(8).max(200),
+  display_name: z.string().min(1).max(120),
+  role: workspaceRoleSchema.default("member"),
+});
+
+export const listWorkspaceMembersResponseSchema = z.object({
+  workspace: workspaceSchema,
+  members: z.array(
+    z.object({
+      user: workspaceUserSchema,
+      membership: workspaceMembershipSchema,
+    }),
+  ),
+});
+
+export const sharedInvestigationStatusSchema = z.enum([
+  "drafting",
+  "ready_for_review",
+  "under_review",
+  "reviewed",
+]);
+
+export const sharedInvestigationStepKindSchema = z.enum([
+  "studio_run",
+  "prediction_detail",
+  "review_focus",
+  "library_lookup",
+  "evaluation_context",
+]);
+
+export const sharedInvestigationStepSchema = z.object({
+  id: z.string().min(1).max(240),
+  kind: sharedInvestigationStepKindSchema,
+  status: sharedInvestigationStatusSchema,
+  href: z.string().min(1).max(400),
+  title: z.string().min(1).max(240),
+  detail: z.string().min(1).max(2000),
+  updated_at: z.iso.datetime(),
+});
+
+export const sharedInvestigationSchema = z.object({
+  id: z.string().min(1).max(240),
+  workspace_id: z.string().uuid(),
+  title: z.string().min(1).max(240),
+  event_id: z.string().uuid().nullable(),
+  prediction_ids: z.array(z.string().min(1).max(240)),
+  status: sharedInvestigationStatusSchema,
+  owner_user_id: z.string().uuid(),
+  assignee_user_id: z.string().uuid().nullable(),
+  last_actor_user_id: z.string().uuid(),
+  updated_at: z.iso.datetime(),
+  created_at: z.iso.datetime(),
+  steps: z.array(sharedInvestigationStepSchema),
+});
+
+export const listSharedInvestigationsResponseSchema = z.object({
+  investigations: z.array(sharedInvestigationSchema),
+});
+
+export const assignSharedInvestigationRequestSchema = z.object({
+  assignee_user_id: z.string().uuid().nullable(),
+});
+
+export const decisionBriefStatusSchema = z.enum([
+  "draft",
+  "proposed",
+  "active",
+  "watching",
+  "closed",
+]);
+
+export const decisionCheckpointThesisStateSchema = z.enum([
+  "intact",
+  "weakened",
+  "invalidated",
+  "resolved",
+]);
+
+export const decisionCheckpointActionSchema = z.enum([
+  "keep_active",
+  "move_to_watching",
+  "close",
+]);
+
+export const decisionBriefSchema = z.object({
+  id: z.string().min(1).max(240),
+  workspace_id: z.string().uuid(),
+  investigation_id: z.string().min(1).max(240),
+  lead_prediction_id: z.string().uuid(),
+  title: z.string().min(1).max(240),
+  summary: z.string().min(1).max(2000),
+  thesis: z.string().min(1).max(8000),
+  scenario: z.string().min(1).max(2000),
+  confidence_label: z.string().min(1).max(120),
+  key_assets: z.array(z.string().min(1).max(80)).max(24),
+  triggers: z.array(z.string().min(1).max(400)).max(24),
+  invalidations: z.array(z.string().min(1).max(400)).max(24),
+  status: decisionBriefStatusSchema,
+  owner_user_id: z.string().uuid(),
+  assignee_user_id: z.string().uuid().nullable(),
+  last_actor_user_id: z.string().uuid(),
+  next_review_due_at: z.iso.datetime().nullable(),
+  closed_at: z.iso.datetime().nullable(),
+  updated_at: z.iso.datetime(),
+  created_at: z.iso.datetime(),
+});
+
+export const decisionCheckpointSchema = z.object({
+  id: z.string().min(1).max(240),
+  decision_brief_id: z.string().min(1).max(240),
+  workspace_id: z.string().uuid(),
+  actor_user_id: z.string().uuid(),
+  summary: z.string().min(1).max(4000),
+  thesis_state: decisionCheckpointThesisStateSchema,
+  action: decisionCheckpointActionSchema,
+  created_at: z.iso.datetime(),
+});
+
+export const createDecisionBriefRequestSchema = z.object({
+  investigation_id: z.string().min(1).max(240),
+  lead_prediction_id: z.string().uuid(),
+  title: z.string().min(1).max(240),
+  summary: z.string().min(1).max(2000),
+  thesis: z.string().min(1).max(8000),
+  scenario: z.string().min(1).max(2000),
+  confidence_label: z.string().min(1).max(120),
+  key_assets: z.array(z.string().min(1).max(80)).max(24),
+  triggers: z.array(z.string().min(1).max(400)).max(24),
+  invalidations: z.array(z.string().min(1).max(400)).max(24),
+  status: decisionBriefStatusSchema.default("draft"),
+  assignee_user_id: z.string().uuid().nullable().optional(),
+  next_review_due_at: z.iso.datetime().nullable().optional(),
+});
+
+export const assignDecisionBriefRequestSchema = z.object({
+  assignee_user_id: z.string().uuid().nullable(),
+});
+
+export const updateDecisionBriefStatusRequestSchema = z.object({
+  status: decisionBriefStatusSchema,
+  next_review_due_at: z.iso.datetime().nullable().optional(),
+});
+
+export const createDecisionCheckpointRequestSchema = z.object({
+  summary: z.string().min(1).max(4000),
+  thesis_state: decisionCheckpointThesisStateSchema,
+  action: decisionCheckpointActionSchema,
+  next_review_due_at: z.iso.datetime().nullable().optional(),
+});
+
+export const listDecisionBriefsResponseSchema = z.object({
+  briefs: z.array(decisionBriefSchema),
+});
+
+export const decisionBriefDetailResponseSchema = z.object({
+  brief: decisionBriefSchema,
+  checkpoints: z.array(decisionCheckpointSchema),
+});
+
+export const workspaceDecisionDeskResponseSchema = z.object({
+  active_briefs: z.array(decisionBriefSchema),
+  proposed_briefs: z.array(decisionBriefSchema),
+  due_briefs: z.array(decisionBriefSchema),
+  recently_closed_briefs: z.array(decisionBriefSchema),
+});
+
+export const portfolioCandidateStatusSchema = z.enum([
+  "candidate",
+  "active",
+  "watching",
+  "trimmed",
+  "closed",
+]);
+
+export const portfolioCheckpointActionSchema = z.enum([
+  "keep_active",
+  "move_to_watching",
+  "trim",
+  "close",
+]);
+
+export const portfolioCandidateSchema = z.object({
+  id: z.string().min(1).max(240),
+  workspace_id: z.string().uuid(),
+  decision_brief_id: z.string().min(1).max(240),
+  investigation_id: z.string().min(1).max(240),
+  lead_prediction_id: z.string().uuid(),
+  title: z.string().min(1).max(240),
+  summary: z.string().min(1).max(2000),
+  status: portfolioCandidateStatusSchema,
+  priority: z.string().min(1).max(80),
+  sizing_label: z.string().min(1).max(80),
+  risk_budget_label: z.string().min(1).max(120),
+  conviction_label: z.string().min(1).max(120),
+  primary_theme: z.string().min(1).max(160),
+  secondary_themes: z.array(z.string().min(1).max(160)).max(16),
+  related_assets: z.array(z.string().min(1).max(80)).max(24),
+  owner_user_id: z.string().uuid(),
+  assignee_user_id: z.string().uuid().nullable(),
+  last_actor_user_id: z.string().uuid(),
+  next_review_due_at: z.iso.datetime().nullable(),
+  closed_at: z.iso.datetime().nullable(),
+  updated_at: z.iso.datetime(),
+  created_at: z.iso.datetime(),
+});
+
+export const portfolioCheckpointSchema = z.object({
+  id: z.string().min(1).max(240),
+  portfolio_candidate_id: z.string().min(1).max(240),
+  workspace_id: z.string().uuid(),
+  actor_user_id: z.string().uuid(),
+  summary: z.string().min(1).max(4000),
+  thesis_state: decisionCheckpointThesisStateSchema,
+  action: portfolioCheckpointActionSchema,
+  created_at: z.iso.datetime(),
+});
+
+export const portfolioReviewSessionStatusSchema = z.enum(["draft", "in_review", "finalized"]);
+export const portfolioRebalanceActionSchema = z.enum([
+  "keep_current",
+  "increase_attention",
+  "move_to_watching",
+  "trim",
+  "close",
+  "defer",
+]);
+export const portfolioRebalanceProposalStatusSchema = z.enum(["proposed", "approved", "deferred", "rejected"]);
+
+export const portfolioReviewSessionSchema = z.object({
+  id: z.string().min(1).max(240),
+  workspace_id: z.string().uuid(),
+  title: z.string().min(1).max(240),
+  summary: z.string().min(1).max(2000),
+  status: portfolioReviewSessionStatusSchema,
+  owner_user_id: z.string().uuid(),
+  last_actor_user_id: z.string().uuid(),
+  opened_at: z.iso.datetime(),
+  finalized_at: z.iso.datetime().nullable(),
+  created_at: z.iso.datetime(),
+  updated_at: z.iso.datetime(),
+});
+
+export const portfolioReviewSessionItemSchema = z.object({
+  id: z.string().min(1).max(240),
+  review_session_id: z.string().min(1).max(240),
+  portfolio_candidate_id: z.string().min(1).max(240),
+  snapshot_status: portfolioCandidateStatusSchema,
+  snapshot_priority: z.string().min(1).max(80),
+  snapshot_primary_theme: z.string().min(1).max(160),
+  snapshot_assignee_user_id: z.string().uuid().nullable(),
+  snapshot_next_review_due_at: z.iso.datetime().nullable(),
+  created_at: z.iso.datetime(),
+});
+
+export const portfolioRebalanceProposalSchema = z.object({
+  id: z.string().min(1).max(240),
+  review_session_id: z.string().min(1).max(240),
+  portfolio_candidate_id: z.string().min(1).max(240),
+  actor_user_id: z.string().uuid(),
+  action: portfolioRebalanceActionSchema,
+  status: portfolioRebalanceProposalStatusSchema,
+  rationale: z.string().min(1).max(4000),
+  dependency_note: z.string().min(1).max(2000).nullable(),
+  next_review_expectation: z.string().min(1).max(1000).nullable(),
+  decided_at: z.iso.datetime().nullable(),
+  created_at: z.iso.datetime(),
+  updated_at: z.iso.datetime(),
+});
+
+export const createPortfolioCandidateRequestSchema = z.object({
+  decision_brief_id: z.string().min(1).max(240),
+  priority: z.string().min(1).max(80),
+  sizing_label: z.string().min(1).max(80),
+  risk_budget_label: z.string().min(1).max(120),
+  conviction_label: z.string().min(1).max(120),
+  primary_theme: z.string().min(1).max(160),
+  secondary_themes: z.array(z.string().min(1).max(160)).max(16),
+  related_assets: z.array(z.string().min(1).max(80)).max(24),
+  status: portfolioCandidateStatusSchema.default("candidate"),
+  assignee_user_id: z.string().uuid().nullable().optional(),
+  next_review_due_at: z.iso.datetime().nullable().optional(),
+});
+
+export const assignPortfolioCandidateRequestSchema = z.object({
+  assignee_user_id: z.string().uuid().nullable(),
+});
+
+export const updatePortfolioCandidateStatusRequestSchema = z.object({
+  status: portfolioCandidateStatusSchema,
+  next_review_due_at: z.iso.datetime().nullable().optional(),
+});
+
+export const portfolioCandidatePostureUpdateRequestSchema = z.object({
+  priority: z.string().min(1).max(80),
+  sizing_label: z.string().min(1).max(80),
+  risk_budget_label: z.string().min(1).max(120),
+  conviction_label: z.string().min(1).max(120),
+  primary_theme: z.string().min(1).max(160),
+  secondary_themes: z.array(z.string().min(1).max(160)).max(16),
+  related_assets: z.array(z.string().min(1).max(80)).max(24),
+  next_review_due_at: z.iso.datetime().nullable().optional(),
+});
+
+export const createPortfolioCheckpointRequestSchema = z.object({
+  summary: z.string().min(1).max(4000),
+  thesis_state: decisionCheckpointThesisStateSchema,
+  action: portfolioCheckpointActionSchema,
+  next_review_due_at: z.iso.datetime().nullable().optional(),
+});
+
+export const createPortfolioReviewSessionRequestSchema = z.object({
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(1).max(2000).optional(),
+  portfolio_candidate_ids: z.array(z.string().min(1).max(240)).max(64).optional(),
+});
+
+export const updatePortfolioReviewSessionRequestSchema = z.object({
+  title: z.string().min(1).max(240).optional(),
+  summary: z.string().min(1).max(2000).optional(),
+});
+
+export const updatePortfolioReviewSessionStatusRequestSchema = z.object({
+  status: portfolioReviewSessionStatusSchema,
+  summary: z.string().min(1).max(2000).optional(),
+});
+
+export const savePortfolioRebalanceProposalRequestSchema = z.object({
+  proposal_id: z.string().min(1).max(240).optional(),
+  portfolio_candidate_id: z.string().min(1).max(240),
+  action: portfolioRebalanceActionSchema,
+  status: portfolioRebalanceProposalStatusSchema.default("proposed"),
+  rationale: z.string().min(1).max(4000),
+  dependency_note: z.string().min(1).max(2000).nullable().optional(),
+  next_review_expectation: z.string().min(1).max(1000).nullable().optional(),
+});
+
+export const listPortfolioCandidatesResponseSchema = z.object({
+  candidates: z.array(portfolioCandidateSchema),
+});
+
+export const portfolioCandidateDetailResponseSchema = z.object({
+  candidate: portfolioCandidateSchema,
+  checkpoints: z.array(portfolioCheckpointSchema),
+});
+
+export const portfolioDeskCountsSchema = z.object({
+  total: z.number().int().min(0),
+  candidate: z.number().int().min(0),
+  active: z.number().int().min(0),
+  watching: z.number().int().min(0),
+  trimmed: z.number().int().min(0),
+  closed: z.number().int().min(0),
+  due_review: z.number().int().min(0),
+  due_soon: z.number().int().min(0),
+  missing_cadence: z.number().int().min(0),
+  stale_watching: z.number().int().min(0),
+  trimmed_pending_followup: z.number().int().min(0),
+  assigned_to_me: z.number().int().min(0),
+  unassigned_live: z.number().int().min(0),
+});
+
+export const portfolioThemeExposureStatSchema = z.object({
+  theme: z.string().min(1).max(160),
+  count: z.number().int().min(0),
+});
+
+export const portfolioAssetExposureStatSchema = z.object({
+  asset: z.string().min(1).max(80),
+  count: z.number().int().min(0),
+});
+
+export const portfolioConvictionStatSchema = z.object({
+  conviction_label: z.string().min(1).max(120),
+  count: z.number().int().min(0),
+});
+
+export const portfolioDeskSummarySchema = z.object({
+  counts: portfolioDeskCountsSchema,
+  exposure_by_theme: z.array(portfolioThemeExposureStatSchema),
+  exposure_by_asset: z.array(portfolioAssetExposureStatSchema),
+  conviction_by_label: z.array(portfolioConvictionStatSchema),
+});
+
+export const workspacePortfolioDeskResponseSchema = z.object({
+  candidate_briefs: z.array(portfolioCandidateSchema),
+  active_candidates: z.array(portfolioCandidateSchema),
+  due_review_candidates: z.array(portfolioCandidateSchema),
+  recently_closed_candidates: z.array(portfolioCandidateSchema),
+  summary: portfolioDeskSummarySchema,
+});
+
+export const portfolioReviewSessionListItemSchema = z.object({
+  session: portfolioReviewSessionSchema,
+  item_count: z.number().int().min(0),
+  proposal_count: z.number().int().min(0),
+  approved_count: z.number().int().min(0),
+  unresolved_count: z.number().int().min(0),
+});
+
+export const listPortfolioReviewSessionsResponseSchema = z.object({
+  sessions: z.array(portfolioReviewSessionListItemSchema),
+});
+
+export const portfolioReviewSessionDetailResponseSchema = z.object({
+  session: portfolioReviewSessionSchema,
+  items: z.array(portfolioReviewSessionItemSchema),
+  proposals: z.array(portfolioRebalanceProposalSchema),
+});
+
+export const workspaceRecentItemKindSchema = z.enum(["prediction", "studio_run", "studio_draft"]);
+
+export const workspaceRecentItemSchema = z.object({
+  id: z.string().min(1).max(240),
+  kind: workspaceRecentItemKindSchema,
+  href: z.string().min(1).max(400),
+  title: z.string().min(1).max(240),
+  description: z.string().min(1).max(1000),
+  updated_at: z.iso.datetime(),
+});
+
+export const studioDraftFormSchema = z.object({
+  source_type: sourceTypeSchema,
+  title: z.string().max(240),
+  speaker: z.string().max(120),
+  publisher: z.string().max(120),
+  raw_uri: z.string().max(2000),
+  occurred_at: z.string(),
+  raw_text: z.string().max(20000),
+  model_version: z.string().max(120),
+  horizons: z.array(predictionHorizonSchema),
+});
+
+export const serverStudioDraftSchema = z.object({
+  id: z.string().min(1).max(240),
+  owner_user_id: z.string().uuid(),
+  form: studioDraftFormSchema,
+  preview: parsedEventSchema.nullable(),
+  updated_at: z.iso.datetime(),
+});
+
+export const sharedStudioRunSchema = z.object({
+  id: z.string().min(1).max(240),
+  workspace_id: z.string().uuid(),
+  owner_user_id: z.string().uuid(),
+  last_actor_user_id: z.string().uuid(),
+  title: z.string().min(1).max(240),
+  source_type: sourceTypeSchema,
+  stage: z.enum(["draft", "parsed_preview", "stored_event", "ready_for_review"]),
+  form: studioDraftFormSchema,
+  preview: parsedEventSchema.nullable(),
+  source: storedSourceSchema.nullable(),
+  event: storedEventSchema.nullable(),
+  predictions: z.array(storedPredictionSchema),
+  analogs: z.array(analogMatchSchema),
+  event_summary: z.string().max(2000),
+  event_id: z.string().uuid().nullable(),
+  prediction_ids: z.array(z.string().min(1).max(240)),
+  analog_prediction_ids: z.array(z.string().min(1).max(240)),
+  updated_at: z.iso.datetime(),
+  created_at: z.iso.datetime(),
+});
+
+export const listSharedStudioRunsResponseSchema = z.object({
+  draft: serverStudioDraftSchema.nullable(),
+  runs: z.array(sharedStudioRunSchema),
+});
+
+export const sharedReviewNoteSchema = z.object({
+  prediction_id: z.string().min(1).max(240),
+  workspace_id: z.string().uuid(),
+  note: z.string().min(1).max(8000),
+  owner_user_id: z.string().uuid(),
+  updated_at: z.iso.datetime(),
+  created_at: z.iso.datetime(),
+});
+
+export const saveReviewNoteRequestSchema = z.object({
+  note: z.string().min(1).max(8000),
+});
+
+export const workspaceActivityKindSchema = z.enum([
+  "login",
+  "logout",
+  "user_created",
+  "studio_draft_saved",
+  "studio_run_saved",
+  "investigation_updated",
+  "investigation_assigned",
+  "investigation_reopened",
+  "review_note_saved",
+  "decision_brief_created",
+  "decision_brief_assigned",
+  "decision_brief_status_changed",
+  "decision_checkpoint_saved",
+  "decision_brief_closed",
+  "portfolio_candidate_created",
+  "portfolio_candidate_assigned",
+  "portfolio_candidate_status_changed",
+  "portfolio_candidate_posture_updated",
+  "portfolio_checkpoint_saved",
+  "portfolio_candidate_closed",
+  "portfolio_review_session_created",
+  "portfolio_review_session_updated",
+  "portfolio_review_session_finalized",
+  "portfolio_rebalance_proposal_saved",
+  "portfolio_rebalance_proposal_decided",
+  "local_workspace_imported",
+]);
+
+export const workspaceActivitySchema = z.object({
+  id: z.string().uuid(),
+  workspace_id: z.string().uuid(),
+  actor_user_id: z.string().uuid(),
+  kind: workspaceActivityKindSchema,
+  investigation_id: z.string().min(1).max(240).nullable(),
+  studio_run_id: z.string().min(1).max(240).nullable(),
+  prediction_id: z.string().min(1).max(240).nullable(),
+  detail: z.string().min(1).max(2000),
+  metadata: z.record(z.string(), jsonValueSchema),
+  created_at: z.iso.datetime(),
+});
+
+export const workspaceActivityResponseSchema = z.object({
+  events: z.array(workspaceActivitySchema),
+});
+
+export const workspaceStateResponseSchema = z.object({
+  session: authSessionResponseSchema,
+  draft: serverStudioDraftSchema.nullable(),
+  studio_runs: z.array(sharedStudioRunSchema),
+  investigations: z.array(sharedInvestigationSchema),
+  decision_briefs: z.array(decisionBriefSchema),
+  portfolio_candidates: z.array(portfolioCandidateSchema),
+  recent_items: z.array(workspaceRecentItemSchema),
+  activity: z.array(workspaceActivitySchema),
 });
 
 export const systemOperationalIncidentSeveritySchema = z.enum(["low", "medium", "high"]);
@@ -1490,10 +2102,12 @@ export const macroHistoricalIngestionRequestSchema = z.object({
 export const earningsHistoricalEventTypeSchema = z.enum([
   "earnings_beat",
   "earnings_miss",
+  "beat_and_raise",
   "guidance_raise",
   "guidance_cut",
   "ai_capex_upside",
   "margin_pressure",
+  "subscriber_miss",
   "consumer_weakness",
   "cloud_slowdown",
   "management_tone_shift",
@@ -1540,12 +2154,16 @@ export const policyHistoricalEventTypeSchema = z.enum([
   "trade_escalation",
   "trade_relief",
   "stimulus_support",
+  "policy_shift",
   "fx_intervention",
+  "fx_regime_shift",
   "capital_controls",
   "sovereign_credit",
   "fiscal_shock",
+  "liquidity_backstop",
   "regulatory_crackdown",
   "sanctions",
+  "geopolitical_shock",
   "geopolitical_deescalation",
 ]);
 
@@ -1556,6 +2174,8 @@ export const policyHistoricalSignalBiasSchema = z.enum([
   "neutral",
   "supportive",
   "restrictive",
+  "hawkish",
+  "dovish",
 ]);
 
 export const policyHistoricalCaseInputSchema = z.object({
@@ -1591,11 +2211,17 @@ export const policyHistoricalIngestionRequestSchema = z.object({
 export const energyHistoricalEventTypeSchema = z.enum([
   "opec_cut",
   "opec_raise",
+  "opec_increase",
   "supply_disruption",
+  "supply_expansion",
   "inventory_draw",
   "inventory_build",
   "gas_spike",
   "demand_shock",
+  "demand_expansion",
+  "policy_shift",
+  "geopolitical_shock",
+  "spr_release",
 ]);
 
 export const energyHistoricalSignalBiasSchema = z.enum([
@@ -1646,14 +2272,19 @@ export const creditHistoricalEventTypeSchema = z.enum([
   "bank_run",
   "deposit_flight",
   "liquidity_backstop",
+  "liquidity_stress",
   "credit_spread_widening",
+  "credit_spread_compression",
   "default_shock",
+  "corporate_default",
   "banking_contagion",
   "downgrade_wave",
+  "sovereign_stress",
 ]);
 
 export const creditHistoricalSignalBiasSchema = z.enum([
   "negative",
+  "positive",
   "supportive",
   "mixed",
   "neutral",
@@ -4016,6 +4647,8 @@ export type CalibrationSnapshot = z.infer<typeof calibrationSnapshotSchema>;
 export type ModelComparisonReport = z.infer<typeof modelComparisonReportSchema>;
 export type SelfAuditResponse = z.infer<typeof selfAuditResponseSchema>;
 export type LessonSearchResponse = z.infer<typeof lessonSearchResponseSchema>;
+export type LessonExplorerItem = z.infer<typeof lessonExplorerItemSchema>;
+export type LessonExplorerResponse = z.infer<typeof lessonExplorerResponseSchema>;
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>;
 export type DashboardPipelineResponse = z.infer<typeof dashboardPipelineResponseSchema>;
 export type SystemOperationName = z.infer<typeof systemOperationNameSchema>;
@@ -4192,3 +4825,72 @@ export type PromotionPatternAnalyticsResponse = z.infer<typeof promotionPatternA
 export type ReplayPatternPriorSet = z.infer<typeof replayPatternPriorSetSchema>;
 export type FeedPullRequest = z.infer<typeof feedPullRequestSchema>;
 export type TranscriptPullRequest = z.infer<typeof transcriptPullRequestSchema>;
+export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
+export type Workspace = z.infer<typeof workspaceSchema>;
+export type WorkspaceUser = z.infer<typeof workspaceUserSchema>;
+export type WorkspaceMembership = z.infer<typeof workspaceMembershipSchema>;
+export type AuthSession = z.infer<typeof authSessionSchema>;
+export type AuthSessionResponse = z.infer<typeof authSessionResponseSchema>;
+export type LoginRequest = z.infer<typeof loginRequestSchema>;
+export type CreateWorkspaceUserRequest = z.infer<typeof createWorkspaceUserRequestSchema>;
+export type ListWorkspaceMembersResponse = z.infer<typeof listWorkspaceMembersResponseSchema>;
+export type SharedInvestigationStatus = z.infer<typeof sharedInvestigationStatusSchema>;
+export type SharedInvestigationStepKind = z.infer<typeof sharedInvestigationStepKindSchema>;
+export type SharedInvestigationStep = z.infer<typeof sharedInvestigationStepSchema>;
+export type SharedInvestigation = z.infer<typeof sharedInvestigationSchema>;
+export type ListSharedInvestigationsResponse = z.infer<typeof listSharedInvestigationsResponseSchema>;
+export type AssignSharedInvestigationRequest = z.infer<typeof assignSharedInvestigationRequestSchema>;
+export type DecisionBriefStatus = z.infer<typeof decisionBriefStatusSchema>;
+export type DecisionCheckpointThesisState = z.infer<typeof decisionCheckpointThesisStateSchema>;
+export type DecisionCheckpointAction = z.infer<typeof decisionCheckpointActionSchema>;
+export type DecisionBrief = z.infer<typeof decisionBriefSchema>;
+export type DecisionCheckpoint = z.infer<typeof decisionCheckpointSchema>;
+export type CreateDecisionBriefRequest = z.infer<typeof createDecisionBriefRequestSchema>;
+export type AssignDecisionBriefRequest = z.infer<typeof assignDecisionBriefRequestSchema>;
+export type UpdateDecisionBriefStatusRequest = z.infer<typeof updateDecisionBriefStatusRequestSchema>;
+export type CreateDecisionCheckpointRequest = z.infer<typeof createDecisionCheckpointRequestSchema>;
+export type ListDecisionBriefsResponse = z.infer<typeof listDecisionBriefsResponseSchema>;
+export type DecisionBriefDetailResponse = z.infer<typeof decisionBriefDetailResponseSchema>;
+export type WorkspaceDecisionDeskResponse = z.infer<typeof workspaceDecisionDeskResponseSchema>;
+export type PortfolioCandidateStatus = z.infer<typeof portfolioCandidateStatusSchema>;
+export type PortfolioCheckpointAction = z.infer<typeof portfolioCheckpointActionSchema>;
+export type PortfolioCandidate = z.infer<typeof portfolioCandidateSchema>;
+export type PortfolioCheckpoint = z.infer<typeof portfolioCheckpointSchema>;
+export type PortfolioReviewSessionStatus = z.infer<typeof portfolioReviewSessionStatusSchema>;
+export type PortfolioRebalanceAction = z.infer<typeof portfolioRebalanceActionSchema>;
+export type PortfolioRebalanceProposalStatus = z.infer<typeof portfolioRebalanceProposalStatusSchema>;
+export type PortfolioReviewSession = z.infer<typeof portfolioReviewSessionSchema>;
+export type PortfolioReviewSessionItem = z.infer<typeof portfolioReviewSessionItemSchema>;
+export type PortfolioRebalanceProposal = z.infer<typeof portfolioRebalanceProposalSchema>;
+export type CreatePortfolioCandidateRequest = z.infer<typeof createPortfolioCandidateRequestSchema>;
+export type AssignPortfolioCandidateRequest = z.infer<typeof assignPortfolioCandidateRequestSchema>;
+export type UpdatePortfolioCandidateStatusRequest = z.infer<typeof updatePortfolioCandidateStatusRequestSchema>;
+export type PortfolioCandidatePostureUpdateRequest = z.infer<typeof portfolioCandidatePostureUpdateRequestSchema>;
+export type CreatePortfolioCheckpointRequest = z.infer<typeof createPortfolioCheckpointRequestSchema>;
+export type CreatePortfolioReviewSessionRequest = z.infer<typeof createPortfolioReviewSessionRequestSchema>;
+export type UpdatePortfolioReviewSessionRequest = z.infer<typeof updatePortfolioReviewSessionRequestSchema>;
+export type UpdatePortfolioReviewSessionStatusRequest = z.infer<typeof updatePortfolioReviewSessionStatusRequestSchema>;
+export type SavePortfolioRebalanceProposalRequest = z.infer<typeof savePortfolioRebalanceProposalRequestSchema>;
+export type ListPortfolioCandidatesResponse = z.infer<typeof listPortfolioCandidatesResponseSchema>;
+export type PortfolioCandidateDetailResponse = z.infer<typeof portfolioCandidateDetailResponseSchema>;
+export type PortfolioDeskCounts = z.infer<typeof portfolioDeskCountsSchema>;
+export type PortfolioThemeExposureStat = z.infer<typeof portfolioThemeExposureStatSchema>;
+export type PortfolioAssetExposureStat = z.infer<typeof portfolioAssetExposureStatSchema>;
+export type PortfolioConvictionStat = z.infer<typeof portfolioConvictionStatSchema>;
+export type PortfolioDeskSummary = z.infer<typeof portfolioDeskSummarySchema>;
+export type WorkspacePortfolioDeskResponse = z.infer<typeof workspacePortfolioDeskResponseSchema>;
+export type PortfolioReviewSessionListItem = z.infer<typeof portfolioReviewSessionListItemSchema>;
+export type ListPortfolioReviewSessionsResponse = z.infer<typeof listPortfolioReviewSessionsResponseSchema>;
+export type PortfolioReviewSessionDetailResponse = z.infer<typeof portfolioReviewSessionDetailResponseSchema>;
+export type WorkspaceRecentItemKind = z.infer<typeof workspaceRecentItemKindSchema>;
+export type WorkspaceRecentItem = z.infer<typeof workspaceRecentItemSchema>;
+export type StudioDraftForm = z.infer<typeof studioDraftFormSchema>;
+export type ServerStudioDraft = z.infer<typeof serverStudioDraftSchema>;
+export type SharedStudioRun = z.infer<typeof sharedStudioRunSchema>;
+export type ListSharedStudioRunsResponse = z.infer<typeof listSharedStudioRunsResponseSchema>;
+export type SharedReviewNote = z.infer<typeof sharedReviewNoteSchema>;
+export type SaveReviewNoteRequest = z.infer<typeof saveReviewNoteRequestSchema>;
+export type WorkspaceActivityKind = z.infer<typeof workspaceActivityKindSchema>;
+export type WorkspaceActivity = z.infer<typeof workspaceActivitySchema>;
+export type WorkspaceActivityResponse = z.infer<typeof workspaceActivityResponseSchema>;
+export type WorkspaceStateResponse = z.infer<typeof workspaceStateResponseSchema>;

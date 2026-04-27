@@ -26,7 +26,7 @@ type CaseInsert = {
   parsed_event:      { summary: string };
   realized_moves:    Array<{ ticker: string; realized_direction: string; realized_magnitude_bp: number }>;
   labels:            { themes: string[]; primary_assets: string[] };
-  source:            { source_type: string; title: string; raw_text: string };
+  source?:           { source_type: string; title: string; raw_text: string };
 };
 
 const NEW_CASES: CaseInsert[] = [

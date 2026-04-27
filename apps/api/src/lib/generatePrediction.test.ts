@@ -54,8 +54,8 @@ describe("generatePredictionSet", () => {
 
     expect(macro.confidence).toBeGreaterThan(baseline.confidence);
     expect(macro.evidence.some((line) => line.includes("macro dovish sensitive"))).toBe(true);
-    expect(macro.assets.some((asset) => asset.ticker === "TLT")).toBe(true);
-    expect(macro.assets.some((asset) => asset.ticker === "DXY")).toBe(true);
+    expect(macro.assets.some((asset) => asset.ticker === "QQQ")).toBe(true);
+    expect(macro.assets.some((asset) => asset.ticker === "SPY")).toBe(true);
   });
 
   it("becomes more cautious under the contrarian regime-aware profile", () => {
@@ -167,5 +167,31 @@ describe("generatePredictionSet", () => {
       "down",
     );
     expect(prediction.assets.some((asset) => asset.expected_direction === "mixed")).toBe(false);
+  });
+
+  it("handles dovish easing plus growth-slowdown cross-currents with a more specific macro setup", () => {
+    const event = parseFinanceEvent({
+      source_type: "headline",
+      title: "Central bank softens inflation language",
+      raw_text:
+        "The central bank unexpectedly softened its inflation language, signaled a slower pace of quantitative tightening, and emphasized downside growth risks after a sharp decline in freight rates and industrial demand surveys.",
+    });
+
+    const [prediction] = generatePredictionSet({
+      event,
+      horizons: ["1d"],
+    });
+
+    expect(event.themes).toEqual(
+      expect.arrayContaining(["rates", "growth_slowdown", "central_bank"]),
+    );
+    expect(prediction.thesis).toContain("growth slowdown");
+    expect(prediction.assets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ticker: "TLT", expected_direction: "up" }),
+        expect.objectContaining({ ticker: "QQQ", expected_direction: "down" }),
+        expect.objectContaining({ ticker: "GLD", expected_direction: "up" }),
+      ]),
+    );
   });
 });

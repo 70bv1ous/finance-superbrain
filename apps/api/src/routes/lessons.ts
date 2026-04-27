@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { listLessonsResponseSchema } from "@finance-superbrain/schemas";
 
+import { buildLessonExplorer } from "../lib/lessonExplorer.js";
 import { searchLessons } from "../lib/lessonSearch.js";
 import type { AppServices } from "../lib/services.js";
 
@@ -9,6 +10,13 @@ export const registerLessonRoutes = async (server: FastifyInstance, services: Ap
     listLessonsResponseSchema.parse({
       lessons: await services.repository.listLessons(),
     }));
+
+  server.get("/v1/lessons/explorer", async (request) => {
+    const rawLimit = Number((request.query as { limit?: string }).limit ?? "60");
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(Math.trunc(rawLimit), 120)) : 60;
+
+    return buildLessonExplorer(services.repository, limit);
+  });
 
   server.get("/v1/lessons/search", async (request, reply) => {
     const query = String((request.query as { q?: string }).q ?? "").trim();

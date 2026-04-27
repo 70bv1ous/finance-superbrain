@@ -40,11 +40,15 @@ const defaultInstitution = (item: CreditHistoricalCaseInput) =>
     bank_run: "Regional banking system",
     deposit_flight: "Regional banking system",
     liquidity_backstop: "Central bank and banking system",
+    liquidity_stress: "Funding market",
     credit_spread_widening: "Credit market",
+    credit_spread_compression: "Credit market",
     default_shock: "Corporate credit market",
+    corporate_default: "Corporate credit market",
     banking_contagion: "Global banking system",
     downgrade_wave: "Ratings and credit market",
-  })[item.event_type];
+    sovereign_stress: "Sovereign credit market",
+  } as Partial<Record<CreditHistoricalCaseInput["event_type"], string>>)[item.event_type];
 
 const defaultRegion = (item: CreditHistoricalCaseInput) =>
   item.region?.trim() ||
@@ -83,7 +87,7 @@ const creditSpecificRegimes = (item: CreditHistoricalCaseInput) => {
   return [...values];
 };
 
-const CREDIT_PRESETS: Record<CreditHistoricalCaseInput["event_type"], CreditPreset> = {
+const CREDIT_PRESETS: Partial<Record<CreditHistoricalCaseInput["event_type"], CreditPreset>> = {
   bank_run: {
     event_family: "bank_run",
     default_title: (item) => `${defaultInstitution(item)} shows bank-run stress`,

@@ -34,7 +34,19 @@ const THEME_CONFIGS: ThemeConfig[] = [
   },
   {
     id: "rates",
-    keywords: ["rate cut", "rate cuts", "rate hike", "rate hikes", "yield", "treasury", "bond market"],
+    keywords: [
+      "rate cut",
+      "rate cuts",
+      "rate hike",
+      "rate hikes",
+      "yield",
+      "treasury",
+      "bond market",
+      "quantitative tightening",
+      "balance sheet runoff",
+      "runoff pace",
+      "qt",
+    ],
     assets: ["TLT", "SPY", "QQQ", "DXY"],
     explanations: [
       "Rate language changes discount rates, equity multiples, and the dollar.",
@@ -88,6 +100,28 @@ const THEME_CONFIGS: ThemeConfig[] = [
     assets: ["XLY", "XRT", "SPY"],
     explanations: [
       "Consumer-demand commentary can reset expectations for discretionary spending, retail, and cyclicals.",
+    ],
+    sentimentBias: "risk_off",
+  },
+  {
+    id: "growth_slowdown",
+    keywords: [
+      "growth slowdown",
+      "downside growth risks",
+      "growth risks",
+      "slower growth",
+      "industrial demand",
+      "industrial demand surveys",
+      "demand surveys",
+      "freight rates",
+      "freight rate",
+      "softening demand",
+      "weaker demand",
+    ],
+    assets: ["TLT", "SPY", "QQQ", "GLD", "DXY"],
+    explanations: [
+      "A softer growth backdrop usually supports duration while pressuring cyclical and multiple-sensitive risk assets.",
+      "Demand-sensitive signals like freight and industrial surveys can change expectations for cyclicals and policy follow-through.",
     ],
     sentimentBias: "risk_off",
   },
@@ -220,6 +254,12 @@ const THEME_CONFIGS: ThemeConfig[] = [
       "output cut",
       "production cut",
       "supply disruption",
+      "exports disrupted",
+      "export disruption",
+      "crude exports",
+      "barrels per day",
+      "expected supply",
+      "supply removed",
       "inventory draw",
       "inventory build",
       "refinery outage",
@@ -378,6 +418,18 @@ const matchesKeyword = (source: string, keyword: string) => {
 };
 
 const unique = <T>(values: T[]) => Array.from(new Set(values));
+
+const SUMMARY_THEME_PRIORITY: Record<string, number> = {
+  growth_slowdown: 100,
+  energy_supply: 96,
+  banking_stress: 92,
+  credit_stress: 90,
+  trade_policy: 88,
+  china_risk: 86,
+  rates: 80,
+  central_bank: 78,
+  inflation: 72,
+};
 
 const detectThemes = (rawText: string) => {
   const matched = THEME_CONFIGS.filter((config) =>
@@ -568,7 +620,15 @@ const buildSummary = (
   matchedThemes: ThemeConfig[],
   sentiment: ParsedEvent["sentiment"],
 ) => {
-  const themeLabels = matchedThemes.slice(0, 2).map((theme) => theme.id.replaceAll("_", " "));
+  const themeLabels = [...matchedThemes]
+    .sort((left, right) => {
+      const leftScore = SUMMARY_THEME_PRIORITY[left.id] ?? 10;
+      const rightScore = SUMMARY_THEME_PRIORITY[right.id] ?? 10;
+
+      return rightScore - leftScore;
+    })
+    .slice(0, 2)
+    .map((theme) => theme.id.replaceAll("_", " "));
   const subject = speaker ?? "The source";
 
   if (!themeLabels.length) {

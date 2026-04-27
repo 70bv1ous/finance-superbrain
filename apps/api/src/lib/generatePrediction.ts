@@ -34,6 +34,11 @@ type BuildAssetsResult = {
   signalContexts: AssetSignalContext[];
 };
 
+type RankedAssetSignal = {
+  asset: GeneratedPredictionAsset;
+  signalContext: AssetSignalContext;
+};
+
 const THEME_ASSET_RULES: Record<string, Record<string, AssetRule>> = {
   trade_policy: {
     KWEB: { direction: "down", magnitudeBp: -180 },
@@ -65,6 +70,13 @@ const THEME_ASSET_RULES: Record<string, Record<string, AssetRule>> = {
     DXY: { direction: "up", magnitudeBp: 35 },
     GLD: { direction: "up", magnitudeBp: 40 },
   },
+  growth_slowdown: {
+    TLT: { direction: "up", magnitudeBp: 75 },
+    SPY: { direction: "down", magnitudeBp: -70 },
+    QQQ: { direction: "down", magnitudeBp: -95 },
+    GLD: { direction: "up", magnitudeBp: 45 },
+    DXY: { direction: "down", magnitudeBp: -20 },
+  },
   stimulus: {
     SPY: { direction: "up", magnitudeBp: 80 },
     QQQ: { direction: "up", magnitudeBp: 95 },
@@ -76,6 +88,12 @@ const THEME_ASSET_RULES: Record<string, Record<string, AssetRule>> = {
     USO: { direction: "up", magnitudeBp: 130 },
     CVX: { direction: "up", magnitudeBp: 70 },
     XOM: { direction: "up", magnitudeBp: 68 },
+  },
+  energy_supply: {
+    USO: { direction: "up", magnitudeBp: 155 },
+    XLE: { direction: "up", magnitudeBp: 118 },
+    XOM: { direction: "up", magnitudeBp: 82 },
+    CVX: { direction: "up", magnitudeBp: 80 },
   },
   defense: {
     ITA: { direction: "up", magnitudeBp: 75 },
@@ -138,7 +156,14 @@ const average = (values: number[]) =>
   values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 
 const riskOnThemes = new Set(["stimulus", "ai_and_semis"]);
-const riskOffThemes = new Set(["trade_policy", "china_risk", "inflation", "defense", "energy"]);
+const riskOffThemes = new Set([
+  "trade_policy",
+  "china_risk",
+  "inflation",
+  "growth_slowdown",
+  "defense",
+  "energy",
+]);
 
 const hasThemeOverlap = (event: ParsedEvent, themes: string[]) =>
   event.themes.some((theme) => themes.includes(theme));
@@ -467,15 +492,62 @@ const aggregateThemeRule = (
   };
 };
 
+const applyMacroCrossCurrentOverride = (
+  event: ParsedEvent,
+  ticker: string,
+  aggregatedRule: AssetRule | undefined,
+  signalContext: AssetSignalContext,
+): AssetRule | undefined => {
+  if (!aggregatedRule || !signalContext.conflict) {
+    return aggregatedRule;
+  }
+
+  const hasGrowthSlowdown = event.themes.includes("growth_slowdown");
+  const hasDovishPolicy =
+    event.themes.includes("rates") || event.themes.includes("central_bank");
+
+  if (!hasGrowthSlowdown || !hasDovishPolicy) {
+    return aggregatedRule;
+  }
+
+  if (ticker === "QQQ") {
+    return { direction: "down", magnitudeBp: -58 };
+  }
+
+  if (ticker === "SPY") {
+    return { direction: "down", magnitudeBp: -36 };
+  }
+
+  if (ticker === "TLT") {
+    return { direction: "up", magnitudeBp: 58 };
+  }
+
+  if (ticker === "GLD") {
+    return { direction: "up", magnitudeBp: 42 };
+  }
+
+  if (ticker === "DXY") {
+    return { direction: "down", magnitudeBp: -22 };
+  }
+
+  return aggregatedRule;
+};
+
 const buildAssets = (
   event: ParsedEvent,
   horizon: GeneratedPrediction["horizon"],
   strategy: PredictionStrategyContext,
 ) : BuildAssetsResult => {
-  const signalContexts: AssetSignalContext[] = [];
-  const assets = expandCandidateAssets(event, strategy).map((ticker) => {
+  const preferredAssets = new Set(mergedPreferredAssets(strategy));
+  const rankedSignals: RankedAssetSignal[] = expandCandidateAssets(event, strategy).map((ticker) => {
     const aggregatedSignal = aggregateThemeRule(event, ticker);
-    const rule = applySentimentOverride(event, ticker, aggregatedSignal.rule);
+    const adjustedRule = applyMacroCrossCurrentOverride(
+      event,
+      ticker,
+      aggregatedSignal.rule,
+      aggregatedSignal.signalContext,
+    );
+    const rule = applySentimentOverride(event, ticker, adjustedRule);
     const multiplier = HORIZON_MULTIPLIER[horizon];
     const magnitude = scaleMagnitudeByProfile(
       event,
@@ -514,30 +586,69 @@ const buildAssets = (
     const direction =
       contrarianMixedSignal ? "mixed" : rule.direction;
 
-    signalContexts.push(aggregatedSignal.signalContext);
-
     return {
-      ticker,
-      expected_direction: direction,
-      expected_magnitude_bp: magnitude,
-      conviction,
+      asset: {
+        ticker,
+        expected_direction: direction,
+        expected_magnitude_bp: magnitude,
+        conviction,
+      },
+      signalContext: aggregatedSignal.signalContext,
     };
-  });
+  })
+  .sort((left, right) => {
+    const score = (entry: RankedAssetSignal) =>
+      Math.abs(entry.asset.expected_magnitude_bp) +
+      entry.asset.conviction * 20 +
+      (preferredAssets.has(entry.asset.ticker) ? 35 : 0);
+    const magnitudeGap = score(right) - score(left);
+
+    if (magnitudeGap !== 0) {
+      return magnitudeGap;
+    }
+
+    return right.asset.conviction - left.asset.conviction;
+  })
+  .slice(0, 5);
 
   return {
-    assets: assets.slice(0, 5),
-    signalContexts: signalContexts.slice(0, 5),
+    assets: rankedSignals.map((entry) => entry.asset),
+    signalContexts: rankedSignals.map((entry) => entry.signalContext),
   };
 };
 
 const themeLabel = (theme: string) => theme.replaceAll("_", " ");
+
+const THESIS_THEME_PRIORITY: Record<string, number> = {
+  growth_slowdown: 100,
+  energy_supply: 95,
+  trade_policy: 90,
+  china_risk: 88,
+  banking_stress: 86,
+  credit_stress: 84,
+  sovereign_risk: 82,
+  fx_policy: 80,
+  rates: 78,
+  central_bank: 76,
+  inflation: 70,
+};
+
+const selectThemesForThesis = (event: ParsedEvent) =>
+  [...event.themes]
+    .sort((left, right) => {
+      const leftScore = THESIS_THEME_PRIORITY[left] ?? 10;
+      const rightScore = THESIS_THEME_PRIORITY[right] ?? 10;
+
+      return rightScore - leftScore;
+    })
+    .slice(0, 2);
 
 const buildThesis = (
   event: ParsedEvent,
   horizon: GeneratedPrediction["horizon"],
   strategy: PredictionStrategyContext,
 ) => {
-  const topThemes = event.themes.slice(0, 2).map(themeLabel);
+  const topThemes = selectThemesForThesis(event).map(themeLabel);
   const label = topThemes.length ? topThemes.join(" and ") : "market-relevant developments";
   const profileLabel = PROFILE_THEME_GROUPS[strategy.profile].label;
 

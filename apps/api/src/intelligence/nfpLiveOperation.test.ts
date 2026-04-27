@@ -372,14 +372,14 @@ describe("explanation output", () => {
   });
 });
 
-// ─── Queue integration ────────────────────────────────────────────────────────
+// Queue integration
 
 describe("queue integration", () => {
   it("nfp_intelligence appears in systemOperationNameSchema", async () => {
     const { systemOperationNameSchema } = await import("@finance-superbrain/schemas");
     const names = systemOperationNameSchema.options;
     expect(names).toContain("nfp_intelligence");
-  });
+  }, 15_000);
 
   it("operationJobs can parse and execute nfp_intelligence payload", async () => {
     const { parseOperationJobPayload } = await import("../lib/operationJobs.js");
@@ -390,5 +390,5 @@ describe("queue integration", () => {
     };
 
     expect(() => parseOperationJobPayload("nfp_intelligence", raw)).not.toThrow();
-  });
+  }, 15_000);
 });

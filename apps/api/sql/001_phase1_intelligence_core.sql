@@ -176,12 +176,20 @@ create table if not exists historical_case_library (
   parsed_event jsonb not null,
   labels jsonb not null default '{}'::jsonb,
   review jsonb not null default '{}'::jsonb,
+  data_split text,
+  split_version text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table historical_case_library
   add column if not exists review jsonb not null default '{}'::jsonb;
+
+alter table historical_case_library
+  add column if not exists data_split text;
+
+alter table historical_case_library
+  add column if not exists split_version text;
 
 create table if not exists calibration_snapshots (
   id uuid primary key,
@@ -553,6 +561,254 @@ alter table if exists operation_worker_services
 alter table if exists operation_worker_services
   add column if not exists current_restart_backoff_ms integer;
 
+create table if not exists workspaces (
+  id uuid primary key,
+  slug text not null unique,
+  name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table if exists workspaces
+  add column if not exists updated_at timestamptz not null default now();
+
+create table if not exists workspace_users (
+  id uuid primary key,
+  email text not null unique,
+  display_name text not null,
+  password_hash text not null,
+  role text not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists workspace_memberships (
+  workspace_id uuid not null references workspaces(id),
+  user_id uuid not null references workspace_users(id),
+  role text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (workspace_id, user_id)
+);
+
+create table if not exists user_sessions (
+  id uuid primary key,
+  user_id uuid not null references workspace_users(id),
+  workspace_id uuid not null references workspaces(id),
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz not null,
+  revoked_at timestamptz
+);
+
+create table if not exists shared_studio_drafts (
+  id text primary key,
+  workspace_id uuid not null references workspaces(id),
+  owner_user_id uuid not null references workspace_users(id),
+  form jsonb not null,
+  preview jsonb,
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists shared_studio_runs (
+  id text primary key,
+  workspace_id uuid not null references workspaces(id),
+  owner_user_id uuid not null references workspace_users(id),
+  last_actor_user_id uuid not null references workspace_users(id),
+  title text not null,
+  source_type text not null,
+  stage text not null,
+  form jsonb not null,
+  preview jsonb,
+  source jsonb,
+  event jsonb,
+  predictions jsonb not null default '[]'::jsonb,
+  analogs jsonb not null default '[]'::jsonb,
+  event_summary text not null default '',
+  event_id uuid,
+  prediction_ids jsonb not null default '[]'::jsonb,
+  analog_prediction_ids jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists shared_investigations (
+  id text primary key,
+  workspace_id uuid not null references workspaces(id),
+  title text not null,
+  event_id uuid,
+  prediction_ids jsonb not null default '[]'::jsonb,
+  status text not null,
+  owner_user_id uuid not null references workspace_users(id),
+  assignee_user_id uuid references workspace_users(id),
+  last_actor_user_id uuid not null references workspace_users(id),
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists shared_investigation_steps (
+  investigation_id text not null references shared_investigations(id) on delete cascade,
+  id text not null,
+  kind text not null,
+  status text not null,
+  href text not null,
+  title text not null,
+  detail text not null,
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  primary key (investigation_id, id)
+);
+
+create table if not exists workspace_recent_items (
+  workspace_id uuid not null references workspaces(id),
+  id text not null,
+  kind text not null,
+  href text not null,
+  title text not null,
+  description text not null,
+  actor_user_id uuid not null references workspace_users(id),
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  primary key (workspace_id, id)
+);
+
+create table if not exists workspace_activity_events (
+  id uuid primary key,
+  workspace_id uuid not null references workspaces(id),
+  actor_user_id uuid not null references workspace_users(id),
+  kind text not null,
+  investigation_id text,
+  studio_run_id text,
+  prediction_id text,
+  detail text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null
+);
+
+create table if not exists shared_review_notes (
+  workspace_id uuid not null references workspaces(id),
+  prediction_id text not null,
+  note text not null,
+  owner_user_id uuid not null references workspace_users(id),
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  primary key (workspace_id, prediction_id)
+);
+
+create table if not exists decision_briefs (
+  id text primary key,
+  workspace_id uuid not null references workspaces(id),
+  investigation_id text not null references shared_investigations(id) on delete cascade,
+  lead_prediction_id uuid not null references predictions(id),
+  title text not null,
+  summary text not null,
+  thesis text not null,
+  scenario text not null,
+  confidence_label text not null,
+  key_assets jsonb not null default '[]'::jsonb,
+  triggers jsonb not null default '[]'::jsonb,
+  invalidations jsonb not null default '[]'::jsonb,
+  status text not null,
+  owner_user_id uuid not null references workspace_users(id),
+  assignee_user_id uuid references workspace_users(id),
+  last_actor_user_id uuid not null references workspace_users(id),
+  next_review_due_at timestamptz,
+  closed_at timestamptz,
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists decision_checkpoints (
+  id text primary key,
+  decision_brief_id text not null references decision_briefs(id) on delete cascade,
+  workspace_id uuid not null references workspaces(id),
+  actor_user_id uuid not null references workspace_users(id),
+  summary text not null,
+  thesis_state text not null,
+  action text not null,
+  created_at timestamptz not null
+);
+
+create table if not exists portfolio_candidates (
+  id text primary key,
+  workspace_id uuid not null references workspaces(id),
+  decision_brief_id text not null references decision_briefs(id) on delete cascade,
+  investigation_id text not null references shared_investigations(id) on delete cascade,
+  lead_prediction_id uuid not null references predictions(id),
+  title text not null,
+  summary text not null,
+  status text not null,
+  priority text not null,
+  sizing_label text not null,
+  risk_budget_label text not null,
+  conviction_label text not null,
+  primary_theme text not null,
+  secondary_themes jsonb not null default '[]'::jsonb,
+  related_assets jsonb not null default '[]'::jsonb,
+  owner_user_id uuid not null references workspace_users(id),
+  assignee_user_id uuid references workspace_users(id),
+  last_actor_user_id uuid not null references workspace_users(id),
+  next_review_due_at timestamptz,
+  closed_at timestamptz,
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists portfolio_checkpoints (
+  id text primary key,
+  portfolio_candidate_id text not null references portfolio_candidates(id) on delete cascade,
+  workspace_id uuid not null references workspaces(id),
+  actor_user_id uuid not null references workspace_users(id),
+  summary text not null,
+  thesis_state text not null,
+  action text not null,
+  created_at timestamptz not null
+);
+
+create table if not exists portfolio_review_sessions (
+  id text primary key,
+  workspace_id uuid not null references workspaces(id),
+  title text not null,
+  summary text not null,
+  status text not null,
+  owner_user_id uuid not null references workspace_users(id),
+  last_actor_user_id uuid not null references workspace_users(id),
+  opened_at timestamptz not null,
+  finalized_at timestamptz,
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists portfolio_review_session_items (
+  id text primary key,
+  review_session_id text not null references portfolio_review_sessions(id) on delete cascade,
+  portfolio_candidate_id text not null references portfolio_candidates(id) on delete cascade,
+  snapshot_status text not null,
+  snapshot_priority text not null,
+  snapshot_primary_theme text not null,
+  snapshot_assignee_user_id uuid references workspace_users(id),
+  snapshot_next_review_due_at timestamptz,
+  created_at timestamptz not null
+);
+
+create table if not exists portfolio_rebalance_proposals (
+  id text primary key,
+  review_session_id text not null references portfolio_review_sessions(id) on delete cascade,
+  portfolio_candidate_id text not null references portfolio_candidates(id) on delete cascade,
+  actor_user_id uuid not null references workspace_users(id),
+  action text not null,
+  status text not null,
+  rationale text not null,
+  dependency_note text,
+  next_review_expectation text,
+  decided_at timestamptz,
+  updated_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists idx_events_source_id on events(source_id);
 create index if not exists idx_sources_raw_uri on sources(raw_uri);
 create index if not exists idx_event_assets_event_id on event_assets(event_id);
@@ -608,3 +864,30 @@ create index if not exists idx_growth_pressure_action_plans_updated_at on growth
 create index if not exists idx_model_registry_family on model_registry(family);
 create index if not exists idx_promotion_evaluations_created_at on promotion_evaluations(created_at desc);
 create index if not exists idx_promotion_evaluations_candidate_model on promotion_evaluations(candidate_model_version);
+create index if not exists idx_workspace_users_email on workspace_users(email);
+create index if not exists idx_workspace_memberships_workspace on workspace_memberships(workspace_id, updated_at desc);
+create index if not exists idx_user_sessions_token_hash on user_sessions(token_hash);
+create index if not exists idx_user_sessions_user_id on user_sessions(user_id, created_at desc);
+create index if not exists idx_shared_studio_drafts_owner on shared_studio_drafts(workspace_id, owner_user_id, updated_at desc);
+create index if not exists idx_shared_studio_runs_workspace on shared_studio_runs(workspace_id, updated_at desc);
+create index if not exists idx_shared_studio_runs_owner on shared_studio_runs(owner_user_id, updated_at desc);
+create index if not exists idx_shared_investigations_workspace on shared_investigations(workspace_id, updated_at desc);
+create index if not exists idx_shared_investigations_assignee on shared_investigations(assignee_user_id, updated_at desc);
+create index if not exists idx_shared_investigation_steps_investigation on shared_investigation_steps(investigation_id, updated_at desc);
+create index if not exists idx_workspace_recent_items_workspace on workspace_recent_items(workspace_id, updated_at desc);
+create index if not exists idx_workspace_activity_events_workspace on workspace_activity_events(workspace_id, created_at desc);
+create index if not exists idx_shared_review_notes_workspace on shared_review_notes(workspace_id, updated_at desc);
+create unique index if not exists idx_decision_briefs_one_open_per_investigation on decision_briefs(workspace_id, investigation_id) where status <> 'closed';
+create index if not exists idx_decision_briefs_workspace_status on decision_briefs(workspace_id, status, updated_at desc);
+create index if not exists idx_decision_briefs_assignee_status on decision_briefs(workspace_id, assignee_user_id, status, updated_at desc);
+create index if not exists idx_decision_briefs_next_review_due on decision_briefs(workspace_id, next_review_due_at) where next_review_due_at is not null;
+create index if not exists idx_decision_checkpoints_brief_created_at on decision_checkpoints(decision_brief_id, created_at desc);
+create unique index if not exists idx_portfolio_candidates_one_open_per_brief on portfolio_candidates(workspace_id, decision_brief_id) where status <> 'closed';
+create index if not exists idx_portfolio_candidates_workspace_status on portfolio_candidates(workspace_id, status, updated_at desc);
+create index if not exists idx_portfolio_candidates_assignee_status on portfolio_candidates(workspace_id, assignee_user_id, status, updated_at desc);
+create index if not exists idx_portfolio_candidates_next_review_due on portfolio_candidates(workspace_id, next_review_due_at) where next_review_due_at is not null;
+create index if not exists idx_portfolio_checkpoints_candidate_created_at on portfolio_checkpoints(portfolio_candidate_id, created_at desc);
+create index if not exists idx_portfolio_review_sessions_workspace_status on portfolio_review_sessions(workspace_id, status, updated_at desc);
+create index if not exists idx_portfolio_review_session_items_session on portfolio_review_session_items(review_session_id, created_at asc);
+create index if not exists idx_portfolio_rebalance_proposals_session on portfolio_rebalance_proposals(review_session_id, updated_at desc);
+create index if not exists idx_portfolio_rebalance_proposals_candidate on portfolio_rebalance_proposals(portfolio_candidate_id, updated_at desc);
