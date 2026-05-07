@@ -1,0 +1,52 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Codex: GPT-5.5 workspace agent",
+      "type": "shell",
+      "command": "codex -C \"${workspaceFolder}\" -m gpt-5.5 -s workspace-write -a on-request",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "focus": true
+      }
+    },
+    {
+      "label": "Codex: GPT-5.5 review/read-only",
+      "type": "shell",
+      "command": "codex -C \"${workspaceFolder}\" -m gpt-5.5 -s read-only -a on-request",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "focus": true
+      }
+    },
+    {
+      "label": "Finance Superbrain: dev API",
+      "type": "shell",
+      "command": "npm run dev:api",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Finance Superbrain: dev web",
+      "type": "shell",
+      "command": "npm run dev:web",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Finance Superbrain: verify",
+      "type": "shell",
+      "command": "npm run verify",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

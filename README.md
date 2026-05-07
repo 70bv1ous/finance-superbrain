@@ -20,6 +20,25 @@ Primary workspaces:
    - `http://localhost:3001/ops`
    - `http://localhost:3000/`
 
+## VS Code + Codex workflow
+
+This repository is prepared for a local Codex-in-VS-Code workflow using GPT-5.5.
+
+One-time setup:
+
+1. Install the recommended VS Code extension when prompted: `OpenAI.chatgpt`
+2. Confirm the Codex CLI works with `codex --version`
+3. Open this repository in VS Code
+
+Recommended usage:
+
+- Use `Terminal > Run Task > Codex: GPT-5.5 workspace agent` for normal implementation work.
+- Use `Terminal > Run Task > Codex: GPT-5.5 review/read-only` for audits and planning where the agent should not edit files.
+- Use `Terminal > Run Task > Finance Superbrain: dev API` and `Finance Superbrain: dev web` to launch the local product.
+- Use `Terminal > Run Task > Finance Superbrain: verify` before committing meaningful changes.
+
+Keep one coding agent actively editing the repo at a time. This avoids conflicting file changes while preserving the Claude-Code-style workflow inside VS Code.
+
 ## Production-style Docker runtime
 
 The repository is prepared to run the production API and supervised worker-service under Docker using the built `dist` entrypoints:
