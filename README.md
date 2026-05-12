@@ -34,10 +34,12 @@ Recommended usage:
 
 - Use `Terminal > Run Task > Codex: GPT-5.5 workspace agent` for normal implementation work.
 - Use `Terminal > Run Task > Codex: GPT-5.5 review/read-only` for audits and planning where the agent should not edit files.
+- Use `Terminal > Run Task > Claude Code: reviewer/planner` when you want a separate Claude review/planning perspective.
+- Use `Terminal > Run Task > Claude Code: review current diff` when you want Claude to inspect the current repo changes without implementing.
 - Use `Terminal > Run Task > Finance Superbrain: dev API` and `Finance Superbrain: dev web` to launch the local product.
 - Use `Terminal > Run Task > Finance Superbrain: verify` before committing meaningful changes.
 
-Keep one coding agent actively editing the repo at a time. This avoids conflicting file changes while preserving the Claude-Code-style workflow inside VS Code.
+Keep one coding agent actively editing the repo at a time. Codex GPT-5.5 should be the default builder; Claude Code should be treated as a reviewer unless you intentionally hand implementation over to it.
 
 ## Production-style Docker runtime
 

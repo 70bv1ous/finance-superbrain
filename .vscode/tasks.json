@@ -22,6 +22,26 @@
       }
     },
     {
+      "label": "Claude Code: reviewer/planner",
+      "type": "shell",
+      "command": "claude --ide --effort high --permission-mode plan --append-system-prompt \"Act as a read-only reviewer/planner for Finance Superbrain. Codex GPT-5.5 is the primary implementation agent. Do not edit files unless the user explicitly asks Claude to implement.\"",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "focus": true
+      }
+    },
+    {
+      "label": "Claude Code: review current diff",
+      "type": "shell",
+      "command": "claude -p --effort high --permission-mode plan --append-system-prompt \"Act as a read-only senior reviewer. Do not edit files. Focus on bugs, regressions, deployment risk, missing tests, and investor-demo clarity.\" \"Review the current git diff and repo state. Return prioritized findings first, then concise recommended fixes.\"",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "focus": true
+      }
+    },
+    {
       "label": "Finance Superbrain: dev API",
       "type": "shell",
       "command": "npm run dev:api",
