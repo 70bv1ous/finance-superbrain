@@ -224,6 +224,64 @@ export type LessonExplorerItem = {
   created_at: string
 }
 
+export type MemoryConnectionNode = {
+  id: string
+  kind: "decision_brief" | "portfolio_candidate" | "lesson"
+  title: string
+  summary: string
+  href: string
+  updated_at: string
+  reason_codes: string[]
+}
+
+export type MemoryConnection = {
+  key: string
+  signal: "asset" | "theme"
+  label: string
+  title: string
+  summary: string
+  reason_codes: string[]
+  nodes: MemoryConnectionNode[]
+  updated_at: string
+}
+
+export type ObsidianImportCandidate = {
+  title: string
+  relative_path: string
+  content_hash: string
+  status: "importable" | "duplicate" | "skipped" | "imported" | "error"
+  reason: string | null
+  lesson_type: "mistake" | "reinforcement"
+  summary: string
+  themes: string[]
+  assets: string[]
+  tags: string[]
+  linked_prediction_id: string | null
+  linked_investigation_id: string | null
+  linked_decision_brief_id: string | null
+  linked_portfolio_candidate_id: string | null
+  imported_lesson_id: string | null
+  imported_prediction_id: string | null
+}
+
+export type ObsidianImportReviewResponse = {
+  workspace_id: string
+  inbox_path: string
+  dry_run: boolean
+  counts: {
+    scanned: number
+    importable: number
+    imported: number
+    duplicate: number
+    skipped: number
+    errors: number
+  }
+  candidates: ObsidianImportCandidate[]
+  warnings: string[]
+  selected_content_hashes: string[]
+  rejected_content_hashes: string[]
+}
+
 export async function getLibraryPacks(): Promise<LibraryPacksResponse | null> {
   try {
     const res = await fetch(`${resolveApiBaseUrl()}/v1/library/packs`, { next: { revalidate: 0 } })
@@ -257,6 +315,35 @@ export async function getLessonExplorer(limit = 60): Promise<LessonExplorerItem[
     const data = await res.json()
     return (data.items ?? []) as LessonExplorerItem[]
   } catch { return [] }
+}
+
+export async function getMemoryConnections(limit = 12): Promise<MemoryConnection[]> {
+  try {
+    const res = await fetch(`${resolveApiBaseUrl()}/v1/memory/connections?limit=${limit}`, { next: { revalidate: 0 } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.connections ?? []) as MemoryConnection[]
+  } catch { return [] }
+}
+
+export async function getObsidianImportCandidates(): Promise<ObsidianImportReviewResponse | null> {
+  try {
+    const res = await fetch(`${resolveApiBaseUrl()}/v1/obsidian/import-candidates`, { next: { revalidate: 0 } })
+    if (!res.ok) return null
+    return res.json() as Promise<ObsidianImportReviewResponse>
+  } catch { return null }
+}
+
+export async function applyObsidianImportCandidates(selectedContentHashes: string[]): Promise<ObsidianImportReviewResponse | null> {
+  try {
+    const res = await fetch(`${resolveApiBaseUrl()}/v1/obsidian/import-candidates/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selected_content_hashes: selectedContentHashes }),
+    })
+    if (!res.ok) return null
+    return res.json() as Promise<ObsidianImportReviewResponse>
+  } catch { return null }
 }
 
 // ─── Evaluation Framework ─────────────────────────────────────────────────────

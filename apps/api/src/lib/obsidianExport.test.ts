@@ -316,7 +316,9 @@ describe("obsidian export", () => {
     expect(summary.note_counts.portfolio_candidates).toBe(1);
     expect(summary.note_counts.lessons).toBe(1);
     expect(summary.note_counts.activity).toBe(2);
-    expect(summary.note_counts.indexes).toBe(6);
+    expect(summary.note_counts.connections).toBe(3);
+    expect(summary.note_counts.project).toBe(7);
+    expect(summary.note_counts.indexes).toBe(7);
 
     await expect(stat(join(vaultPath, "Finance Superbrain"))).rejects.toThrow();
   });
@@ -364,6 +366,101 @@ describe("obsidian export", () => {
     const activityMarkdown = await readFile(join(outputRoot, "Activity", "Recent Activity Log.md"), "utf8");
     expect(activityMarkdown).toContain("portfolio_candidate_posture_updated");
     expect(activityMarkdown).toContain("review_note_saved");
+
+    const connectionFiles = await readdir(join(outputRoot, "Connections"));
+    expect(connectionFiles.length).toBe(3);
+    const connectionMarkdown = await readFile(join(outputRoot, "Connections", connectionFiles[0]!), "utf8");
+    expect(connectionMarkdown).toContain("Generated connection memory");
+    expect(connectionMarkdown).toContain("## Linked Memory");
+    expect(connectionMarkdown).toContain("decision_key_asset");
+
+    const connectionsIndexMarkdown = await readFile(join(outputRoot, "Indexes", "Connections Index.md"), "utf8");
+    expect(connectionsIndexMarkdown).toContain("# Connections Index");
+    expect(connectionsIndexMarkdown).toContain("[[Finance Superbrain/Connections/");
+
+    const projectFiles = await readdir(join(outputRoot, "Project"));
+    expect(projectFiles).toEqual(
+      expect.arrayContaining([
+        "Project Overview.md",
+        "Work Session.md",
+        "Phase Ledger.md",
+        "Build Log.md",
+        "Risk Register.md",
+        "Validation History.md",
+        "Data Inventory.md",
+      ]),
+    );
+    const workSessionMarkdown = await readFile(join(outputRoot, "Project", "Work Session.md"), "utf8");
+    expect(workSessionMarkdown).toContain("# Work Session");
+    expect(workSessionMarkdown).toContain("automatic workspace syncing");
+    const dataInventoryMarkdown = await readFile(join(outputRoot, "Project", "Data Inventory.md"), "utf8");
+    expect(dataInventoryMarkdown).toContain("## Workspace Data Counts");
+    expect(dataInventoryMarkdown).toContain("Connection reports: 3");
+    expect(dataInventoryMarkdown).toContain("Local sync sessions:");
+    const phaseLedgerMarkdown = await readFile(join(outputRoot, "Project", "Phase Ledger.md"), "utf8");
+    expect(phaseLedgerMarkdown).toContain("# Phase Ledger");
+    expect(phaseLedgerMarkdown).toContain("## Phase 14: Public Pilot Deployment");
+    expect(phaseLedgerMarkdown).toContain("Generated Export Context");
+    expect(phaseLedgerMarkdown).toContain("## Explicit Phase Evidence Links");
+    expect(phaseLedgerMarkdown).toContain("Phase 12: Obsidian Memory Bridge");
+    expect(phaseLedgerMarkdown).toContain("`apps/api/sql/001_phase1_intelligence_core.sql`");
+    expect(phaseLedgerMarkdown).toContain("Commands: `npm run demo:public-pilot:smoke`");
+    expect(phaseLedgerMarkdown).toContain("Deployment status: blocked until hosted API health is repaired.");
+  });
+
+  it("includes automatic work-session history when sync state exists", async () => {
+    const vaultPath = await mkdtemp(join(tmpdir(), "finance-superbrain-obsidian-"));
+    const syncStatePath = join(vaultPath, "sync-state.json");
+    const previousSyncStatePath = process.env.FINANCE_SUPERBRAIN_OBSIDIAN_SYNC_STATE_PATH;
+    process.env.FINANCE_SUPERBRAIN_OBSIDIAN_SYNC_STATE_PATH = syncStatePath;
+
+    await writeFile(
+      syncStatePath,
+      JSON.stringify(
+        {
+          version: 1,
+          updated_at: "2026-05-13T10:15:00.000Z",
+          sessions: [
+            {
+              session_id: "sync-session-1",
+              captured_at: "2026-05-13T10:15:00.000Z",
+              mode: "watch",
+              branch: "main",
+              head: "abc1234",
+              dirty: true,
+              status_lines: ["M apps/api/src/lib/obsidianExport.ts"],
+              changed_files: ["apps/api/src/lib/obsidianExport.ts"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    try {
+      const { repository } = await seedRepository();
+
+      const summary = await exportWorkspaceToObsidian(repository, {
+        vault_path: vaultPath,
+        export_root: "Finance Superbrain",
+        app_url: "http://localhost:3000",
+        dry_run: false,
+      });
+
+      expect(summary.note_counts.project).toBe(7);
+      const workSessionMarkdown = await readFile(join(vaultPath, "Finance Superbrain", "Project", "Work Session.md"), "utf8");
+      expect(workSessionMarkdown).toContain("watch");
+      expect(workSessionMarkdown).toContain("apps/api/src/lib/obsidianExport.ts");
+      expect(workSessionMarkdown).toContain("Changed files: 1");
+    } finally {
+      if (previousSyncStatePath === undefined) {
+        delete process.env.FINANCE_SUPERBRAIN_OBSIDIAN_SYNC_STATE_PATH;
+      } else {
+        process.env.FINANCE_SUPERBRAIN_OBSIDIAN_SYNC_STATE_PATH = previousSyncStatePath;
+      }
+    }
   });
 
   it("rejects export roots that try to escape the vault", async () => {

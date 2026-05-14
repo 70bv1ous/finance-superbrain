@@ -18,6 +18,7 @@ type ResolvedImportConfig = ObsidianImportConfig & {
   inbox_path: string;
   absolute_inbox_path: string;
   app_url: string | null;
+  selected_content_hashes: Set<string> | null;
 };
 
 type ParsedFrontmatter = Record<string, string | string[] | boolean | null>;
@@ -189,6 +190,8 @@ function buildCandidateFromNote(
   const summary = toStringValue(note.frontmatter["summary"]) || firstMeaningfulParagraph(note.body) || title;
   const rawLinkedPredictionId = toStringValue(note.frontmatter["prediction_id"]) || toStringValue(note.frontmatter["linked_prediction_id"]);
   const linkedPredictionId = isUuid(rawLinkedPredictionId) ? rawLinkedPredictionId : "";
+  const rawLinkedInvestigationId = toStringValue(note.frontmatter["investigation_id"]) || toStringValue(note.frontmatter["linked_investigation_id"]);
+  const linkedInvestigationId = rawLinkedInvestigationId || "";
 
   if (managedBy === "finance_superbrain" || note.raw.includes(GENERATED_MARKER)) {
     return {
@@ -203,6 +206,7 @@ function buildCandidateFromNote(
       assets: toStringArray(note.frontmatter["assets"]),
       tags: toStringArray(note.frontmatter["tags"]),
       linked_prediction_id: null,
+      linked_investigation_id: null,
       linked_decision_brief_id: null,
       linked_portfolio_candidate_id: null,
       imported_lesson_id: null,
@@ -223,6 +227,7 @@ function buildCandidateFromNote(
       assets: toStringArray(note.frontmatter["assets"]),
       tags: toStringArray(note.frontmatter["tags"]),
       linked_prediction_id: null,
+      linked_investigation_id: null,
       linked_decision_brief_id: null,
       linked_portfolio_candidate_id: null,
       imported_lesson_id: null,
@@ -243,6 +248,7 @@ function buildCandidateFromNote(
       assets: toStringArray(note.frontmatter["assets"]),
       tags: toStringArray(note.frontmatter["tags"]),
       linked_prediction_id: existingLesson.prediction_id,
+      linked_investigation_id: linkedInvestigationId || null,
       linked_decision_brief_id: toStringValue(note.frontmatter["decision_brief_id"]) || null,
       linked_portfolio_candidate_id: toStringValue(note.frontmatter["portfolio_candidate_id"]) || null,
       imported_lesson_id: existingLesson.id,
@@ -262,6 +268,7 @@ function buildCandidateFromNote(
     assets: toStringArray(note.frontmatter["assets"]),
     tags: toStringArray(note.frontmatter["tags"]),
     linked_prediction_id: linkedPredictionId || null,
+    linked_investigation_id: linkedInvestigationId || null,
     linked_decision_brief_id: toStringValue(note.frontmatter["decision_brief_id"]) || null,
     linked_portfolio_candidate_id: toStringValue(note.frontmatter["portfolio_candidate_id"]) || null,
     imported_lesson_id: null,
@@ -289,6 +296,7 @@ async function resolveImportConfig(config: ObsidianImportConfig): Promise<Resolv
     inbox_path: parsed.inbox_path,
     absolute_inbox_path: absoluteInboxPath,
     app_url: parsed.app_url ?? null,
+    selected_content_hashes: null,
   };
 }
 
@@ -347,6 +355,10 @@ function buildLessonMetadata(input: {
 
   if (input.candidate.linked_decision_brief_id) {
     metadata.decision_brief_id = input.candidate.linked_decision_brief_id;
+  }
+
+  if (input.candidate.linked_investigation_id) {
+    metadata.investigation_id = input.candidate.linked_investigation_id;
   }
 
   if (input.candidate.linked_portfolio_candidate_id) {
@@ -472,8 +484,14 @@ function countCandidates(candidates: ObsidianImportCandidate[]) {
 export async function importObsidianHumanInbox(
   services: AppServices,
   config: ObsidianImportConfig,
+  options: {
+    selected_content_hashes?: string[];
+  } = {},
 ): Promise<ObsidianImportSummary> {
   const resolvedConfig = await resolveImportConfig(config);
+  resolvedConfig.selected_content_hashes = options.selected_content_hashes?.length
+    ? new Set(options.selected_content_hashes.map((value) => value.trim()).filter(Boolean))
+    : null;
   const workspace = await services.repository.getOrCreateDefaultWorkspace();
   const inboxStats = await stat(resolvedConfig.absolute_inbox_path).catch(() => null);
   const warnings: string[] = [];
@@ -502,6 +520,15 @@ export async function importObsidianHumanInbox(
     for (const note of notes) {
       const candidate = candidatesByHash.get(hashContent(note.raw));
       if (!candidate || candidate.status !== "importable") {
+        continue;
+      }
+
+      if (resolvedConfig.selected_content_hashes && !resolvedConfig.selected_content_hashes.has(candidate.content_hash)) {
+        candidatesByHash.set(candidate.content_hash, {
+          ...candidate,
+          status: "skipped",
+          reason: "Candidate was not selected in the import review queue.",
+        });
         continue;
       }
 
@@ -534,6 +561,7 @@ export function buildObsidianImportConfigFromEnv(
   env: NodeJS.ProcessEnv,
   options: {
     apply?: boolean;
+    selected_content_hashes?: string[];
   } = {},
 ): ObsidianImportConfig {
   const vaultPath = env.OBSIDIAN_VAULT_PATH?.trim();

@@ -1,0 +1,10 @@
+{
+  "name": "@finance-superbrain/obsidian-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "build": "node --check ./main.js",
+    "watch": "node --check ./main.js"
+  }
+}

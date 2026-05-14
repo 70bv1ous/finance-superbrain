@@ -194,6 +194,15 @@ describe("finance superbrain API", () => {
       expect(lessonExplorerResponse.json().items).toHaveLength(1);
       expect(lessonExplorerResponse.json().items[0].themes.length).toBeGreaterThan(0);
 
+      const memoryConnectionsResponse = await app.inject({
+        method: "GET",
+        url: "/v1/memory/connections?limit=6",
+      });
+
+      expect(memoryConnectionsResponse.statusCode).toBe(200);
+      expect(memoryConnectionsResponse.json().connections).toEqual([]);
+      expect(memoryConnectionsResponse.json().generated_at).toBeTruthy();
+
       const pipelineResponse = await app.inject({
         method: "GET",
         url: "/v1/dashboard/pipeline",

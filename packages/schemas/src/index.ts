@@ -375,6 +375,32 @@ export const lessonExplorerResponseSchema = z.object({
   items: z.array(lessonExplorerItemSchema),
 });
 
+export const memoryConnectionNodeSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["decision_brief", "portfolio_candidate", "lesson"]),
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  href: z.string().min(1),
+  updated_at: z.iso.datetime(),
+  reason_codes: z.array(z.string().min(1)),
+});
+
+export const memoryConnectionSchema = z.object({
+  key: z.string().min(1),
+  signal: z.enum(["asset", "theme"]),
+  label: z.string().min(1),
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  reason_codes: z.array(z.string().min(1)),
+  nodes: z.array(memoryConnectionNodeSchema),
+  updated_at: z.iso.datetime(),
+});
+
+export const memoryConnectionsResponseSchema = z.object({
+  connections: z.array(memoryConnectionSchema),
+  generated_at: z.iso.datetime(),
+});
+
 export const dashboardThemeStatSchema = z.object({
   theme: z.string().min(1),
   count: z.number().int().min(0),
@@ -4649,6 +4675,9 @@ export type SelfAuditResponse = z.infer<typeof selfAuditResponseSchema>;
 export type LessonSearchResponse = z.infer<typeof lessonSearchResponseSchema>;
 export type LessonExplorerItem = z.infer<typeof lessonExplorerItemSchema>;
 export type LessonExplorerResponse = z.infer<typeof lessonExplorerResponseSchema>;
+export type MemoryConnectionNode = z.infer<typeof memoryConnectionNodeSchema>;
+export type MemoryConnection = z.infer<typeof memoryConnectionSchema>;
+export type MemoryConnectionsResponse = z.infer<typeof memoryConnectionsResponseSchema>;
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>;
 export type DashboardPipelineResponse = z.infer<typeof dashboardPipelineResponseSchema>;
 export type SystemOperationName = z.infer<typeof systemOperationNameSchema>;

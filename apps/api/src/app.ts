@@ -12,6 +12,8 @@ import { registerIngestionRoutes } from "./routes/ingestion.js";
 import { registerInvestigationRoutes } from "./routes/investigations.js";
 import { registerLessonRoutes } from "./routes/lessons.js";
 import { registerMetricRoutes } from "./routes/metrics.js";
+import { registerMemoryRoutes } from "./routes/memory.js";
+import { registerObsidianRoutes } from "./routes/obsidian.js";
 import { registerModelRoutes } from "./routes/models.js";
 import { registerOperationRoutes } from "./routes/operations.js";
 import { registerPortfolioRoutes } from "./routes/portfolio.js";
@@ -67,6 +69,8 @@ export const buildApp = async (options: Parameters<typeof buildServices>[0] = {}
   await registerPortfolioReviewRoutes(server, services);
   await registerLessonRoutes(server, services);
   await registerMetricRoutes(server, services);
+  await registerMemoryRoutes(server, services);
+  await registerObsidianRoutes(server, services);
   await registerOperationRoutes(server, services);
   await registerWorkspaceRoutes(server, services);
   await registerInvestigationRoutes(server, services);

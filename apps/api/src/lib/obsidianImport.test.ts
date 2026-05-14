@@ -78,6 +78,7 @@ themes:
   - portfolio
   - follow-through
 assets: [XLI]
+investigation_id: demo-investigation-cpi-discipline
 portfolio_candidate_id: demo-portfolio-cpi-discipline
 ---
 # Trimmed posture follow-through
@@ -99,10 +100,12 @@ If a candidate is trimmed but still open, require a new checkpoint within the ne
     expect(applied.candidates[0]?.status).toBe("imported");
     expect(applied.candidates[0]?.imported_lesson_id).toBeTruthy();
     expect(applied.candidates[0]?.imported_prediction_id).toBeTruthy();
+    expect(applied.candidates[0]?.linked_investigation_id).toBe("demo-investigation-cpi-discipline");
 
     const lessons = await services.repository.listLessons();
     expect(lessons).toHaveLength(1);
     expect(lessons[0]?.metadata.imported_from).toBe("obsidian");
+    expect(lessons[0]?.metadata.investigation_id).toBe("demo-investigation-cpi-discipline");
     expect(lessons[0]?.metadata.portfolio_candidate_id).toBe("demo-portfolio-cpi-discipline");
 
     const rerun = await importObsidianHumanInbox(services, {
@@ -115,6 +118,75 @@ If a candidate is trimmed but still open, require a new checkpoint within the ne
 
     expect(rerun.counts.imported).toBe(0);
     expect(rerun.counts.duplicate).toBe(1);
+  });
+
+  it("applies only the selected review queue notes when content hashes are provided", async () => {
+    const services = await buildTestServices();
+    const { vaultPath, inboxPath } = await createVaultWithInbox();
+    await writeFile(
+      join(inboxPath, "selected-note.md"),
+      `---
+fs_import: true
+title: Selected note
+lesson_type: reinforcement
+themes: [selection]
+assets: [SPY]
+---
+# Selected note
+
+Keep this note.
+`,
+      "utf8",
+    );
+    await writeFile(
+      join(inboxPath, "rejected-note.md"),
+      `---
+fs_import: true
+title: Rejected note
+lesson_type: reinforcement
+themes: [selection]
+assets: [QQQ]
+---
+# Rejected note
+
+Do not import this note yet.
+`,
+      "utf8",
+    );
+
+    const dryRun = await importObsidianHumanInbox(services, {
+      vault_path: vaultPath,
+      inbox_path: "Finance Superbrain/Human Inbox",
+      dry_run: true,
+      max_notes: 50,
+      app_url: "http://localhost:3000",
+    });
+
+    const selectedHash = dryRun.candidates.find((candidate) => candidate.title === "Selected note")?.content_hash;
+    expect(selectedHash).toBeTruthy();
+
+    const applied = await importObsidianHumanInbox(
+      services,
+      {
+        vault_path: vaultPath,
+        inbox_path: "Finance Superbrain/Human Inbox",
+        dry_run: false,
+        max_notes: 50,
+        app_url: "http://localhost:3000",
+      },
+      {
+        selected_content_hashes: [selectedHash!],
+      },
+    );
+
+    expect(applied.counts.imported).toBe(1);
+    expect(applied.counts.skipped).toBe(1);
+    expect(applied.candidates.find((candidate) => candidate.title === "Selected note")?.status).toBe("imported");
+    expect(applied.candidates.find((candidate) => candidate.title === "Rejected note")?.status).toBe("skipped");
+
+    const lessons = await services.repository.listLessons();
+    expect(lessons).toHaveLength(1);
+    expect(lessons[0]?.metadata.obsidian_title).toBe("Selected note");
   });
 
   it("skips generated export notes and notes without explicit import frontmatter", async () => {

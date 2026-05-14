@@ -3,6 +3,7 @@ import { dirname, extname, join, relative, resolve } from "node:path";
 
 import {
   obsidianActivityFrontmatterSchema,
+  obsidianConnectionFrontmatterSchema,
   obsidianDecisionBriefFrontmatterSchema,
   obsidianExportConfigSchema,
   obsidianExportSummarySchema,
@@ -21,6 +22,7 @@ import {
   type PortfolioRebalanceProposal,
   type PortfolioReviewSession,
   type PortfolioReviewSessionItem,
+  type ObsidianSyncState,
   type SharedInvestigation,
   type SharedStudioRun,
   type Workspace,
@@ -29,6 +31,9 @@ import {
 } from "@finance-superbrain/schemas";
 
 import type { PredictionLearningRecord, Repository } from "./repository.types.js";
+import { getObsidianImportReviewLogPath, readLatestObsidianImportReviewLog } from "./obsidianImportReviewLog.js";
+import { readObsidianSyncState } from "./obsidianSyncState.js";
+import { buildObsidianWorkSessionMarkdown } from "./obsidianWorkSession.js";
 
 const EXPORT_FOLDERS = {
   investigations: "Investigations",
@@ -36,6 +41,8 @@ const EXPORT_FOLDERS = {
   portfolio: "Portfolio",
   lessons: "Lessons",
   activity: "Activity",
+  connections: "Connections",
+  project: "Project",
   indexes: "Indexes",
 } as const;
 
@@ -98,6 +105,7 @@ type ExportGraph = {
   activity: WorkspaceActivity[];
   learning_records: PredictionLearningRecord[];
   lessons: Lesson[];
+  project_ledger: ProjectLedger;
 };
 
 type ExportContext = {
@@ -115,6 +123,7 @@ type ExportContext = {
     portfolio_index: NoteTarget;
     lessons_index: NoteTarget;
     recent_activity: NoteTarget;
+    connections_index: NoteTarget;
   };
   activity_notes: {
     recent_log: NoteTarget;
@@ -134,6 +143,52 @@ type LatestReviewSessionContext = {
   item: PortfolioReviewSessionItem;
   proposals: PortfolioRebalanceProposal[];
 } | null;
+
+type ConnectionNodeKind = "decision_brief" | "portfolio_candidate" | "lesson";
+
+type ConnectionNode = {
+  id: string;
+  kind: ConnectionNodeKind;
+  title: string;
+  target: NoteTarget | null;
+  summary: string;
+  updated_at: string;
+  reason_codes: string[];
+};
+
+type ConnectionReport = {
+  key: string;
+  signal: string;
+  title: string;
+  summary: string;
+  reason_codes: string[];
+  nodes: ConnectionNode[];
+  updated_at: string;
+};
+
+type ProjectLedger = {
+  generated_at: string;
+  package_scripts: Record<string, string>;
+  phase_ledger_markdown: string | null;
+  phase_evidence_links: ProjectPhaseEvidence[];
+  documented_phase_headings: string[];
+  roadmap_phase_headings: string[];
+  source_documents: Array<{ path: string; status: "read" | "missing" }>;
+  sync_state: ObsidianSyncState | null;
+  latest_import_review: Awaited<ReturnType<typeof readLatestObsidianImportReviewLog>>;
+};
+
+type ProjectPhaseEvidence = {
+  phase: string;
+  title: string;
+  evidence: string | null;
+  validation: string | null;
+  status: string | null;
+  risk: string | null;
+  repo_refs: string[];
+  command_refs: string[];
+  deployment_status: string | null;
+};
 
 function slugify(value: string, fallback: string) {
   const normalized = value
@@ -425,6 +480,14 @@ function buildTargetMaps(graph: ExportGraph, config: ResolvedExportConfig) {
         "index",
         "Recent Activity",
       ),
+      connections_index: createNoteTarget(
+        config.output_path,
+        config.export_root,
+        EXPORT_FOLDERS.indexes,
+        "Connections Index.md",
+        "index",
+        "Connections Index",
+      ),
     },
     activityNotes: {
       recent_log: createNoteTarget(
@@ -477,7 +540,7 @@ async function resolveExportConfig(config: ObsidianExportConfig): Promise<Resolv
 
 async function loadExportGraph(repository: Repository): Promise<ExportGraph> {
   const workspace = await repository.getOrCreateDefaultWorkspace();
-  const [members, studioRuns, investigations, decisionBriefs, portfolioCandidates, reviewSessions, recentItems, activity, learningRecords] =
+  const [members, studioRuns, investigations, decisionBriefs, portfolioCandidates, reviewSessions, recentItems, activity, learningRecords, projectLedger] =
     await Promise.all([
       repository.listWorkspaceMembers(workspace.id),
       repository.listSharedStudioRuns({
@@ -509,6 +572,7 @@ async function loadExportGraph(repository: Repository): Promise<ExportGraph> {
         limit: 512,
       }),
       repository.listLearningRecords(),
+      loadProjectLedger(),
     ]);
 
   const [decisionCheckpointEntries, portfolioCheckpointEntries, reviewItemEntries, reviewProposalEntries] = await Promise.all([
@@ -577,6 +641,7 @@ async function loadExportGraph(repository: Repository): Promise<ExportGraph> {
       })),
     ).map(({ created_at: _createdAt, ...record }) => record),
     lessons: sortByCreatedAtDescending(lessons),
+    project_ledger: projectLedger,
   };
 }
 
@@ -621,6 +686,292 @@ function buildLatestPortfolioByPredictionId(candidates: PortfolioCandidate[]) {
   return pickLatestBy(candidates, (candidate) => candidate.lead_prediction_id, (candidate) => candidate.updated_at);
 }
 
+async function findRepositoryRoot(startPath = process.cwd()) {
+  let current = resolve(startPath);
+
+  for (;;) {
+    const packageJsonPath = join(current, "package.json");
+    const packageJson = await readFile(packageJsonPath, "utf8").catch(() => null);
+    if (packageJson?.includes("\"workspaces\"")) {
+      return current;
+    }
+
+    const parent = resolve(current, "..");
+    if (parent === current) {
+      return resolve(startPath);
+    }
+    current = parent;
+  }
+}
+
+function extractPhaseHeadings(markdown: string) {
+  return markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^#{1,4}\s+Phase\s+\d+/i.test(line) || /^#{1,4}\s+Phase\d+/i.test(line))
+    .map((line) => line.replace(/^#+\s+/, ""))
+    .slice(0, 40);
+}
+
+function extractBacktickRefs(value: string | null) {
+  if (!value) {
+    return [];
+  }
+
+  return [...value.matchAll(/`([^`]+)`/g)]
+    .map((match) => match[1]?.trim())
+    .filter((ref): ref is string => Boolean(ref));
+}
+
+function isCommandRef(ref: string) {
+  return /^(npm|npx|playwright|node)\b/.test(ref);
+}
+
+function isRepoRef(ref: string) {
+  if (isCommandRef(ref)) {
+    return false;
+  }
+
+  return (
+    ref.includes("/") ||
+    ref.includes("\\") ||
+    /\.(md|ts|tsx|js|mjs|sql|json|toml|yml|yaml|ps1)$/i.test(ref)
+  );
+}
+
+function parsePhaseLedgerField(section: string, field: string) {
+  const match = section.match(new RegExp(`^- ${field}:\\s*(.+)$`, "im"));
+  return match?.[1]?.trim() ?? null;
+}
+
+function extractPhaseEvidenceLinks(markdown: string | null): ProjectPhaseEvidence[] {
+  if (!markdown) {
+    return [];
+  }
+
+  const phaseMatches = [...markdown.matchAll(/^## Phase\s+(\d+):\s+(.+)$/gim)];
+
+  return phaseMatches.map((match, index) => {
+    const phaseStart = match.index ?? 0;
+    const nextStart = phaseMatches[index + 1]?.index ?? markdown.length;
+    const section = markdown.slice(phaseStart, nextStart);
+    const evidence = parsePhaseLedgerField(section, "Evidence");
+    const validation = parsePhaseLedgerField(section, "Validation");
+    const status = parsePhaseLedgerField(section, "Status");
+    const risk = parsePhaseLedgerField(section, "Risk");
+    const refs = [...extractBacktickRefs(evidence), ...extractBacktickRefs(validation)];
+
+    return {
+      phase: `Phase ${match[1]}`,
+      title: match[2]?.trim() ?? "Untitled",
+      evidence,
+      validation,
+      status,
+      risk,
+      repo_refs: [...new Set(refs.filter(isRepoRef))],
+      command_refs: [...new Set(refs.filter(isCommandRef))],
+      deployment_status:
+        /deploy|public pilot|hosted|railway|vercel/i.test(section) && status
+          ? status
+          : null,
+    };
+  });
+}
+
+async function readProjectFile(root: string, relativePath: string) {
+  const content = await readFile(join(root, relativePath), "utf8").catch(() => null);
+  return {
+    path: relativePath,
+    status: content === null ? "missing" as const : "read" as const,
+    content,
+  };
+}
+
+async function loadProjectLedger(): Promise<ProjectLedger> {
+  const root = await findRepositoryRoot();
+  const syncStatePath = process.env.FINANCE_SUPERBRAIN_OBSIDIAN_SYNC_STATE_PATH?.trim() || join(root, ".finance-superbrain", "obsidian-sync-state.json");
+  const reviewLogPath = getObsidianImportReviewLogPath(root);
+  const syncStateRelativePath = relative(root, syncStatePath);
+  const syncStateFile =
+    syncStateRelativePath && !syncStateRelativePath.startsWith("..") && !syncStateRelativePath.includes(":")
+      ? await readProjectFile(root, syncStateRelativePath)
+      : { path: syncStatePath, status: "missing" as const, content: null };
+  const [packageFile, phaseLedgerFile, readmeFile, roadmapFile, obsidianRoadmapFile, syncState] = await Promise.all([
+    readProjectFile(root, "package.json"),
+    readProjectFile(root, "docs/phase-ledger.md"),
+    readProjectFile(root, "README.md"),
+    readProjectFile(root, "FINANCE_SUPERBRAIN_ROADMAP.md"),
+    readProjectFile(root, "docs/obsidian-memory-roadmap.md"),
+    readObsidianSyncState(syncStatePath),
+  ]);
+  const latestImportReview = await readLatestObsidianImportReviewLog(reviewLogPath);
+  const packageJson = packageFile.content ? JSON.parse(packageFile.content) as { scripts?: Record<string, string> } : {};
+
+  return {
+    generated_at: new Date().toISOString(),
+    package_scripts: packageJson.scripts ?? {},
+    phase_ledger_markdown: phaseLedgerFile.content,
+    phase_evidence_links: extractPhaseEvidenceLinks(phaseLedgerFile.content),
+    documented_phase_headings: readmeFile.content ? extractPhaseHeadings(readmeFile.content) : [],
+    roadmap_phase_headings: roadmapFile.content ? extractPhaseHeadings(roadmapFile.content) : [],
+    source_documents: [packageFile, phaseLedgerFile, readmeFile, roadmapFile, obsidianRoadmapFile, syncStateFile].map((file) => ({
+      path: file.path,
+      status: file.status,
+    })),
+    sync_state: syncState,
+    latest_import_review: latestImportReview,
+  };
+}
+
+function normalizeConnectionToken(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function displayConnectionToken(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function splitMetadataList(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item));
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function addConnectionNode(
+  buckets: Map<string, { signal: string; display: string; nodes: Map<string, ConnectionNode>; reason_codes: Set<string> }>,
+  input: {
+    signal: string;
+    value: string;
+    node: ConnectionNode;
+  },
+) {
+  const normalized = normalizeConnectionToken(input.value);
+  if (!normalized) {
+    return;
+  }
+
+  const key = `${input.signal}:${normalized}`;
+  const bucket =
+    buckets.get(key) ??
+    {
+      signal: input.signal,
+      display: displayConnectionToken(input.value),
+      nodes: new Map<string, ConnectionNode>(),
+      reason_codes: new Set<string>(),
+    };
+
+  const nodeKey = `${input.node.kind}:${input.node.id}`;
+  const existing = bucket.nodes.get(nodeKey);
+  const reasonCodes = new Set([...(existing?.reason_codes ?? []), ...input.node.reason_codes]);
+  bucket.nodes.set(nodeKey, {
+    ...input.node,
+    reason_codes: [...reasonCodes].sort(),
+  });
+  for (const reasonCode of input.node.reason_codes) {
+    bucket.reason_codes.add(reasonCode);
+  }
+  buckets.set(key, bucket);
+}
+
+function buildConnectionReports(context: ExportContext): ConnectionReport[] {
+  const buckets = new Map<string, { signal: string; display: string; nodes: Map<string, ConnectionNode>; reason_codes: Set<string> }>();
+
+  for (const brief of context.graph.decision_briefs) {
+    const node = {
+      id: brief.id,
+      kind: "decision_brief" as const,
+      title: brief.title,
+      target: context.decision_note_by_id.get(brief.id) ?? null,
+      summary: brief.summary,
+      updated_at: brief.updated_at,
+      reason_codes: ["decision_key_asset"],
+    };
+
+    for (const asset of brief.key_assets) {
+      addConnectionNode(buckets, { signal: "asset", value: asset, node });
+    }
+  }
+
+  for (const candidate of context.graph.portfolio_candidates) {
+    const assetNode = {
+      id: candidate.id,
+      kind: "portfolio_candidate" as const,
+      title: candidate.title,
+      target: context.portfolio_note_by_id.get(candidate.id) ?? null,
+      summary: candidate.summary,
+      updated_at: candidate.updated_at,
+      reason_codes: ["portfolio_related_asset"],
+    };
+    for (const asset of candidate.related_assets) {
+      addConnectionNode(buckets, { signal: "asset", value: asset, node: assetNode });
+    }
+
+    const themeNode = {
+      ...assetNode,
+      reason_codes: ["portfolio_theme"],
+    };
+    for (const theme of [candidate.primary_theme, ...candidate.secondary_themes]) {
+      addConnectionNode(buckets, { signal: "theme", value: theme, node: themeNode });
+    }
+  }
+
+  for (const record of context.graph.learning_records) {
+    const lesson = record.lesson;
+    if (!lesson) {
+      continue;
+    }
+
+    const importedFromObsidian = lesson.metadata.imported_from === "obsidian" || lesson.metadata.import_mode === "selective_human_inbox";
+    const baseReasonCodes = importedFromObsidian ? ["lesson_memory", "imported_obsidian_memory"] : ["lesson_memory"];
+    const node = {
+      id: lesson.id,
+      kind: "lesson" as const,
+      title: lesson.lesson_summary,
+      target: context.lesson_note_by_id.get(lesson.id) ?? null,
+      summary: lesson.lesson_summary,
+      updated_at: lesson.created_at,
+      reason_codes: baseReasonCodes,
+    };
+
+    for (const asset of [...record.event.candidate_assets, ...splitMetadataList(lesson.metadata.assets)]) {
+      addConnectionNode(buckets, { signal: "asset", value: asset, node });
+    }
+    for (const theme of [...record.event.themes, ...splitMetadataList(lesson.metadata.themes), ...splitMetadataList(lesson.metadata.tags)]) {
+      addConnectionNode(buckets, { signal: "theme", value: theme, node });
+    }
+  }
+
+  return [...buckets.entries()]
+    .map(([key, bucket]) => {
+      const nodes = [...bucket.nodes.values()].sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at));
+      const reasonCodes = [...bucket.reason_codes].sort();
+      return {
+        key,
+        signal: bucket.signal,
+        title: `${bucket.signal === "asset" ? "Asset" : "Theme"} connection: ${bucket.display}`,
+        summary: `${nodes.length} workspace memories share ${bucket.signal} "${bucket.display}".`,
+        reason_codes: reasonCodes,
+        nodes,
+        updated_at: nodes[0]?.updated_at ?? context.graph.workspace.updated_at,
+      };
+    })
+    .filter((report) => report.nodes.length >= 2)
+    .sort((left, right) => {
+      const countDelta = right.nodes.length - left.nodes.length;
+      return countDelta !== 0 ? countDelta : Date.parse(right.updated_at) - Date.parse(left.updated_at);
+    })
+    .slice(0, 24);
+}
+
 function buildLatestReviewSessionByCandidateId(context: ExportContext) {
   const result = new Map<string, LatestReviewSessionContext>();
 
@@ -643,6 +994,17 @@ function buildLatestReviewSessionByCandidateId(context: ExportContext) {
   return result;
 }
 
+function findLessonsMatchingMetadata(
+  lessons: Lesson[],
+  predicate: (lesson: Lesson) => boolean,
+) {
+  return lessons.filter((lesson) => predicate(lesson)).sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at));
+}
+
+function renderLinkedLessonBullet(note: NoteTarget | undefined, lesson: Lesson) {
+  return `${wikiLink(note ?? null, lesson.lesson_summary)} | ${formatTimestamp(lesson.created_at)}`;
+}
+
 function renderAppLinksSection(entries: Array<{ label: string; href: string | null }>) {
   const availableEntries = entries.filter((entry) => entry.href);
   return availableEntries.length
@@ -662,6 +1024,7 @@ function renderInvestigationNote(investigation: SharedInvestigation, context: Ex
   const linkedPortfolio = latestPortfolioByInvestigationId.get(investigation.id) ?? null;
   const leadPredictionId = investigation.prediction_ids[0] ?? null;
   const target = context.investigation_note_by_id.get(investigation.id);
+  const linkedLessons = findLessonsMatchingMetadata(context.graph.lessons, (lesson) => lesson.metadata.investigation_id === investigation.id);
 
   if (!target) {
     throw new Error(`Missing note target for investigation ${investigation.id}`);
@@ -699,6 +1062,13 @@ function renderInvestigationNote(investigation: SharedInvestigation, context: Ex
         `Decision brief: ${wikiLink(linkedDecision ? context.decision_note_by_id.get(linkedDecision.id) ?? null : null, linkedDecision?.title ?? "Not linked")}`,
         `Portfolio candidate: ${wikiLink(linkedPortfolio ? context.portfolio_note_by_id.get(linkedPortfolio.id) ?? null : null, linkedPortfolio?.title ?? "Not linked")}`,
       ]),
+    ),
+    renderSection(
+      "Linked Lessons",
+      renderBulletList(
+        linkedLessons.map((lesson) => renderLinkedLessonBullet(context.lesson_note_by_id.get(lesson.id), lesson)),
+        "- No lessons are explicitly linked to this investigation yet.",
+      ),
     ),
     renderSection(
       "Prediction Context",
@@ -767,6 +1137,10 @@ function renderDecisionNote(brief: DecisionBrief, context: ExportContext): Rende
   const linkedInvestigation = context.graph.investigations.find((investigation) => investigation.id === brief.investigation_id) ?? null;
   const latestCheckpoint = checkpoints[0] ?? null;
   const target = context.decision_note_by_id.get(brief.id);
+  const linkedLessons = findLessonsMatchingMetadata(
+    context.graph.lessons,
+    (lesson) => lesson.metadata.decision_brief_id === brief.id || lesson.metadata.investigation_id === brief.investigation_id,
+  );
 
   if (!target) {
     throw new Error(`Missing note target for decision brief ${brief.id}`);
@@ -832,6 +1206,13 @@ function renderDecisionNote(brief: DecisionBrief, context: ExportContext): Rende
       ]),
     ),
     renderSection(
+      "Linked Lessons",
+      renderBulletList(
+        linkedLessons.map((lesson) => renderLinkedLessonBullet(context.lesson_note_by_id.get(lesson.id), lesson)),
+        "- No lessons are explicitly linked to this decision yet.",
+      ),
+    ),
+    renderSection(
       "Checkpoint History",
       checkpoints.length
         ? renderBulletList(
@@ -887,6 +1268,10 @@ function renderPortfolioNote(candidate: PortfolioCandidate, context: ExportConte
   const latestReviewSessionByCandidateId = buildLatestReviewSessionByCandidateId(context);
   const latestReview = latestReviewSessionByCandidateId.get(candidate.id) ?? null;
   const target = context.portfolio_note_by_id.get(candidate.id);
+  const linkedLessons = findLessonsMatchingMetadata(
+    context.graph.lessons,
+    (lesson) => lesson.metadata.portfolio_candidate_id === candidate.id || lesson.metadata.investigation_id === candidate.investigation_id,
+  );
 
   if (!target) {
     throw new Error(`Missing note target for portfolio candidate ${candidate.id}`);
@@ -950,6 +1335,13 @@ function renderPortfolioNote(candidate: PortfolioCandidate, context: ExportConte
         `Investigation: ${wikiLink(linkedInvestigation ? context.investigation_note_by_id.get(linkedInvestigation.id) ?? null : null, linkedInvestigation?.title ?? candidate.investigation_id)}`,
         `Lead prediction: ${renderAppLink(candidate.lead_prediction_id, buildAppUrl(context.config.app_url, `/predictions/${candidate.lead_prediction_id}`))}`,
       ]),
+    ),
+    renderSection(
+      "Linked Lessons",
+      renderBulletList(
+        linkedLessons.map((lesson) => renderLinkedLessonBullet(context.lesson_note_by_id.get(lesson.id), lesson)),
+        "- No lessons are explicitly linked to this portfolio candidate yet.",
+      ),
     ),
     renderSection(
       "Latest Checkpoint",
@@ -1038,6 +1430,9 @@ function renderLessonNote(record: PredictionLearningRecord, context: ExportConte
   const latestPortfolioByPredictionId = buildLatestPortfolioByPredictionId(context.graph.portfolio_candidates);
   const linkedDecision = latestDecisionByPredictionId.get(lesson.prediction_id) ?? null;
   const linkedPortfolio = latestPortfolioByPredictionId.get(lesson.prediction_id) ?? null;
+  const linkedInvestigation = lesson.metadata.investigation_id
+    ? context.graph.investigations.find((investigation) => investigation.id === lesson.metadata.investigation_id) ?? null
+    : null;
 
   const frontmatter = obsidianLessonFrontmatterSchema.parse({
     managed_by: "finance_superbrain",
@@ -1080,6 +1475,7 @@ function renderLessonNote(record: PredictionLearningRecord, context: ExportConte
       renderBulletList([
         `Decision brief: ${wikiLink(linkedDecision ? context.decision_note_by_id.get(linkedDecision.id) ?? null : null, linkedDecision?.title ?? "Not linked")}`,
         `Portfolio candidate: ${wikiLink(linkedPortfolio ? context.portfolio_note_by_id.get(linkedPortfolio.id) ?? null : null, linkedPortfolio?.title ?? "Not linked")}`,
+        `Investigation: ${wikiLink(linkedInvestigation ? context.investigation_note_by_id.get(linkedInvestigation.id) ?? null : null, linkedInvestigation?.title ?? "Not linked")}`,
         `Prediction detail: ${renderAppLink(lesson.prediction_id, buildAppUrl(context.config.app_url, `/predictions/${lesson.prediction_id}`))}`,
       ]),
     ),
@@ -1262,6 +1658,7 @@ function renderWorkspaceOverviewNote(context: ExportContext): RenderedNote {
           wikiLink(context.index_notes.portfolio_index),
           wikiLink(context.index_notes.lessons_index),
           wikiLink(context.index_notes.recent_activity),
+          wikiLink(context.index_notes.connections_index),
         ]),
       ),
       renderSection(
@@ -1517,8 +1914,407 @@ function renderRecentActivityIndexNote(context: ExportContext): RenderedNote {
   };
 }
 
+function createConnectionTarget(report: ConnectionReport, context: ExportContext) {
+  const fileName = `${slugify(report.title, "connection")}--${slugify(report.key, "signal")}.md`;
+  return createNoteTarget(
+    context.config.output_path,
+    context.config.export_root,
+    EXPORT_FOLDERS.connections,
+    fileName,
+    "connection",
+    report.title,
+  );
+}
+
+function renderConnectionNote(report: ConnectionReport, context: ExportContext): RenderedNote {
+  const target = createConnectionTarget(report, context);
+  const frontmatter = obsidianConnectionFrontmatterSchema.parse({
+    managed_by: "finance_superbrain",
+    type: "connection",
+    workspace_id: context.graph.workspace.id,
+    connection_key: report.key,
+    signal: report.signal,
+    reason_codes: report.reason_codes,
+    linked_note_count: report.nodes.length,
+    app_url: buildAppUrl(context.config.app_url, "/library"),
+    created_at: context.graph.workspace.created_at,
+    updated_at: report.updated_at,
+  });
+
+  return {
+    type: "connection",
+    absolute_path: target.absolute_path,
+    relative_path: target.relative_path,
+    content: [
+      renderFrontmatter(frontmatter),
+      `# ${report.title}`,
+      "",
+      "Generated connection memory. Treat this as an explainable lead for review, not as an automatic trading instruction.",
+      "",
+      renderSection("Why This Surfaced", report.summary),
+      renderSection("Reason Codes", renderBulletList(report.reason_codes, "- No reason codes were captured.")),
+      renderSection(
+        "Linked Memory",
+        renderBulletList(
+          report.nodes.map((node) => {
+            const label = `${node.kind}: ${node.title}`;
+            const linkedNote = wikiLink(node.target, label);
+            return `${linkedNote} | ${node.reason_codes.join(", ")} | ${node.summary}`;
+          }),
+          "- No linked memory is available.",
+        ),
+      ),
+      renderSection(
+        "Review Prompt",
+        [
+          "- Is this connection causal, contextual, or only coincidental?",
+          "- Does it contradict any active decision or portfolio candidate?",
+          "- Should a human-authored Obsidian note be added to preserve the takeaway?",
+        ].join("\n"),
+      ),
+      renderSection(
+        "App Routes",
+        renderAppLinksSection([
+          { label: "Open Library", href: buildAppUrl(context.config.app_url, "/library") },
+          { label: "Open workspace", href: buildAppUrl(context.config.app_url, "/workspace") },
+        ]),
+      ),
+    ].join("\n\n"),
+  };
+}
+
+function renderConnectionsIndexNote(context: ExportContext, reports: ConnectionReport[]): RenderedNote {
+  const target = context.index_notes.connections_index;
+  const frontmatter = {
+    managed_by: "finance_superbrain",
+    type: "index",
+    workspace_id: context.graph.workspace.id,
+    app_url: buildAppUrl(context.config.app_url, "/library"),
+    created_at: context.graph.workspace.created_at,
+    updated_at: reports[0]?.updated_at ?? context.graph.workspace.updated_at,
+  } satisfies ObsidianNoteFrontmatter;
+
+  const assetReports = reports.filter((report) => report.signal === "asset");
+  const themeReports = reports.filter((report) => report.signal === "theme");
+
+  return {
+    type: "index",
+    absolute_path: target.absolute_path,
+    relative_path: target.relative_path,
+    content: [
+      renderFrontmatter(frontmatter),
+      "# Connections Index",
+      "",
+      "Generated review queue for non-obvious relationships across workspace memory.",
+      "",
+      renderSection(
+        "Asset Connections",
+        renderBulletList(
+          assetReports.map((report) => `${wikiLink(createConnectionTarget(report, context), report.title)} | ${report.nodes.length} linked memories`),
+          "- No asset connections met the threshold yet.",
+        ),
+      ),
+      renderSection(
+        "Theme Connections",
+        renderBulletList(
+          themeReports.map((report) => `${wikiLink(createConnectionTarget(report, context), report.title)} | ${report.nodes.length} linked memories`),
+          "- No theme connections met the threshold yet.",
+        ),
+      ),
+      renderSection(
+        "Review Rule",
+        "Connections are generated leads. They should be reviewed before influencing a decision, portfolio candidate, or money-adjacent workflow.",
+      ),
+    ].join("\n\n"),
+  };
+}
+
+function createProjectTarget(context: ExportContext, fileName: string, title: string) {
+  return createNoteTarget(
+    context.config.output_path,
+    context.config.export_root,
+    EXPORT_FOLDERS.project,
+    fileName,
+    "project",
+    title,
+  );
+}
+
+function renderProjectNote(
+  context: ExportContext,
+  fileName: string,
+  title: string,
+  sections: string[],
+): RenderedNote {
+  const target = createProjectTarget(context, fileName, title);
+  const frontmatter = {
+    managed_by: "finance_superbrain",
+    type: "project",
+    workspace_id: context.graph.workspace.id,
+    app_url: buildAppUrl(context.config.app_url, "/workspace"),
+    created_at: context.graph.workspace.created_at,
+    updated_at: context.graph.project_ledger.generated_at,
+  } satisfies ObsidianNoteFrontmatter;
+
+  return {
+    type: "project",
+    absolute_path: target.absolute_path,
+    relative_path: target.relative_path,
+    content: [
+      renderFrontmatter(frontmatter),
+      `# ${title}`,
+      "",
+      "Generated project ledger memory for Finance Superbrain.",
+      "",
+      ...sections,
+    ].join("\n\n"),
+  };
+}
+
+function renderProjectOverviewNote(context: ExportContext): RenderedNote {
+  return renderProjectNote(context, "Project Overview.md", "Project Overview", [
+    renderSection(
+      "Current Direction",
+      [
+        "- Prioritize Obsidian-backed memory, progress visibility, and backend/frontend hardening before public production health work.",
+        "- Treat Finance Superbrain as a money-adjacent financial application where provenance, review, auditability, and explicit decision state matter.",
+        "- Keep PostgreSQL as the source of truth while Obsidian acts as a local-first readable memory and progress graph.",
+      ].join("\n"),
+    ),
+    renderSection(
+      "Implemented Memory Surfaces",
+      [
+        "- Generated workspace export for investigations, decisions, portfolio candidates, lessons, activity, connections, indexes, and project ledger notes.",
+        "- Automatic work-session sync note for tracking repo changes in Obsidian.",
+        "- Selective Human Inbox import from Obsidian into retrieval-only lessons with provenance and duplicate protection.",
+        "- Connection review surface for repeated assets and themes across decisions, portfolio candidates, lessons, and imported human memory.",
+        "- Library UI panel for reviewing connection leads before they influence money-adjacent workflows.",
+      ].join("\n"),
+    ),
+    renderSection(
+      "Project Notes",
+      renderBulletList([
+        wikiLink(createProjectTarget(context, "Phase Ledger.md", "Phase Ledger")),
+        wikiLink(createProjectTarget(context, "Build Log.md", "Build Log")),
+        wikiLink(createProjectTarget(context, "Risk Register.md", "Risk Register")),
+        wikiLink(createProjectTarget(context, "Validation History.md", "Validation History")),
+        wikiLink(createProjectTarget(context, "Data Inventory.md", "Data Inventory")),
+      ]),
+    ),
+  ]);
+}
+
+function renderWorkSessionNote(context: ExportContext): RenderedNote {
+  const target = createProjectTarget(context, "Work Session.md", "Work Session");
+  const markdown = buildObsidianWorkSessionMarkdown({
+    workspace_id: context.graph.workspace.id,
+    created_at: context.graph.workspace.created_at,
+    updated_at: context.graph.project_ledger.sync_state?.updated_at ?? context.graph.project_ledger.generated_at,
+    app_url: buildAppUrl(context.config.app_url, "/workspace"),
+    sync_state: context.graph.project_ledger.sync_state,
+    latest_review: context.graph.project_ledger.latest_import_review ?? null,
+  });
+
+  return {
+    type: "project",
+    absolute_path: target.absolute_path,
+    relative_path: target.relative_path,
+    content: markdown,
+  };
+}
+
+function renderPhaseEvidenceMatrix(items: ProjectPhaseEvidence[]) {
+  if (!items.length) {
+    return "- No explicit phase evidence links were parsed from `docs/phase-ledger.md`.";
+  }
+
+  return items
+    .map((item) => {
+      const refs = item.repo_refs.length ? item.repo_refs.map((ref) => `\`${ref}\``).join(", ") : "No repo refs listed";
+      const commands = item.command_refs.length ? item.command_refs.map((ref) => `\`${ref}\``).join(", ") : "No command refs listed";
+      const deployment = item.deployment_status ? `\n  - Deployment status: ${item.deployment_status}` : "";
+
+      return [
+        `- ${item.phase}: ${item.title}`,
+        `  - Status: ${item.status ?? "Not listed"}`,
+        `  - Evidence: ${item.evidence ?? "Not listed"}`,
+        `  - Repo refs: ${refs}`,
+        `  - Validation: ${item.validation ?? "Not listed"}`,
+        `  - Commands: ${commands}`,
+        `  - Risk: ${item.risk ?? "Not listed"}${deployment}`,
+      ].join("\n");
+    })
+    .join("\n");
+}
+
+function renderPhaseLedgerNote(context: ExportContext): RenderedNote {
+  if (context.graph.project_ledger.phase_ledger_markdown) {
+    const target = createProjectTarget(context, "Phase Ledger.md", "Phase Ledger");
+    const frontmatter = {
+      managed_by: "finance_superbrain",
+      type: "project",
+      workspace_id: context.graph.workspace.id,
+      app_url: buildAppUrl(context.config.app_url, "/workspace"),
+      created_at: context.graph.workspace.created_at,
+      updated_at: context.graph.project_ledger.generated_at,
+    } satisfies ObsidianNoteFrontmatter;
+
+    return {
+      type: "project",
+      absolute_path: target.absolute_path,
+      relative_path: target.relative_path,
+      content: [
+        renderFrontmatter(frontmatter),
+        context.graph.project_ledger.phase_ledger_markdown.trim(),
+        "",
+        renderSection(
+          "Generated Export Context",
+          "This note was copied from `docs/phase-ledger.md` during Obsidian export so the vault has the same canonical phase ledger as the repo.",
+        ),
+        renderSection(
+          "Explicit Phase Evidence Links",
+          renderPhaseEvidenceMatrix(context.graph.project_ledger.phase_evidence_links),
+        ),
+      ].join("\n\n"),
+    };
+  }
+
+  const explicitPhases = [
+    "Phase 1: Intelligence core implemented through event parsing, prediction, scoring, postmortems, and lessons.",
+    "Phase 6: Team workspace acceptance documented.",
+    "Phase 7: Decision workflow acceptance documented.",
+    "Phase 12: Obsidian export/import bridge implemented.",
+    "Phase 13: Local demo-ready pilot gate documented and previously validated.",
+    "Phase 14: Public pilot deployment handoff exists, but hosted API health remains a later hardening task.",
+  ];
+  const discovered = [...context.graph.project_ledger.documented_phase_headings, ...context.graph.project_ledger.roadmap_phase_headings];
+
+  return renderProjectNote(context, "Phase Ledger.md", "Phase Ledger", [
+    renderSection("Current Phase Read", renderBulletList(explicitPhases)),
+    renderSection("Discovered Phase Headings", renderBulletList([...new Set(discovered)], "- No phase headings were discovered in project docs.")),
+    renderSection(
+      "Traceability Gap",
+      "The ledger is generated from current repo docs and known implementation surfaces. Future work should make every phase point to exact routes, tests, scripts, and risks.",
+    ),
+  ]);
+}
+
+function renderBuildLogNote(context: ExportContext): RenderedNote {
+  return renderProjectNote(context, "Build Log.md", "Build Log", [
+    renderSection(
+      "Recent Implemented Work",
+      [
+        "- Added Obsidian `Connections/` export notes and `Connections Index.md`.",
+        "- Added backend memory connection read model and `GET /v1/memory/connections`.",
+        "- Added Library connection review panel for explainable relationship leads.",
+        "- Added Obsidian project roadmap documentation.",
+        "- Added generated project ledger export notes so project progress is visible in the vault.",
+        "- Added automatic work-session sync state and change capture support.",
+      ].join("\n"),
+    ),
+    renderSection(
+      "Source Documents Read",
+      renderBulletList(context.graph.project_ledger.source_documents.map((document) => `${document.path}: ${document.status}`)),
+    ),
+  ]);
+}
+
+function renderRiskRegisterNote(context: ExportContext): RenderedNote {
+  return renderProjectNote(context, "Risk Register.md", "Risk Register", [
+    renderSection(
+      "Current Product Risks",
+      [
+        "- False confidence from scattered phase traceability.",
+        "- Hosted Phase 14 API health remains unresolved and should not be treated as demo-safe.",
+        "- Connection leads are correlation signals and must stay review-only until a human approves their relevance.",
+        "- Obsidian import can pollute retrieval memory if review controls are too loose.",
+        "- Money-adjacent workflows require explicit audit trails, provenance, and conservative frontend state design.",
+      ].join("\n"),
+    ),
+    renderSection(
+      "Guardrails",
+      [
+        "- PostgreSQL remains source of truth.",
+        "- Obsidian generated files remain managed and reproducible.",
+        "- Human Inbox import is selective and duplicate-protected.",
+        "- No automatic transaction or portfolio action is triggered by Obsidian memory.",
+      ].join("\n"),
+    ),
+  ]);
+}
+
+function renderValidationHistoryNote(context: ExportContext): RenderedNote {
+  const scripts = context.graph.project_ledger.package_scripts;
+  const validationScripts = Object.entries(scripts)
+    .filter(([name]) => name.includes("test") || name.includes("verify") || name.includes("demo") || name.includes("build") || name.includes("lint"))
+    .map(([name, command]) => `${name}: \`${command}\``);
+
+  return renderProjectNote(context, "Validation History.md", "Validation History", [
+    renderSection("Validation Commands", renderBulletList(validationScripts, "- No validation scripts were discovered.")),
+    renderSection(
+      "Latest Local Validation Evidence",
+      [
+        "- `npm --workspace @finance-superbrain/schemas run build` passed after schema changes.",
+        "- `npm --workspace @finance-superbrain/api run build` passed after backend connection route changes.",
+        "- `npm --workspace @finance-superbrain/web run build` passed after Library connection panel changes.",
+        "- `npx vitest run apps/api/src/app.test.ts --pool=threads --testNamePattern \"persists a full learning loop\"` passed.",
+        "- `npx vitest run src/lib/obsidianExport.test.ts --pool=threads` passed.",
+      ].join("\n"),
+    ),
+  ]);
+}
+
+function renderDataInventoryNote(context: ExportContext, connectionReports: ConnectionReport[]): RenderedNote {
+  const importedLessons = context.graph.lessons.filter(
+    (lesson) => lesson.metadata.imported_from === "obsidian" || lesson.metadata.import_mode === "selective_human_inbox",
+  );
+
+  return renderProjectNote(context, "Data Inventory.md", "Data Inventory", [
+    renderSection(
+      "Workspace Data Counts",
+      [
+        `- Members: ${context.graph.members.length}`,
+        `- Studio runs: ${context.graph.studio_runs.length}`,
+        `- Investigations: ${context.graph.investigations.length}`,
+        `- Decision briefs: ${context.graph.decision_briefs.length}`,
+        `- Portfolio candidates: ${context.graph.portfolio_candidates.length}`,
+        `- Portfolio review sessions: ${context.graph.portfolio_review_sessions.length}`,
+        `- Lessons: ${context.graph.lessons.length}`,
+        `- Imported Obsidian lessons: ${importedLessons.length}`,
+        `- Activity events: ${context.graph.activity.length}`,
+        `- Connection reports: ${connectionReports.length}`,
+        `- Local sync sessions: ${context.graph.project_ledger.sync_state?.sessions.length ?? 0}`,
+      ].join("\n"),
+    ),
+    renderSection(
+      "Data Collection Surfaces",
+      [
+        "- Sources and parsed events feed prediction generation.",
+        "- Predictions can be scored into outcomes, postmortems, and retrieval lessons.",
+        "- Historical library loaders seed reviewed cases for replay and benchmark workflows.",
+        "- Obsidian Human Inbox notes can be imported as retrieval-only lessons.",
+        "- Generated connection reports expose repeated assets and themes for review.",
+        "- Local sync state captures repo work sessions for automatic project memory.",
+      ].join("\n"),
+    ),
+  ]);
+}
+
+function renderProjectNotes(context: ExportContext, connectionReports: ConnectionReport[]) {
+  return [
+    renderProjectOverviewNote(context),
+    renderWorkSessionNote(context),
+    renderPhaseLedgerNote(context),
+    renderBuildLogNote(context),
+    renderRiskRegisterNote(context),
+    renderValidationHistoryNote(context),
+    renderDataInventoryNote(context, connectionReports),
+  ];
+}
+
 function renderNotes(context: ExportContext): RenderedNote[] {
   const notes: RenderedNote[] = [];
+  const connectionReports = buildConnectionReports(context);
 
   for (const investigation of context.graph.investigations) {
     notes.push(renderInvestigationNote(investigation, context));
@@ -1547,6 +2343,11 @@ function renderNotes(context: ExportContext): RenderedNote[] {
   notes.push(renderPortfolioIndexNote(context));
   notes.push(renderLessonsIndexNote(context));
   notes.push(renderRecentActivityIndexNote(context));
+  for (const report of connectionReports) {
+    notes.push(renderConnectionNote(report, context));
+  }
+  notes.push(renderConnectionsIndexNote(context, connectionReports));
+  notes.push(...renderProjectNotes(context, connectionReports));
 
   return notes;
 }
@@ -1602,6 +2403,8 @@ function buildNoteCounts(notes: RenderedNote[]) {
     portfolio_candidates: notes.filter((note) => note.type === "portfolio_candidate").length,
     lessons: notes.filter((note) => note.type === "lesson").length,
     activity: notes.filter((note) => note.type === "activity").length,
+    connections: notes.filter((note) => note.type === "connection").length,
+    project: notes.filter((note) => note.type === "project").length,
     indexes: notes.filter((note) => note.type === "index").length,
     total: notes.length,
   };

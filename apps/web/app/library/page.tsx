@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 
 import { AppShell } from "@/components/AppShell"
 import { DecisionStatusBadge } from "@/components/DecisionStatusBadge"
@@ -13,13 +13,18 @@ import { RouteEmptyState, RouteLoadingState } from "@/components/RouteState"
 import { useWorkspace } from "@/components/WorkspaceProvider"
 import {
   getLessonExplorer,
+  getObsidianImportCandidates,
   getLessons,
   getLibraryPacks,
+  getMemoryConnections,
   searchLessons,
+  applyObsidianImportCandidates,
   type Lesson,
   type LessonExplorerItem,
   type LessonSearchResult,
   type LibraryPackStat,
+  type MemoryConnection,
+  type ObsidianImportReviewResponse,
 } from "@/lib/chatApi"
 import { getDecisionClosureSummary } from "@/lib/decisionRetrospective"
 import { getInvestigationStatusSummary, getTrailNextStep, getTrailStatus } from "@/lib/investigationTrail"
@@ -419,6 +424,241 @@ function ImportedHumanMemoryCard({ lessons }: { lessons: Lesson[] }) {
   )
 }
 
+function ObsidianImportReviewQueue({
+  review,
+  onRefresh,
+}: {
+  review: ObsidianImportReviewResponse | null
+  onRefresh: () => Promise<void>
+}) {
+  const [selectedHashes, setSelectedHashes] = useState<string[]>([])
+  const [applying, setApplying] = useState(false)
+  const importableCandidates = useMemo(
+    () => review?.candidates.filter((candidate) => candidate.status === "importable") ?? [],
+    [review],
+  )
+  const reviewSignature = useMemo(
+    () => review?.candidates.map((candidate) => `${candidate.content_hash}:${candidate.status}`).join("|") ?? "none",
+    [review],
+  )
+
+  useEffect(() => {
+    setSelectedHashes(importableCandidates.map((candidate) => candidate.content_hash))
+  }, [importableCandidates, reviewSignature])
+
+  if (!review) {
+    return (
+      <section className="rounded-[24px] border border-dashed border-white/10 bg-zinc-950/50 p-5">
+        <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Import review queue</p>
+        <h3 className="mt-2 font-display text-lg font-semibold text-white">No review data loaded</h3>
+        <p className="mt-2 text-sm text-zinc-400">
+          The Obsidian review queue is unavailable until the API can read your vault and produce import candidates.
+        </p>
+      </section>
+    )
+  }
+
+  const selectedSet = new Set(selectedHashes)
+  const toggleHash = (hash: string) => {
+    setSelectedHashes((current) =>
+      current.includes(hash) ? current.filter((value) => value !== hash) : [...current, hash],
+    )
+  }
+
+  const applySelected = async () => {
+    setApplying(true)
+    try {
+      const result = await applyObsidianImportCandidates(selectedHashes)
+      if (result) {
+        await onRefresh()
+      }
+    } finally {
+      setApplying(false)
+    }
+  }
+
+  const selectedImportables = importableCandidates.filter((candidate) => selectedSet.has(candidate.content_hash))
+
+  return (
+    <section className="rounded-[24px] border border-violet-500/20 bg-violet-500/10 p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.24em] text-violet-200">Import review queue</p>
+          <h3 className="mt-2 font-display text-lg font-semibold text-white">
+            {importableCandidates.length} importable note{importableCandidates.length === 1 ? "" : "s"} awaiting review
+          </h3>
+          <p className="mt-2 max-w-3xl text-sm text-violet-50/80">
+            Review the Human Inbox candidates before they become retrieval memory. Only selected notes are imported.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2 text-right">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-violet-100/80">
+            Selected {selectedImportables.length}/{importableCandidates.length}
+          </div>
+          <button
+            type="button"
+            onClick={applySelected}
+            disabled={applying || selectedImportables.length === 0}
+            className="rounded-full border border-violet-300/30 bg-black/20 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-violet-100 transition-colors hover:border-violet-200/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {applying ? "Applying..." : "Apply selected"}
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {review.candidates.map((candidate) => {
+          const selected = selectedSet.has(candidate.content_hash)
+          const importable = candidate.status === "importable"
+          const statusLabel =
+            candidate.status === "importable"
+              ? "ready"
+              : candidate.status === "duplicate"
+                ? "duplicate"
+                : candidate.status === "imported"
+                  ? "imported"
+                  : candidate.status
+
+          return (
+            <label
+              key={candidate.content_hash}
+              className={`block rounded-2xl border p-4 transition-colors ${
+                selected && importable ? "border-violet-300/30 bg-black/15" : "border-white/10 bg-black/10"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  disabled={!importable}
+                  onChange={() => toggleHash(candidate.content_hash)}
+                  className="mt-1 h-4 w-4 rounded border-white/20 bg-black/40 text-violet-400"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{candidate.title}</p>
+                      <p className="mt-1 text-xs text-violet-50/70">{candidate.relative_path}</p>
+                    </div>
+                    <span className="rounded-full border border-violet-300/20 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.24em] text-violet-100/85">
+                      {statusLabel}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-violet-50/80">{candidate.summary}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {candidate.themes.slice(0, 4).map((theme) => (
+                      <span key={`theme:${candidate.content_hash}:${theme}`} className="rounded-full border border-violet-300/15 bg-white/5 px-2 py-1 text-[11px] text-violet-50/75">
+                        theme: {theme}
+                      </span>
+                    ))}
+                    {candidate.assets.slice(0, 4).map((asset) => (
+                      <span key={`asset:${candidate.content_hash}:${asset}`} className="rounded-full border border-violet-300/15 bg-white/5 px-2 py-1 text-[11px] text-violet-50/75">
+                        asset: {asset}
+                      </span>
+                    ))}
+                  </div>
+                  {candidate.reason ? <p className="mt-3 text-xs text-violet-100/70">{candidate.reason}</p> : null}
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.24em] text-violet-100/70">
+                    {candidate.linked_investigation_id ? <span className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1">investigation linked</span> : null}
+                    {candidate.linked_decision_brief_id ? <span className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1">decision linked</span> : null}
+                    {candidate.linked_portfolio_candidate_id ? <span className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1">portfolio linked</span> : null}
+                    {candidate.linked_prediction_id ? <span className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1">prediction linked</span> : null}
+                  </div>
+                </div>
+              </div>
+            </label>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function connectionKindLabel(kind: MemoryConnection["nodes"][number]["kind"]) {
+  switch (kind) {
+    case "decision_brief":
+      return "Decision"
+    case "portfolio_candidate":
+      return "Portfolio"
+    case "lesson":
+      return "Lesson"
+  }
+}
+
+function ConnectionReviewPanel({ connections }: { connections: MemoryConnection[] }) {
+  if (!connections.length) {
+    return (
+      <section className="rounded-[24px] border border-dashed border-white/10 bg-zinc-950/50 p-5">
+        <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Connection review</p>
+        <h3 className="mt-2 font-display text-lg font-semibold text-white">No repeated memory signals yet</h3>
+        <p className="mt-2 text-sm text-zinc-400">
+          Connections appear when decisions, portfolio candidates, lessons, or imported Obsidian notes share assets or themes.
+        </p>
+      </section>
+    )
+  }
+
+  const assetCount = connections.filter((connection) => connection.signal === "asset").length
+  const themeCount = connections.filter((connection) => connection.signal === "theme").length
+
+  return (
+    <section className="rounded-[24px] border border-cyan-500/20 bg-cyan-500/10 p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.24em] text-cyan-200">Connection review</p>
+          <h3 className="mt-2 font-display text-lg font-semibold text-white">Explainable relationship leads</h3>
+          <p className="mt-2 max-w-3xl text-sm text-cyan-50/80">
+            These are generated from repeated assets and themes across the memory base. Review them as leads before they influence a decision,
+            portfolio candidate, or any money-adjacent workflow.
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2 text-[11px] uppercase tracking-[0.24em] text-cyan-100">
+          <span className="rounded-full border border-cyan-300/20 bg-black/15 px-2.5 py-1">{assetCount} asset</span>
+          <span className="rounded-full border border-cyan-300/20 bg-black/15 px-2.5 py-1">{themeCount} theme</span>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 xl:grid-cols-2">
+        {connections.slice(0, 6).map((connection) => (
+          <div key={connection.key} className="rounded-2xl border border-cyan-300/15 bg-black/15 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-200">{connection.signal}</p>
+                <p className="mt-1 text-sm font-semibold text-white">{connection.label}</p>
+              </div>
+              <span className="rounded-full border border-cyan-300/20 bg-white/5 px-2.5 py-1 text-[11px] text-cyan-50/85">
+                {connection.nodes.length} links
+              </span>
+            </div>
+            <p className="mt-3 text-sm text-cyan-50/80">{connection.summary}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {connection.reason_codes.slice(0, 4).map((reason) => (
+                <span key={reason} className="rounded-full border border-cyan-300/15 bg-white/5 px-2 py-1 text-[11px] text-cyan-50/75">
+                  {reason.replace(/_/g, " ")}
+                </span>
+              ))}
+            </div>
+            <div className="mt-4 space-y-2">
+              {connection.nodes.slice(0, 3).map((node) => (
+                <div key={`${connection.key}:${node.kind}:${node.id}`} className="flex items-start justify-between gap-3 border-t border-cyan-300/10 pt-2">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-200/80">{connectionKindLabel(node.kind)}</p>
+                    <p className="mt-1 text-xs font-medium text-white">{node.title}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-cyan-50/65">{node.summary}</p>
+                  </div>
+                  <Link href={node.href} className="shrink-0 text-[11px] uppercase tracking-[0.24em] text-cyan-100 transition-colors hover:text-white">
+                    Open
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function LessonCard({
   lesson,
   decisionBriefId,
@@ -668,6 +908,8 @@ function LibraryWorkspacePage() {
   } | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [explorerItems, setExplorerItems] = useState<LessonExplorerItem[]>([])
+  const [memoryConnections, setMemoryConnections] = useState<MemoryConnection[]>([])
+  const [importReview, setImportReview] = useState<ObsidianImportReviewResponse | null>(null)
   const [searchResults, setSearchResults] = useState<LessonSearchResult[]>([])
   const [query, setQuery] = useState("")
   const [explorerQuery, setExplorerQuery] = useState("")
@@ -679,19 +921,46 @@ function LibraryWorkspacePage() {
   const [searching, setSearching] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  const loadLibrary = useCallback(async () => {
+    const [packsData, lessonsData, explorerData, connectionData, reviewData] = await Promise.all([
+      getLibraryPacks(),
+      getLessons(),
+      getLessonExplorer(80),
+      getMemoryConnections(12),
+      getObsidianImportCandidates(),
+    ])
+
+    setPacksResponse(packsData)
+    setLessons(lessonsData.slice(0, 6))
+    setExplorerItems(explorerData)
+    setMemoryConnections(connectionData)
+    setImportReview(reviewData)
+    setLoading(false)
+  }, [])
+
   useEffect(() => {
     let active = true
 
-    const load = async () => {
-      const [packsData, lessonsData, explorerData] = await Promise.all([getLibraryPacks(), getLessons(), getLessonExplorer(80)])
+    async function loadInitialLibrary() {
+      const [packsData, lessonsData, explorerData, connectionData, reviewData] = await Promise.all([
+        getLibraryPacks(),
+        getLessons(),
+        getLessonExplorer(80),
+        getMemoryConnections(12),
+        getObsidianImportCandidates(),
+      ])
+
       if (!active) return
+
       setPacksResponse(packsData)
       setLessons(lessonsData.slice(0, 6))
       setExplorerItems(explorerData)
+      setMemoryConnections(connectionData)
+      setImportReview(reviewData)
       setLoading(false)
     }
 
-    void load()
+    void loadInitialLibrary()
 
     return () => {
       active = false
@@ -856,13 +1125,15 @@ function LibraryWorkspacePage() {
                 </p>
               </div>
               <div className="rounded-[24px] border border-white/10 bg-zinc-900/75 p-5">
-                <p className="text-xs tracking-widest text-zinc-500">LEARNED LESSONS</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{lessons.length}</p>
-                <p className="mt-2 text-xs text-zinc-600">Recent postmortems and reinforcements ready for exploration</p>
+                <p className="text-xs tracking-widest text-zinc-500">CONNECTION LEADS</p>
+                <p className="mt-3 text-3xl font-semibold text-cyan-300">{memoryConnections.length}</p>
+                <p className="mt-2 text-xs text-zinc-600">Repeated assets and themes ready for human review</p>
               </div>
             </div>
 
             <ImportedHumanMemoryCard lessons={lessons} />
+            <ObsidianImportReviewQueue review={importReview} onRefresh={loadLibrary} />
+            <ConnectionReviewPanel connections={memoryConnections} />
 
             <div>
               <p className="mb-4 text-xs tracking-widest text-zinc-500">ALL DOMAIN PACKS</p>

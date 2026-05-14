@@ -12,8 +12,8 @@ Primary workspaces:
 
 1. Install dependencies with `npm install`
 2. Validate the repository with `npm run verify`
-3. Start the API locally with `npm run dev:api`
-4. Start the web app locally with `npm run dev:web`
+3. Start the full local workspace with `npm run dev`
+4. If you only want one surface, you can still use `npm run dev:api` or `npm run dev:web`
 5. Open:
    - `http://localhost:3001/health`
    - `http://localhost:3001/ready`
@@ -109,8 +109,8 @@ Trusted local sequence:
 
 1. Install dependencies with `npm install`
 2. Seed the deterministic demo workspace with `npm run demo:proof:seed:local`
-3. Start the API with `npm run dev:api`
-4. Start the web app with `npm run dev:web`
+3. Start the full local workspace with `npm run dev`
+4. If you only want one surface, you can still use `npm run dev:api` or `npm run dev:web`
 5. Open [http://localhost:3000](http://localhost:3000)
 6. Sign in with:
    - `lead.operator@finance-superbrain.local` / `workspace-admin-password`
@@ -277,6 +277,9 @@ This bridge remains one-way export only. Finance Superbrain stays the source of 
 
 Phase 12 adds a local-first, one-way Obsidian export so Finance Superbrain can publish a generated knowledge graph into a real vault without making Obsidian the source of truth.
 
+See [docs/obsidian-memory-roadmap.md](docs/obsidian-memory-roadmap.md) for the current connector build order, safety rules, and connection-finder plan.
+See [docs/phase-ledger.md](docs/phase-ledger.md) for the canonical phase ledger that is mirrored into the Obsidian `Project/Phase Ledger.md` export.
+
 Required environment variables:
 
 - `OBSIDIAN_VAULT_PATH`: absolute path to an existing Obsidian vault directory
@@ -302,6 +305,8 @@ The exporter creates or refreshes only the generated subtree:
 - `Finance Superbrain/Portfolio/`
 - `Finance Superbrain/Lessons/`
 - `Finance Superbrain/Activity/`
+- `Finance Superbrain/Connections/`
+- `Finance Superbrain/Project/`
 - `Finance Superbrain/Indexes/`
 
 Important rules:
@@ -311,13 +316,31 @@ Important rules:
 - generated notes are marked with `managed_by: finance_superbrain`
 - only files inside `OBSIDIAN_VAULT_PATH/<OBSIDIAN_EXPORT_ROOT>` are touched
 - user-authored notes outside that subtree are never modified
+- `Project/` notes expose the phase ledger, build log, risk register, validation history, and data inventory so progress is visible in the vault
+- `Project/Work Session.md` mirrors the latest automatic git/work-session snapshot when sync state exists
 
 Current non-goals:
 
 - no broad vault import
 - no bidirectional sync
-- no file watcher
-- no Obsidian plugin
+
+Automatic project sync:
+
+```bash
+npm run ops:obsidian-sync
+npm run ops:obsidian-watch
+```
+
+The sync command records the current git snapshot into `.finance-superbrain/obsidian-sync-state.json` and refreshes `Project/Work Session.md`. The watch mode keeps that note current while you work.
+
+Obsidian plugin workflow:
+
+```bash
+npm run obsidian:plugin:build
+npm run obsidian:plugin:install
+```
+
+The plugin source lives in `apps/obsidian-plugin/` and writes a generated status note at `Finance Superbrain/Project/Obsidian Plugin Sync.md`. It triggers the same local sync surface and refreshes the human-inbox review snapshot inside Obsidian.
 
 ## Selective Obsidian memory import
 
@@ -374,8 +397,8 @@ How imported memory is represented:
 
 Likely next expansion path after this phase:
 
-- add a review UI for import candidates before apply
-- support richer links back to decision briefs and portfolio candidates
+- review UI for import candidates before apply is now implemented in the Library
+- richer links back to decision briefs, portfolio candidates, and investigations are now exported and surfaced in notes
 - optionally enrich chat retrieval from imported human notes more visibly
 - only later consider watchers, plugins, or bidirectional sync
 

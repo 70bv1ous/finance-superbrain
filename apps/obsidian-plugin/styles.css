@@ -1,0 +1,7 @@
+.finance-superbrain-sync-status {
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-superbrain-sync-status.is-error {
+  color: var(--text-error);
+}
