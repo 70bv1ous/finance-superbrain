@@ -67,7 +67,7 @@
     "test:app:ingestion": "vitest run src/app.test.ts --pool=threads --testNamePattern \"pulls RSS|pulls transcript|queues feed|runs live transcript|ingests provider webhooks|persists reviewed memory|persists evolution schedules across pglite\"",
     "test:app:benchmark": "vitest run src/app.test.ts --pool=threads --testNamePattern \"composes and replays|captures benchmark history|runs walk-forward replay|stores walk-forward|blocks walk-forward|biases shell-growth|captures walk-forward snapshot|runs scheduled evolution\"",
     "test:app:operations": "vitest run src/app.test.ts --pool=threads --testNamePattern \"records durable operation|reports dependency readiness|queues long-running|queues scheduled evolution|surfaces queue pressure|reports worker supervision|reports worker service supervision|reports worker service runtime|reports worker runtime|reports external integration|actively probes|reports integration trends|exposes consolidated|blocks overlapping\"",
-    "test:app:workspace": "vitest run src/app.test.ts --pool=threads --testNamePattern \"bootstraps auth|supports shared assignment|creates decision briefs|creates portfolio candidates|creates portfolio review sessions|allows studio draft deletion|supports hosted preview auth|rate limits repeated failed login\"",
+    "test:app:workspace": "vitest run src/app.test.ts --pool=threads --testNamePattern \"bootstraps auth|supports shared assignment|creates decision briefs|creates portfolio candidates|creates portfolio review sessions|allows studio draft deletion|reviews Obsidian import candidates|supports hosted preview auth|rate limits repeated failed login\"",
     "test:app:full": "vitest run src/app.test.ts --pool=threads --testTimeout=300000"
   },
   "dependencies": {

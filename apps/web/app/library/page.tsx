@@ -478,6 +478,7 @@ function ObsidianImportReviewQueue({
   }
 
   const selectedImportables = importableCandidates.filter((candidate) => selectedSet.has(candidate.content_hash))
+  const canSaveReview = importableCandidates.length > 0
 
   return (
     <section className="rounded-[24px] border border-violet-500/20 bg-violet-500/10 p-5">
@@ -498,10 +499,10 @@ function ObsidianImportReviewQueue({
           <button
             type="button"
             onClick={applySelected}
-            disabled={applying || selectedImportables.length === 0}
+            disabled={applying || !canSaveReview}
             className="rounded-full border border-violet-300/30 bg-black/20 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-violet-100 transition-colors hover:border-violet-200/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {applying ? "Applying..." : "Apply selected"}
+            {applying ? "Saving..." : selectedImportables.length > 0 ? "Apply selected" : "Reject all"}
           </button>
         </div>
       </div>

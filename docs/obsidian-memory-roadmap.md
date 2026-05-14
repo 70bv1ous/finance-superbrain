@@ -30,6 +30,9 @@ Already implemented:
 - automatic `Project/Work Session.md` sync note driven by local git state
 - Obsidian plugin package under `apps/obsidian-plugin/` for automatic local status refresh inside the vault
 - canonical `docs/phase-ledger.md` source mirrored into `Project/Phase Ledger.md`
+- API and Library UI review queue for Human Inbox import candidates
+- selected-only import apply with explicit reject-all support
+- JSONL audit log for imported and rejected Obsidian review decisions
 - duplicate protection with content hashes
 - safety boundary that prevents broad vault import
 - provenance metadata on imported notes
@@ -174,7 +177,9 @@ Acceptance:
 
 - no human note becomes retrieval memory without an explicit reviewed action in the app
 - the review queue exposes importable notes, and selected notes are imported only when explicitly approved
+- reject-all review decisions are recorded without importing retrieval memory
 - the Obsidian plugin reflects the same import-review snapshot inside the vault
+- status: implemented locally, with API regression coverage for selected-only import and reject-all audit logging
 
 ### 5. Rich Linking
 

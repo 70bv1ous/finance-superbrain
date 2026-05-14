@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8639,6 +8639,124 @@ describe("finance superbrain API", () => {
       expect(preflight.headers["access-control-allow-headers"]).toContain("Content-Type");
     } finally {
       await app.close();
+    }
+  });
+
+  it("reviews Obsidian import candidates before selected-only import", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "finance-superbrain-obsidian-review-"));
+    const vaultPath = join(tempRoot, "vault");
+    const inboxPath = join(vaultPath, "Finance Superbrain", "Human Inbox");
+    const reviewLogPath = join(tempRoot, "obsidian-import-review-log.jsonl");
+
+    await mkdir(inboxPath, { recursive: true });
+    await writeFile(
+      join(inboxPath, "bond-breadth.md"),
+      [
+        "---",
+        "fs_import: true",
+        "title: Bond breadth confirms CPI fade",
+        "lesson_type: reinforcement",
+        "themes: [inflation, rates]",
+        "assets: [TLT, DXY]",
+        "---",
+        "",
+        "# Bond breadth confirms CPI fade",
+        "",
+        "When CPI is hot but long bonds stop selling off, check whether the market is shifting from inflation fear to growth fear.",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      join(inboxPath, "credit-warning.md"),
+      [
+        "---",
+        "fs_import: true",
+        "title: Credit spread warning",
+        "lesson_type: mistake",
+        "themes: [credit, liquidity]",
+        "assets: [HYG, SPY]",
+        "---",
+        "",
+        "# Credit spread warning",
+        "",
+        "Do not treat an equity squeeze as durable risk-on when credit spreads keep widening.",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      join(inboxPath, "scratch.md"),
+      ["# Scratch", "", "This note is not tagged for import."].join("\n"),
+      "utf8",
+    );
+
+    vi.stubEnv("OBSIDIAN_VAULT_PATH", vaultPath);
+    vi.stubEnv("FINANCE_SUPERBRAIN_OBSIDIAN_IMPORT_REVIEW_LOG_PATH", reviewLogPath);
+
+    repository = new InMemoryRepository();
+    const app = await buildApp({
+      repository,
+      marketDataProvider: new MockMarketDataProvider(),
+    });
+
+    try {
+      const candidatesResponse = await app.inject({
+        method: "GET",
+        url: "/v1/obsidian/import-candidates",
+      });
+
+      expect(candidatesResponse.statusCode).toBe(200);
+      expect(candidatesResponse.json().counts.importable).toBe(2);
+      expect(candidatesResponse.json().counts.skipped).toBe(1);
+      expect(candidatesResponse.json().rejected_content_hashes).toEqual([]);
+
+      const importableCandidates = candidatesResponse
+        .json()
+        .candidates.filter((candidate: { status: string }) => candidate.status === "importable");
+      const selectedHash = importableCandidates[0].content_hash;
+      const rejectedHash = importableCandidates[1].content_hash;
+
+      const rejectAllResponse = await app.inject({
+        method: "POST",
+        url: "/v1/obsidian/import-candidates/apply",
+        payload: {
+          selected_content_hashes: [],
+        },
+      });
+
+      expect(rejectAllResponse.statusCode).toBe(200);
+      expect(rejectAllResponse.json().counts.imported).toBe(0);
+      expect(rejectAllResponse.json().rejected_content_hashes).toEqual(
+        expect.arrayContaining([selectedHash, rejectedHash]),
+      );
+      expect(await repository.listLessons()).toHaveLength(0);
+
+      const applySelectedResponse = await app.inject({
+        method: "POST",
+        url: "/v1/obsidian/import-candidates/apply",
+        payload: {
+          selected_content_hashes: [selectedHash],
+        },
+      });
+
+      expect(applySelectedResponse.statusCode).toBe(200);
+      expect(applySelectedResponse.json().counts.imported).toBe(1);
+      expect(applySelectedResponse.json().rejected_content_hashes).toEqual([rejectedHash]);
+
+      const lessons = await repository.listLessons();
+      expect(lessons).toHaveLength(1);
+      expect(lessons[0].metadata.imported_from).toBe("obsidian");
+      expect(lessons[0].metadata.obsidian_content_hash).toBe(selectedHash);
+
+      const logLines = (await readFile(reviewLogPath, "utf8")).trim().split(/\r?\n/);
+      expect(logLines).toHaveLength(2);
+      expect(JSON.parse(logLines[0]!).rejected_content_hashes).toEqual(
+        expect.arrayContaining([selectedHash, rejectedHash]),
+      );
+      expect(JSON.parse(logLines[1]!).selected_content_hashes).toEqual([selectedHash]);
+      expect(JSON.parse(logLines[1]!).rejected_content_hashes).toEqual([rejectedHash]);
+    } finally {
+      await app.close();
+      await rm(tempRoot, { recursive: true, force: true });
     }
   });
 

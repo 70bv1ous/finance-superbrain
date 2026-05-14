@@ -489,9 +489,10 @@ export async function importObsidianHumanInbox(
   } = {},
 ): Promise<ObsidianImportSummary> {
   const resolvedConfig = await resolveImportConfig(config);
-  resolvedConfig.selected_content_hashes = options.selected_content_hashes?.length
-    ? new Set(options.selected_content_hashes.map((value) => value.trim()).filter(Boolean))
-    : null;
+  resolvedConfig.selected_content_hashes =
+    "selected_content_hashes" in options
+      ? new Set((options.selected_content_hashes ?? []).map((value) => value.trim()).filter(Boolean))
+      : null;
   const workspace = await services.repository.getOrCreateDefaultWorkspace();
   const inboxStats = await stat(resolvedConfig.absolute_inbox_path).catch(() => null);
   const warnings: string[] = [];

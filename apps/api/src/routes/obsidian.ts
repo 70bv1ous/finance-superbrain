@@ -18,7 +18,10 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..", "..", "..");
-const importReviewLogPath = getObsidianImportReviewLogPath(repoRoot);
+
+function resolveImportReviewLogPath() {
+  return process.env.FINANCE_SUPERBRAIN_OBSIDIAN_IMPORT_REVIEW_LOG_PATH?.trim() || getObsidianImportReviewLogPath(repoRoot);
+}
 
 async function pathExists(candidate: string) {
   try {
@@ -54,14 +57,11 @@ function toReviewResponse(summary: Awaited<ReturnType<typeof importObsidianHuman
   const selectedContentHashes = summary.candidates
     .filter((candidate) => candidate.status === "importable")
     .map((candidate) => candidate.content_hash);
-  const rejectedContentHashes = summary.candidates
-    .filter((candidate) => candidate.status !== "importable")
-    .map((candidate) => candidate.content_hash);
 
   return obsidianImportReviewResponseSchema.parse({
     ...summary,
     selected_content_hashes: selectedContentHashes,
-    rejected_content_hashes: rejectedContentHashes,
+    rejected_content_hashes: [],
   });
 }
 
@@ -95,7 +95,7 @@ export const registerObsidianRoutes = async (server: FastifyInstance, services: 
       vaultRoot,
       exportRoot: process.env.OBSIDIAN_EXPORT_ROOT?.trim() || "Finance Superbrain",
       syncStatePath: process.env.FINANCE_SUPERBRAIN_OBSIDIAN_SYNC_STATE_PATH?.trim() || undefined,
-      importReviewLogPath: importReviewLogPath,
+      importReviewLogPath: resolveImportReviewLogPath(),
       mode: parsed.mode,
     });
 
@@ -144,15 +144,18 @@ export const registerObsidianRoutes = async (server: FastifyInstance, services: 
     const summary = await importObsidianHumanInbox(services, config, {
       selected_content_hashes: parsed.selected_content_hashes,
     });
+    const selectedSet = new Set(parsed.selected_content_hashes);
+    const rejectedContentHashes = summary.candidates
+      .filter((candidate) => candidate.status === "skipped")
+      .filter((candidate) => candidate.reason === "Candidate was not selected in the import review queue.")
+      .filter((candidate) => !selectedSet.has(candidate.content_hash))
+      .map((candidate) => candidate.content_hash);
     const response = obsidianImportReviewResponseSchema.parse({
       ...summary,
       selected_content_hashes: parsed.selected_content_hashes,
-      rejected_content_hashes: summary.candidates
-        .filter((candidate) => candidate.status !== "imported")
-        .filter((candidate) => !parsed.selected_content_hashes.includes(candidate.content_hash))
-        .map((candidate) => candidate.content_hash),
+      rejected_content_hashes: rejectedContentHashes,
     });
-    await appendObsidianImportReviewLog(importReviewLogPath, {
+    await appendObsidianImportReviewLog(resolveImportReviewLogPath(), {
       workspace_id: response.workspace_id,
       dry_run: response.dry_run,
       selected_content_hashes: response.selected_content_hashes,
