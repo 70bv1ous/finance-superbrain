@@ -288,6 +288,12 @@ async function seedRepository() {
       metadata: {
         verdict: "correct",
         catalyst: "inflation surprise",
+        imported_from: "obsidian",
+        import_mode: "selective_human_inbox",
+        obsidian_relative_path: "Finance Superbrain/Human Inbox/rates-shock.md",
+        investigation_id: investigation.id,
+        decision_brief_id: decisionBrief.id,
+        portfolio_candidate_id: portfolioCandidate.id,
       },
       created_at: "2026-04-22T12:10:00.000Z",
     },
@@ -346,6 +352,8 @@ describe("obsidian export", () => {
     expect(decisionMarkdown).toContain("# Rates shock response brief");
     expect(decisionMarkdown).toContain("## Checkpoint History");
     expect(decisionMarkdown).toContain("[[Finance Superbrain/Portfolio/");
+    expect(decisionMarkdown).toContain("## Linked Lessons");
+    expect(decisionMarkdown).toContain("Hot CPI can still deliver a clean duration-down");
 
     const portfolioFile = (await readdir(join(outputRoot, "Portfolio")))[0]!;
     const portfolioMarkdown = await readFile(join(outputRoot, "Portfolio", portfolioFile), "utf8");
@@ -353,11 +361,18 @@ describe("obsidian export", () => {
     expect(portfolioMarkdown).toContain("## Portfolio Posture");
     expect(portfolioMarkdown).toContain("## Latest Review Session");
     expect(portfolioMarkdown).toContain(portfolioCandidate.id);
+    expect(portfolioMarkdown).toContain("## Linked Lessons");
+    expect(portfolioMarkdown).toContain("Hot CPI can still deliver a clean duration-down");
 
     const lessonFile = (await readdir(join(outputRoot, "Lessons")))[0]!;
     const lessonMarkdown = await readFile(join(outputRoot, "Lessons", lessonFile), "utf8");
     expect(lessonMarkdown).toContain("## Retrieval Context");
     expect(lessonMarkdown).toContain("Hot CPI forced a hawkish rate repricing.");
+    expect(lessonMarkdown).toContain("linked_decision_brief_id:");
+    expect(lessonMarkdown).toContain("linked_portfolio_candidate_id:");
+    expect(lessonMarkdown).toContain("[[Finance Superbrain/Decisions/");
+    expect(lessonMarkdown).toContain("[[Finance Superbrain/Portfolio/");
+    expect(lessonMarkdown).toContain("Open linked decision brief");
 
     const overviewMarkdown = await readFile(join(outputRoot, "Indexes", "Workspace Overview.md"), "utf8");
     expect(overviewMarkdown).toContain("[[Finance Superbrain/Indexes/Investigations Index]]");

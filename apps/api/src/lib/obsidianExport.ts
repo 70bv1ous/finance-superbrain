@@ -1428,8 +1428,12 @@ function renderLessonNote(record: PredictionLearningRecord, context: ExportConte
 
   const latestDecisionByPredictionId = buildLatestDecisionByPredictionId(context.graph.decision_briefs);
   const latestPortfolioByPredictionId = buildLatestPortfolioByPredictionId(context.graph.portfolio_candidates);
-  const linkedDecision = latestDecisionByPredictionId.get(lesson.prediction_id) ?? null;
-  const linkedPortfolio = latestPortfolioByPredictionId.get(lesson.prediction_id) ?? null;
+  const linkedDecision = lesson.metadata.decision_brief_id
+    ? context.graph.decision_briefs.find((brief) => brief.id === lesson.metadata.decision_brief_id) ?? null
+    : latestDecisionByPredictionId.get(lesson.prediction_id) ?? null;
+  const linkedPortfolio = lesson.metadata.portfolio_candidate_id
+    ? context.graph.portfolio_candidates.find((candidate) => candidate.id === lesson.metadata.portfolio_candidate_id) ?? null
+    : latestPortfolioByPredictionId.get(lesson.prediction_id) ?? null;
   const linkedInvestigation = lesson.metadata.investigation_id
     ? context.graph.investigations.find((investigation) => investigation.id === lesson.metadata.investigation_id) ?? null
     : null;
@@ -1441,6 +1445,9 @@ function renderLessonNote(record: PredictionLearningRecord, context: ExportConte
     lesson_id: lesson.id,
     prediction_id: lesson.prediction_id,
     lesson_type: lesson.lesson_type,
+    linked_investigation_id: lesson.metadata.investigation_id ?? null,
+    linked_decision_brief_id: lesson.metadata.decision_brief_id ?? null,
+    linked_portfolio_candidate_id: lesson.metadata.portfolio_candidate_id ?? null,
     app_url: buildAppUrl(context.config.app_url, `/predictions/${lesson.prediction_id}`),
     created_at: lesson.created_at,
     updated_at: lesson.created_at,
@@ -1483,6 +1490,8 @@ function renderLessonNote(record: PredictionLearningRecord, context: ExportConte
       "App Routes",
       renderAppLinksSection([
         { label: "Open prediction detail", href: buildAppUrl(context.config.app_url, `/predictions/${lesson.prediction_id}`) },
+        { label: "Open linked decision brief", href: linkedDecision ? buildAppUrl(context.config.app_url, `/decisions/${linkedDecision.id}`) : null },
+        { label: "Open linked portfolio candidate", href: linkedPortfolio ? buildAppUrl(context.config.app_url, `/portfolio/${linkedPortfolio.id}`) : null },
         { label: "Open Library", href: buildAppUrl(context.config.app_url, "/library") },
         { label: "Open Evaluation", href: buildAppUrl(context.config.app_url, "/evaluation") },
       ]),

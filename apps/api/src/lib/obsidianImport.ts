@@ -192,6 +192,10 @@ function buildCandidateFromNote(
   const linkedPredictionId = isUuid(rawLinkedPredictionId) ? rawLinkedPredictionId : "";
   const rawLinkedInvestigationId = toStringValue(note.frontmatter["investigation_id"]) || toStringValue(note.frontmatter["linked_investigation_id"]);
   const linkedInvestigationId = rawLinkedInvestigationId || "";
+  const linkedDecisionBriefId =
+    toStringValue(note.frontmatter["decision_brief_id"]) || toStringValue(note.frontmatter["linked_decision_brief_id"]);
+  const linkedPortfolioCandidateId =
+    toStringValue(note.frontmatter["portfolio_candidate_id"]) || toStringValue(note.frontmatter["linked_portfolio_candidate_id"]);
 
   if (managedBy === "finance_superbrain" || note.raw.includes(GENERATED_MARKER)) {
     return {
@@ -249,8 +253,8 @@ function buildCandidateFromNote(
       tags: toStringArray(note.frontmatter["tags"]),
       linked_prediction_id: existingLesson.prediction_id,
       linked_investigation_id: linkedInvestigationId || null,
-      linked_decision_brief_id: toStringValue(note.frontmatter["decision_brief_id"]) || null,
-      linked_portfolio_candidate_id: toStringValue(note.frontmatter["portfolio_candidate_id"]) || null,
+      linked_decision_brief_id: linkedDecisionBriefId || null,
+      linked_portfolio_candidate_id: linkedPortfolioCandidateId || null,
       imported_lesson_id: existingLesson.id,
       imported_prediction_id: existingLesson.prediction_id,
     };
@@ -269,8 +273,8 @@ function buildCandidateFromNote(
     tags: toStringArray(note.frontmatter["tags"]),
     linked_prediction_id: linkedPredictionId || null,
     linked_investigation_id: linkedInvestigationId || null,
-    linked_decision_brief_id: toStringValue(note.frontmatter["decision_brief_id"]) || null,
-    linked_portfolio_candidate_id: toStringValue(note.frontmatter["portfolio_candidate_id"]) || null,
+    linked_decision_brief_id: linkedDecisionBriefId || null,
+    linked_portfolio_candidate_id: linkedPortfolioCandidateId || null,
     imported_lesson_id: null,
     imported_prediction_id: null,
   };

@@ -191,6 +191,9 @@ export const obsidianLessonFrontmatterSchema = obsidianNoteFrontmatterBaseSchema
   lesson_id: z.string().uuid(),
   prediction_id: z.string().uuid(),
   lesson_type: z.string().min(1),
+  linked_investigation_id: z.string().min(1).nullable().optional(),
+  linked_decision_brief_id: z.string().min(1).nullable().optional(),
+  linked_portfolio_candidate_id: z.string().min(1).nullable().optional(),
 });
 
 export const obsidianActivityFrontmatterSchema = obsidianNoteFrontmatterBaseSchema.extend({

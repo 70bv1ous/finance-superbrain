@@ -197,6 +197,7 @@ Acceptance:
 
 - a decision brief can show which Obsidian memories influenced it, and an Obsidian note can link back to the app object
 - imported notes can surface investigation, decision, and portfolio links in both the app and exported notes
+- status: implemented locally for imported lesson metadata, generated Obsidian backlinks, and Library linked-object chips
 
 ### 6. Mobile Client Later
 

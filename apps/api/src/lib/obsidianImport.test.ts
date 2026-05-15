@@ -79,7 +79,8 @@ themes:
   - follow-through
 assets: [XLI]
 investigation_id: demo-investigation-cpi-discipline
-portfolio_candidate_id: demo-portfolio-cpi-discipline
+linked_decision_brief_id: demo-decision-cpi-discipline
+linked_portfolio_candidate_id: demo-portfolio-cpi-discipline
 ---
 # Trimmed posture follow-through
 
@@ -101,11 +102,14 @@ If a candidate is trimmed but still open, require a new checkpoint within the ne
     expect(applied.candidates[0]?.imported_lesson_id).toBeTruthy();
     expect(applied.candidates[0]?.imported_prediction_id).toBeTruthy();
     expect(applied.candidates[0]?.linked_investigation_id).toBe("demo-investigation-cpi-discipline");
+    expect(applied.candidates[0]?.linked_decision_brief_id).toBe("demo-decision-cpi-discipline");
+    expect(applied.candidates[0]?.linked_portfolio_candidate_id).toBe("demo-portfolio-cpi-discipline");
 
     const lessons = await services.repository.listLessons();
     expect(lessons).toHaveLength(1);
     expect(lessons[0]?.metadata.imported_from).toBe("obsidian");
     expect(lessons[0]?.metadata.investigation_id).toBe("demo-investigation-cpi-discipline");
+    expect(lessons[0]?.metadata.decision_brief_id).toBe("demo-decision-cpi-discipline");
     expect(lessons[0]?.metadata.portfolio_candidate_id).toBe("demo-portfolio-cpi-discipline");
 
     const rerun = await importObsidianHumanInbox(services, {

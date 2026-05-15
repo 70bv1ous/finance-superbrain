@@ -362,6 +362,74 @@ function getMetadataList(value: string | undefined) {
     .filter(Boolean)
 }
 
+function LinkedObjectChips({
+  investigationId,
+  decisionBriefId,
+  portfolioCandidateId,
+  interactive = true,
+}: {
+  investigationId?: string | null
+  decisionBriefId?: string | null
+  portfolioCandidateId?: string | null
+  interactive?: boolean
+}) {
+  const links = [
+    investigationId
+      ? {
+          key: "investigation",
+          label: "Investigation",
+          value: investigationId,
+          href: "/investigations",
+        }
+      : null,
+    decisionBriefId
+      ? {
+          key: "decision",
+          label: "Decision",
+          value: decisionBriefId,
+          href: `/decisions/${decisionBriefId}`,
+        }
+      : null,
+    portfolioCandidateId
+      ? {
+          key: "portfolio",
+          label: "Portfolio",
+          value: portfolioCandidateId,
+          href: `/portfolio/${portfolioCandidateId}`,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ key: string; label: string; value: string; href: string }>
+
+  if (!links.length) {
+    return null
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {links.map((link) =>
+        interactive ? (
+          <Link
+            key={`${link.key}:${link.value}`}
+            href={link.href}
+            className="rounded-full border border-emerald-300/20 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.2em] text-emerald-50/85 transition-colors hover:border-emerald-200/50 hover:text-white"
+            title={link.value}
+          >
+            {link.label} link
+          </Link>
+        ) : (
+          <span
+            key={`${link.key}:${link.value}`}
+            className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.2em] text-violet-100/70"
+            title={link.value}
+          >
+            {link.label}: {link.value.slice(0, 12)}
+          </span>
+        ),
+      )}
+    </div>
+  )
+}
+
 function ImportedHumanMemoryCard({ lessons }: { lessons: Lesson[] }) {
   const importedLessons = lessons.filter(isObsidianImportedLesson)
 
@@ -387,6 +455,9 @@ function ImportedHumanMemoryCard({ lessons }: { lessons: Lesson[] }) {
   const latestPath = latest.metadata.obsidian_relative_path ?? "Human Inbox note"
   const themes = [...new Set(importedLessons.flatMap((lesson) => getMetadataList(lesson.metadata.themes)))].slice(0, 5)
   const assets = [...new Set(importedLessons.flatMap((lesson) => getMetadataList(lesson.metadata.assets)))].slice(0, 5)
+  const linkedCount = importedLessons.filter(
+    (lesson) => lesson.metadata.investigation_id || lesson.metadata.decision_brief_id || lesson.metadata.portfolio_candidate_id,
+  ).length
 
   return (
     <section className="rounded-[24px] border border-emerald-500/20 bg-emerald-500/10 p-5">
@@ -399,6 +470,9 @@ function ImportedHumanMemoryCard({ lessons }: { lessons: Lesson[] }) {
           <p className="mt-2 text-sm text-emerald-50/80">
             Latest import: {latestPath}. These notes remain retrieval-only lessons, so Obsidian helps the brain remember
             without changing investigations, decisions, or portfolio state.
+          </p>
+          <p className="mt-2 text-xs uppercase tracking-[0.24em] text-emerald-100/70">
+            {linkedCount} linked to app objects
           </p>
         </div>
         <Link
@@ -420,6 +494,11 @@ function ImportedHumanMemoryCard({ lessons }: { lessons: Lesson[] }) {
           </span>
         ))}
       </div>
+      <LinkedObjectChips
+        investigationId={latest.metadata.investigation_id}
+        decisionBriefId={latest.metadata.decision_brief_id}
+        portfolioCandidateId={latest.metadata.portfolio_candidate_id}
+      />
     </section>
   )
 }
@@ -559,12 +638,17 @@ function ObsidianImportReviewQueue({
                     ))}
                   </div>
                   {candidate.reason ? <p className="mt-3 text-xs text-violet-100/70">{candidate.reason}</p> : null}
-                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.24em] text-violet-100/70">
-                    {candidate.linked_investigation_id ? <span className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1">investigation linked</span> : null}
-                    {candidate.linked_decision_brief_id ? <span className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1">decision linked</span> : null}
-                    {candidate.linked_portfolio_candidate_id ? <span className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1">portfolio linked</span> : null}
-                    {candidate.linked_prediction_id ? <span className="rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1">prediction linked</span> : null}
-                  </div>
+                  <LinkedObjectChips
+                    investigationId={candidate.linked_investigation_id}
+                    decisionBriefId={candidate.linked_decision_brief_id}
+                    portfolioCandidateId={candidate.linked_portfolio_candidate_id}
+                    interactive={false}
+                  />
+                  {candidate.linked_prediction_id ? (
+                    <span className="mt-3 inline-flex rounded-full border border-violet-300/15 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.2em] text-violet-100/70">
+                      Prediction: {candidate.linked_prediction_id.slice(0, 12)}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </label>
@@ -679,7 +763,7 @@ function LessonCard({
   const importThemes = getMetadataList(lesson.metadata.themes)
   const importAssets = getMetadataList(lesson.metadata.assets)
   const metadataEntries = Object.entries(lesson.metadata)
-    .filter(([key]) => !["imported_from", "import_mode", "obsidian_relative_path", "obsidian_content_hash", "tags", "themes", "assets"].includes(key))
+    .filter(([key]) => !["imported_from", "import_mode", "obsidian_relative_path", "obsidian_content_hash", "tags", "themes", "assets", "investigation_id", "decision_brief_id", "portfolio_candidate_id"].includes(key))
     .slice(0, 2)
 
   return (
@@ -717,6 +801,11 @@ function LessonCard({
                 </span>
               ))}
           </div>
+          <LinkedObjectChips
+            investigationId={lesson.metadata.investigation_id}
+            decisionBriefId={lesson.metadata.decision_brief_id}
+            portfolioCandidateId={lesson.metadata.portfolio_candidate_id}
+          />
         </div>
       ) : null}
       {metadataEntries.length ? (
