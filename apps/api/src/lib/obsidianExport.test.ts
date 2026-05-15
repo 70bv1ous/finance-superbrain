@@ -419,8 +419,10 @@ describe("obsidian export", () => {
     expect(phaseLedgerMarkdown).toContain("## Explicit Phase Evidence Links");
     expect(phaseLedgerMarkdown).toContain("Phase 12: Obsidian Memory Bridge");
     expect(phaseLedgerMarkdown).toContain("`apps/api/sql/001_phase1_intelligence_core.sql`");
-    expect(phaseLedgerMarkdown).toContain("Commands: `npm run demo:public-pilot:smoke`");
-    expect(phaseLedgerMarkdown).toContain("Deployment status: blocked until hosted API health is repaired.");
+    expect(phaseLedgerMarkdown).toContain("Commands: `npm run demo:public-pilot:smoke:hosted`");
+    expect(phaseLedgerMarkdown).toContain(
+      "Deployment status: hosted public pilot smoke passed after splitting lightweight `/health` liveness from detailed operational health.",
+    );
   });
 
   it("includes automatic work-session history when sync state exists", async () => {

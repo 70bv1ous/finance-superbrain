@@ -5662,7 +5662,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -6070,7 +6070,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -6157,7 +6157,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -6255,7 +6255,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -6414,7 +6414,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -6512,7 +6512,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -6645,7 +6645,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -6807,7 +6807,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -6957,7 +6957,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);
@@ -7083,7 +7083,7 @@ describe("finance superbrain API", () => {
 
       const healthResponse = await app.inject({
         method: "GET",
-        url: "/health",
+        url: "/health?detail=operations",
       });
 
       expect(healthResponse.statusCode).toBe(200);

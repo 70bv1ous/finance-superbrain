@@ -53,8 +53,7 @@ export const registerHealthRoutes = async (
 ) => {
   server.get("/health", async (request) => {
     const query = request.query as { detail?: string } | undefined;
-    const wantsOperationalDetail =
-      query?.detail === "operations" || process.env.NODE_ENV === "test";
+    const wantsOperationalDetail = query?.detail === "operations";
 
     if (!wantsOperationalDetail) {
       return {

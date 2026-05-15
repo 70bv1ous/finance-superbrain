@@ -227,8 +227,10 @@ Update Vercel after the API URL is known:
 Validate the hosted pilot:
 
 ```bash
-PUBLIC_PILOT_API_URL=https://sincere-smile-production-9c3f.up.railway.app npm run demo:public-pilot:smoke
+npm run demo:public-pilot:smoke:hosted
 ```
+
+See [docs/public-pilot-runbook.md](docs/public-pilot-runbook.md) for preview overrides, failure diagnosis, and recovery order.
 
 The smoke check verifies:
 
