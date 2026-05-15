@@ -498,7 +498,7 @@ The worker container uses the repository-backed supervisor check for health:
 
 If you need to stop and remove the stack, run `docker compose down`. Add `-v` if you also want to remove the Postgres volume.
 
-The health route now reflects execution telemetry too. If the latest major backend job failed, `/health` reports that failure instead of only returning a static success payload, and it now includes queued-job and active-lease counts. It also exposes `worker_monitoring`, `worker_service_monitoring`, `integration_monitoring`, `integration_governance_monitoring`, and `incident_monitoring`, so you can see whether the queue boundary is healthy, whether supervisor churn is building, and whether feed/transcript dependencies are actively being throttled or suppressed. The readiness route performs lightweight dependency probes against the repository and embedding provider and returns `503` if either one is degraded.
+The default health route is a lightweight liveness check for hosted platforms and should not perform broad repository fan-out. Use `/health?detail=operations` when you need execution telemetry: latest major backend job state, queued-job and active-lease counts, `worker_monitoring`, `worker_service_monitoring`, `integration_monitoring`, `integration_governance_monitoring`, and `incident_monitoring`. The readiness route performs dependency probes against the repository and embedding provider and returns `503` if either one is degraded.
 
 ### Docker operations runbook
 

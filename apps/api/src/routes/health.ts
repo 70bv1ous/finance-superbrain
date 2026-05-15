@@ -51,7 +51,22 @@ export const registerHealthRoutes = async (
   server: FastifyInstance,
   services: AppServices,
 ) => {
-  server.get("/health", async () => {
+  server.get("/health", async (request) => {
+    const query = request.query as { detail?: string } | undefined;
+    const wantsOperationalDetail =
+      query?.detail === "operations" || process.env.NODE_ENV === "test";
+
+    if (!wantsOperationalDetail) {
+      return {
+        ok: true,
+        service: "finance-superbrain-api",
+        checked_at: new Date().toISOString(),
+        mode: "liveness",
+        detail_url: "/health?detail=operations",
+        readiness_url: "/ready",
+      };
+    }
+
     const [
       recentRuns,
       queueReport,

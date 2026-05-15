@@ -111,8 +111,8 @@ This is the canonical project phase ledger for Finance Superbrain. It is intenti
 - Goal: deploy public web on Vercel and hosted API on Railway for a public pilot preview.
 - Evidence: Vercel web URL, Railway API handoff docs, `demo:public-pilot:smoke`.
 - Validation: `npm run demo:public-pilot:smoke`.
-- Status: blocked until hosted API health is repaired.
-- Risk: Railway API `/health` previously failed with `ETIMEDOUT`, likely hosted Postgres/runtime connectivity or expensive health reads.
+- Status: health liveness hardening implemented locally; hosted smoke still needs redeploy and readiness verification.
+- Risk: Railway API `/ready` may still expose hosted Postgres/runtime connectivity issues after `/health` stops doing expensive operational reads.
 
 ## Current Priority
 
