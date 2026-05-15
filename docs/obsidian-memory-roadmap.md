@@ -47,6 +47,9 @@ npm run ops:obsidian-import
 npm run ops:obsidian-import -- --apply
 npm run ops:obsidian-sync
 npm run ops:obsidian-watch
+npm run ops:obsidian-local:export
+npm run ops:obsidian-local:import
+npm run ops:obsidian-local:sync
 npm run obsidian:plugin:build
 npm run obsidian:plugin:install
 ```

@@ -286,6 +286,18 @@ Required environment variables:
 - `OBSIDIAN_EXPORT_ROOT`: optional generated subtree name, defaults to `Finance Superbrain`
 - `FINANCE_SUPERBRAIN_APP_URL`: optional app base URL used for links back into the workspace, for example `http://localhost:3000`
 
+Recommended local wrapper:
+
+```bash
+npm run ops:obsidian-local:export
+npm run ops:obsidian-local:export -- --dry-run
+npm run ops:obsidian-local:import
+npm run ops:obsidian-local:import -- --apply
+npm run ops:obsidian-local:sync
+```
+
+The local wrapper detects the default vault, sets `FINANCE_SUPERBRAIN_APP_URL=http://localhost:3000`, uses a durable PGlite repository at the OS temp path, and runs migrations before import/export. Override any default by setting `OBSIDIAN_VAULT_PATH`, `FINANCE_SUPERBRAIN_APP_URL`, `REPOSITORY_BACKEND`, or `PGLITE_DATA_DIR` before running it.
+
 Run the exporter with:
 
 ```bash
