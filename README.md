@@ -239,6 +239,8 @@ For repeated health supervision with a JSON report under `test-results/public-pi
 npm run ops:public-pilot:monitor
 ```
 
+The `Public Pilot Monitor` GitHub Actions workflow runs the same monitor every six hours and can be started manually from Actions.
+
 See [docs/public-pilot-runbook.md](docs/public-pilot-runbook.md) for preview overrides, failure diagnosis, and recovery order.
 
 The smoke check verifies:

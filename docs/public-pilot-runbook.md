@@ -42,6 +42,8 @@ Use the monitor when you want repeated health checks with a JSON report and auto
 npm run ops:public-pilot:monitor
 ```
 
+GitHub Actions also runs `Public Pilot Monitor` every six hours and exposes a manual `workflow_dispatch` run with cycle, interval, and smoke-escalation inputs. Each run uploads `public-pilot-monitor-report` with the latest JSON report.
+
 Override either target when testing a preview:
 
 ```bash
@@ -86,6 +88,7 @@ Latest known passing run:
 
 ## Failure Guide
 
+- `Public Pilot Monitor` workflow fails: open the uploaded `public-pilot-monitor-report` artifact first, then follow the failing check below.
 - `public shell` fails: Vercel deployment, domain, or production build is broken.
 - `login page` fails: Vercel build or `NEXT_PUBLIC_API_URL` is likely wrong or missing.
 - `api health` fails: Railway API process, container start, or routing is down.

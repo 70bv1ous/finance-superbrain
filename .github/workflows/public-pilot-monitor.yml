@@ -1,0 +1,64 @@
+name: Public Pilot Monitor
+
+on:
+  workflow_dispatch:
+    inputs:
+      cycles:
+        description: "Number of health cycles to run; use 0 for continuous until the job timeout."
+        required: false
+        default: "3"
+      interval_ms:
+        description: "Delay between health cycles in milliseconds."
+        required: false
+        default: "60000"
+      smoke_after_failures:
+        description: "Run full hosted smoke after this many consecutive health failures; use 0 to disable."
+        required: false
+        default: "2"
+  schedule:
+    - cron: "17 */6 * * *"
+
+concurrency:
+  group: public-pilot-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    name: Monitor hosted public pilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PUBLIC_PILOT_WEB_URL: ${{ vars.PUBLIC_PILOT_WEB_URL || 'https://finance-superbrain-web.vercel.app' }}
+      PUBLIC_PILOT_API_URL: ${{ vars.PUBLIC_PILOT_API_URL || 'https://sincere-smile-production-9c3f.up.railway.app' }}
+      MONITOR_CYCLES: ${{ github.event.inputs.cycles || '3' }}
+      MONITOR_INTERVAL_MS: ${{ github.event.inputs.interval_ms || '60000' }}
+      MONITOR_SMOKE_AFTER_FAILURES: ${{ github.event.inputs.smoke_after_failures || '2' }}
+      MONITOR_REPORT: test-results/public-pilot-monitor/latest.json
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run public pilot monitor
+        run: |
+          npm run ops:public-pilot:monitor -- \
+            --cycles="${MONITOR_CYCLES}" \
+            --interval-ms="${MONITOR_INTERVAL_MS}" \
+            --smoke-after-failures="${MONITOR_SMOKE_AFTER_FAILURES}" \
+            --report="${MONITOR_REPORT}"
+
+      - name: Upload monitor report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-pilot-monitor-report
+          path: test-results/public-pilot-monitor/latest.json
+          if-no-files-found: warn
+          retention-days: 14
