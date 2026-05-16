@@ -5729,6 +5729,40 @@ describe("finance superbrain API", () => {
     }
   });
 
+  it("keeps readiness JSON valid when a dependency throws an empty error", async () => {
+    repository = new InMemoryRepository();
+    const app = await buildApp({
+      repository,
+      marketDataProvider: new MockMarketDataProvider(),
+      embeddingProvider: {
+        async embedText() {
+          throw new Error("");
+        },
+      },
+    });
+
+    try {
+      const readinessResponse = await app.inject({
+        method: "GET",
+        url: "/ready",
+      });
+      const payload = readinessResponse.json();
+
+      expect(readinessResponse.statusCode).toBe(503);
+      expect(payload.ok).toBe(false);
+      expect(
+        payload.dependencies.some(
+          (item: Record<string, unknown>) =>
+            item.name === "embedding_provider" &&
+            item.status === "degraded" &&
+            item.detail === "Unknown dependency failure.",
+        ),
+      ).toBe(true);
+    } finally {
+      await app.close();
+    }
+  });
+
   it("queues long-running operations and drains them through the worker boundary", async () => {
     repository = new InMemoryRepository();
     const app = await buildApp({

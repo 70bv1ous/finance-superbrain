@@ -38,11 +38,16 @@ const runDependencyCheck = async (
       detail: null,
     };
   } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : "Unknown dependency failure.";
+
     return {
       name,
       status: "degraded" as const,
       latency_ms: Date.now() - startedAt,
-      detail: error instanceof Error ? error.message : "Unknown dependency failure.",
+      detail,
     };
   }
 };
