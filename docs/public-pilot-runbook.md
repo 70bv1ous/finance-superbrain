@@ -30,6 +30,12 @@ The ops alias runs the same check:
 npm run ops:public-pilot:smoke
 ```
 
+Use the lighter monitoring probe when you only need web/API/CORS health and do not want to exercise seeded login:
+
+```bash
+npm run ops:public-pilot:health
+```
+
 Override either target when testing a preview:
 
 ```bash
@@ -48,6 +54,14 @@ The smoke verifies:
 - seeded demo account login works
 - hosted auth cookie includes `SameSite=None` and `Secure`
 - authenticated workspace state contains seeded investigation, decision, and portfolio data
+
+The lighter health probe verifies:
+
+- public web shell returns `200`
+- login page returns `200` and includes API bootstrap metadata
+- API `/health` returns healthy liveness
+- API `/ready` returns healthy dependency readiness
+- `/v1/auth/bootstrap` responds from the hosted web origin
 
 Latest known passing run:
 
@@ -72,6 +86,24 @@ Latest known passing run:
 4. Run hosted database migrations.
 5. Seed deterministic demo proof data only when it is safe to refresh the hosted pilot workspace.
 6. Rerun `npm run demo:public-pilot:smoke:hosted`.
+
+Local command sequence before pushing a pilot health change:
+
+```bash
+npm run build
+npm test
+npm run demo:public-pilot:smoke:hosted
+```
+
+Hosted recovery command sequence after Railway env or database repair:
+
+```bash
+npm run db:migrate
+npm run seed:demo-proof
+npm run ops:public-pilot:smoke
+```
+
+Run those hosted recovery commands in the Railway service shell or with the same production environment variables set locally. Do not run the seed command against a production database unless refreshing the deterministic pilot workspace is intended.
 
 ## Boundaries
 
