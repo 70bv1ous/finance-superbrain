@@ -199,6 +199,8 @@ Restore or create the hosted API first:
 2. Run database migrations against hosted Postgres with `npm run db:migrate`.
 3. Seed deterministic demo proof data with `npm run seed:demo-proof`.
 4. Confirm the API returns healthy responses for `/health`, `/ready`, and `/v1/auth/bootstrap`.
+5. Run `npm run ops:public-pilot:health` for a lightweight hosted web/API/CORS probe.
+6. Run `npm run demo:public-pilot:smoke:hosted` for the full hosted smoke, including seeded login and deterministic workspace data.
 
 Deployment handoff:
 

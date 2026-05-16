@@ -53,7 +53,7 @@ The smoke verifies:
 - `/v1/auth/bootstrap` responds from the hosted web origin
 - seeded demo account login works
 - hosted auth cookie includes `SameSite=None` and `Secure`
-- authenticated workspace state contains seeded investigation, decision, and portfolio data
+- authenticated workspace state contains the deterministic seeded investigation, decision, and portfolio objects
 
 The lighter health probe verifies:
 
@@ -62,6 +62,8 @@ The lighter health probe verifies:
 - API `/health` returns healthy liveness
 - API `/ready` returns healthy dependency readiness
 - `/v1/auth/bootstrap` responds from the hosted web origin
+
+The full smoke retries transient web/API checks three times to reduce false alarms during Railway cold starts or deploy handoff, but the seeded account login itself is single-shot to avoid hiding auth or credential problems.
 
 Latest known passing run:
 
@@ -77,6 +79,7 @@ Latest known passing run:
 - `workspace bootstrap` fails: CORS, allowed origins, or API route startup is broken.
 - `seeded account login` fails: auth env, hosted cookie settings, CORS, or deterministic seed state is wrong.
 - `authenticated workspace state` fails: login worked, but seeded workspace data is missing or incomplete.
+- `authenticated workspace state` reports missing seeded IDs: rerun deterministic seed only after confirming the hosted database target is correct.
 
 ## Recovery Order
 

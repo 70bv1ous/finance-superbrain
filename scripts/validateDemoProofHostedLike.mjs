@@ -8,6 +8,9 @@ const webPort = Number(process.env.DEMO_PROOF_WEB_PORT || 3400);
 const apiPort = Number(process.env.DEMO_PROOF_API_PORT || 3401);
 const webUrl = `http://127.0.0.1:${webPort}`;
 const apiUrl = `http://127.0.0.1:${apiPort}`;
+const EXPECTED_INVESTIGATION_ID = "demo-investigation-cpi-discipline";
+const EXPECTED_DECISION_BRIEF_ID = "demo-decision-cpi-discipline";
+const EXPECTED_PORTFOLIO_CANDIDATE_ID = "demo-portfolio-cpi-discipline";
 
 function buildShellCommand(args) {
   return `npm ${args.join(" ")}`;
@@ -132,6 +135,10 @@ function extractSessionCookie(setCookieHeaders) {
   }
 
   return null;
+}
+
+function hasId(items, id) {
+  return Array.isArray(items) && items.some((item) => item?.id === id);
 }
 
 async function countMarkdownFiles(rootDir) {
@@ -295,6 +302,18 @@ async function main() {
 
     if ((workspaceState.portfolio_candidates?.length ?? 0) < 1) {
       throw new Error("Expected at least one seeded portfolio candidate in hosted-like validation.");
+    }
+
+    if (!hasId(workspaceState.investigations, EXPECTED_INVESTIGATION_ID)) {
+      throw new Error(`Expected seeded investigation ${EXPECTED_INVESTIGATION_ID}.`);
+    }
+
+    if (!hasId(workspaceState.decision_briefs, EXPECTED_DECISION_BRIEF_ID)) {
+      throw new Error(`Expected seeded decision brief ${EXPECTED_DECISION_BRIEF_ID}.`);
+    }
+
+    if (!hasId(workspaceState.portfolio_candidates, EXPECTED_PORTFOLIO_CANDIDATE_ID)) {
+      throw new Error(`Expected seeded portfolio candidate ${EXPECTED_PORTFOLIO_CANDIDATE_ID}.`);
     }
 
     console.log("");

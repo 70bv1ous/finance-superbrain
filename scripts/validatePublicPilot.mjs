@@ -1,6 +1,9 @@
 const DEFAULT_WEB_URL = "https://finance-superbrain-web.vercel.app";
 const DEFAULT_ADMIN_EMAIL = "lead.operator@finance-superbrain.local";
 const DEFAULT_ADMIN_PASSWORD = "workspace-admin-password";
+const EXPECTED_INVESTIGATION_ID = "demo-investigation-cpi-discipline";
+const EXPECTED_DECISION_BRIEF_ID = "demo-decision-cpi-discipline";
+const EXPECTED_PORTFOLIO_CANDIDATE_ID = "demo-portfolio-cpi-discipline";
 
 function readArg(name) {
   const prefix = `--${name}=`;
@@ -56,6 +59,12 @@ async function fetchJson(url, init) {
   return { response, payload, text };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function getSetCookieHeaders(response) {
   if (typeof response.headers.getSetCookie === "function") {
     return response.headers.getSetCookie();
@@ -78,6 +87,59 @@ function extractSessionCookie(setCookieHeaders) {
 }
 
 async function assertOk(label, check) {
+  const attempts = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const detail = await check();
+      const retryDetail = attempt > 1 ? ` after ${attempt} attempts` : "";
+      console.log(`PASS ${label}${detail ? `: ${detail}` : ""}${retryDetail}`);
+      return;
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < attempts) {
+        await sleep(2_000);
+      }
+    }
+  }
+
+  console.error(`FAIL ${label}`);
+  throw lastError;
+}
+
+function hasId(items, id) {
+  return Array.isArray(items) && items.some((item) => item?.id === id);
+}
+
+function requireSeededWorkspace(payload) {
+  const investigationCount = Array.isArray(payload.investigations) ? payload.investigations.length : 0;
+  const decisionCount = Array.isArray(payload.decision_briefs) ? payload.decision_briefs.length : 0;
+  const portfolioCount = Array.isArray(payload.portfolio_candidates) ? payload.portfolio_candidates.length : 0;
+
+  if (investigationCount < 1 || decisionCount < 1 || portfolioCount < 1) {
+    throw new Error(
+      `Expected seeded workspace data, got investigations=${investigationCount}, decisions=${decisionCount}, portfolio=${portfolioCount}.`,
+    );
+  }
+
+  if (!hasId(payload.investigations, EXPECTED_INVESTIGATION_ID)) {
+    throw new Error(`Expected seeded investigation ${EXPECTED_INVESTIGATION_ID}.`);
+  }
+
+  if (!hasId(payload.decision_briefs, EXPECTED_DECISION_BRIEF_ID)) {
+    throw new Error(`Expected seeded decision brief ${EXPECTED_DECISION_BRIEF_ID}.`);
+  }
+
+  if (!hasId(payload.portfolio_candidates, EXPECTED_PORTFOLIO_CANDIDATE_ID)) {
+    throw new Error(`Expected seeded portfolio candidate ${EXPECTED_PORTFOLIO_CANDIDATE_ID}.`);
+  }
+
+  return { investigationCount, decisionCount, portfolioCount };
+}
+
+async function assertOkWithoutRetry(label, check) {
   try {
     const detail = await check();
     console.log(`PASS ${label}${detail ? `: ${detail}` : ""}`);
@@ -148,7 +210,7 @@ async function main() {
   });
 
   let sessionCookie = "";
-  await assertOk("seeded account login", async () => {
+  await assertOkWithoutRetry("seeded account login", async () => {
     const { response, payload } = await fetchJson(`${config.apiUrl}/v1/auth/login`, {
       method: "POST",
       headers: {
@@ -192,17 +254,9 @@ async function main() {
       throw new Error(`Expected authenticated workspace state, got HTTP ${response.status}: ${JSON.stringify(payload)}`);
     }
 
-    const investigationCount = Array.isArray(payload.investigations) ? payload.investigations.length : 0;
-    const decisionCount = Array.isArray(payload.decision_briefs) ? payload.decision_briefs.length : 0;
-    const portfolioCount = Array.isArray(payload.portfolio_candidates) ? payload.portfolio_candidates.length : 0;
+    const { investigationCount, decisionCount, portfolioCount } = requireSeededWorkspace(payload);
 
-    if (investigationCount < 1 || decisionCount < 1 || portfolioCount < 1) {
-      throw new Error(
-        `Expected seeded workspace data, got investigations=${investigationCount}, decisions=${decisionCount}, portfolio=${portfolioCount}.`,
-      );
-    }
-
-    return `investigations=${investigationCount}, decisions=${decisionCount}, portfolio=${portfolioCount}`;
+    return `investigations=${investigationCount}, decisions=${decisionCount}, portfolio=${portfolioCount}, seeded_ids=present`;
   });
 
   console.log("Public pilot smoke validation passed.");
