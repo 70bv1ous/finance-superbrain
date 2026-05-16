@@ -171,6 +171,7 @@ type ProjectLedger = {
   package_scripts: Record<string, string>;
   phase_ledger_markdown: string | null;
   phase_evidence_links: ProjectPhaseEvidence[];
+  architecture_decision_records: ProjectArchitectureDecisionRecord[];
   documented_phase_headings: string[];
   roadmap_phase_headings: string[];
   source_documents: Array<{ path: string; status: "read" | "missing" }>;
@@ -188,6 +189,18 @@ type ProjectPhaseEvidence = {
   repo_refs: string[];
   command_refs: string[];
   deployment_status: string | null;
+};
+
+type ProjectArchitectureDecisionRecord = {
+  id: string;
+  title: string;
+  status: string;
+  phase_refs: string[];
+  context: string;
+  decision: string;
+  consequences: string[];
+  evidence_refs: string[];
+  command_refs: string[];
 };
 
 function slugify(value: string, fallback: string) {
@@ -778,6 +791,83 @@ function extractPhaseEvidenceLinks(markdown: string | null): ProjectPhaseEvidenc
   });
 }
 
+function buildArchitectureDecisionRecords(phaseEvidence: ProjectPhaseEvidence[]): ProjectArchitectureDecisionRecord[] {
+  const evidenceByPhase = new Map(phaseEvidence.map((item) => [item.phase, item]));
+  const refsFor = (phases: string[]) => [...new Set(phases.flatMap((phase) => evidenceByPhase.get(phase)?.repo_refs ?? []))];
+  const commandsFor = (phases: string[]) => [...new Set(phases.flatMap((phase) => evidenceByPhase.get(phase)?.command_refs ?? []))];
+
+  return [
+    {
+      id: "adr-postgres-source-of-truth-obsidian-local-memory",
+      title: "PostgreSQL remains source of truth while Obsidian is local memory",
+      status: "accepted",
+      phase_refs: ["Phase 4", "Phase 12", "Phase 14"],
+      context:
+        "Finance Superbrain is money-adjacent, so canonical workspace, portfolio, auth, and audit state needs deterministic storage and production-grade recovery semantics.",
+      decision:
+        "Keep PostgreSQL as the production source of truth. Use Obsidian as a generated, local-first memory and review layer that can be reproduced from application state.",
+      consequences: [
+        "Obsidian exports are readable memory, not canonical transaction or portfolio state.",
+        "Human-authored vault notes enter retrieval memory only through guarded import flows.",
+        "Hosted production health remains tied to database readiness, migrations, and deterministic seed state.",
+      ],
+      evidence_refs: refsFor(["Phase 4", "Phase 12", "Phase 14"]),
+      command_refs: commandsFor(["Phase 4", "Phase 12", "Phase 14"]),
+    },
+    {
+      id: "adr-review-gated-obsidian-import",
+      title: "Obsidian Human Inbox import is review-gated",
+      status: "accepted",
+      phase_refs: ["Phase 12"],
+      context:
+        "Human vault notes can improve retrieval memory, but broad or automatic import can pollute lessons and mislead future decisions.",
+      decision:
+        "Require selective Human Inbox import, duplicate protection, provenance metadata, and explicit review/audit records before human notes become retrieval lessons.",
+      consequences: [
+        "Generated vault files remain managed and reproducible.",
+        "Human-authored notes should start in `Human Inbox/` and pass through review before influencing retrieval.",
+        "The Library review surface and plugin snapshot should stay aligned with import-review state.",
+      ],
+      evidence_refs: refsFor(["Phase 12"]),
+      command_refs: commandsFor(["Phase 12"]),
+    },
+    {
+      id: "adr-nextjs-primary-workflow-shared-api",
+      title: "Next.js remains the primary desk workflow",
+      status: "accepted",
+      phase_refs: ["Phase 4", "Phase 6", "Phase 7", "Phase 8", "Phase 9"],
+      context:
+        "Research, decision, and portfolio workflows need dense review surfaces, route-level traceability, and shared API contracts before a mobile capture client is useful.",
+      decision:
+        "Keep the Next.js web app as the primary workflow shell. Any later mobile client should reuse the same PostgreSQL-backed API and audit model.",
+      consequences: [
+        "Frontend hardening should focus on workspace, decision, portfolio, Library, and Ops surfaces.",
+        "Mobile is deferred to capture, review, alerts, and lightweight checks after backend memory is stable.",
+        "Money-adjacent actions remain review-oriented instead of hidden automation.",
+      ],
+      evidence_refs: refsFor(["Phase 4", "Phase 6", "Phase 7", "Phase 8", "Phase 9"]),
+      command_refs: commandsFor(["Phase 4", "Phase 6", "Phase 7", "Phase 8", "Phase 9"]),
+    },
+    {
+      id: "adr-health-liveness-readiness-split",
+      title: "Hosted health separates liveness from readiness",
+      status: "accepted",
+      phase_refs: ["Phase 10", "Phase 14"],
+      context:
+        "Public pilot checks need a lightweight process liveness endpoint and a separate dependency readiness path, otherwise transient operational detail can make deploy health noisy.",
+      decision:
+        "Keep `/health` lightweight by default, expose detailed operational health through `/health?detail=operations`, and use `/ready` for runtime dependency readiness.",
+      consequences: [
+        "Hosted smoke can distinguish web shell, API liveness, dependency readiness, CORS, auth, cookies, and seeded workspace state.",
+        "Railway/Vercel environment drift remains visible through the public pilot smoke command.",
+        "Operators should use `/ready` and detailed health only when diagnosing dependencies.",
+      ],
+      evidence_refs: refsFor(["Phase 10", "Phase 14"]),
+      command_refs: commandsFor(["Phase 10", "Phase 14"]),
+    },
+  ];
+}
+
 async function readProjectFile(root: string, relativePath: string) {
   const content = await readFile(join(root, relativePath), "utf8").catch(() => null);
   return {
@@ -806,12 +896,14 @@ async function loadProjectLedger(): Promise<ProjectLedger> {
   ]);
   const latestImportReview = await readLatestObsidianImportReviewLog(reviewLogPath);
   const packageJson = packageFile.content ? JSON.parse(packageFile.content) as { scripts?: Record<string, string> } : {};
+  const phaseEvidenceLinks = extractPhaseEvidenceLinks(phaseLedgerFile.content);
 
   return {
     generated_at: new Date().toISOString(),
     package_scripts: packageJson.scripts ?? {},
     phase_ledger_markdown: phaseLedgerFile.content,
-    phase_evidence_links: extractPhaseEvidenceLinks(phaseLedgerFile.content),
+    phase_evidence_links: phaseEvidenceLinks,
+    architecture_decision_records: buildArchitectureDecisionRecords(phaseEvidenceLinks),
     documented_phase_headings: readmeFile.content ? extractPhaseHeadings(readmeFile.content) : [],
     roadmap_phase_headings: roadmapFile.content ? extractPhaseHeadings(roadmapFile.content) : [],
     source_documents: [packageFile, phaseLedgerFile, readmeFile, roadmapFile, obsidianRoadmapFile, syncStateFile].map((file) => ({
@@ -2049,6 +2141,10 @@ function createProjectTarget(context: ExportContext, fileName: string, title: st
   );
 }
 
+function createArchitectureDecisionTarget(context: ExportContext, record: ProjectArchitectureDecisionRecord) {
+  return createProjectTarget(context, `Decision Record - ${slugify(record.title, record.id)}.md`, record.title);
+}
+
 function renderProjectNote(
   context: ExportContext,
   fileName: string,
@@ -2108,6 +2204,9 @@ function renderProjectOverviewNote(context: ExportContext): RenderedNote {
         wikiLink(createProjectTarget(context, "Risk Register.md", "Risk Register")),
         wikiLink(createProjectTarget(context, "Validation History.md", "Validation History")),
         wikiLink(createProjectTarget(context, "Data Inventory.md", "Data Inventory")),
+        ...context.graph.project_ledger.architecture_decision_records.map((record) =>
+          wikiLink(createArchitectureDecisionTarget(context, record), record.title),
+        ),
       ]),
     ),
   ]);
@@ -2119,10 +2218,11 @@ function renderWorkSessionNote(context: ExportContext): RenderedNote {
     workspace_id: context.graph.workspace.id,
     created_at: context.graph.workspace.created_at,
     updated_at: context.graph.project_ledger.sync_state?.updated_at ?? context.graph.project_ledger.generated_at,
-    app_url: buildAppUrl(context.config.app_url, "/workspace"),
-    sync_state: context.graph.project_ledger.sync_state,
-    latest_review: context.graph.project_ledger.latest_import_review ?? null,
-  });
+      app_url: buildAppUrl(context.config.app_url, "/workspace"),
+      sync_state: context.graph.project_ledger.sync_state,
+      latest_review: context.graph.project_ledger.latest_import_review ?? null,
+      plugin_status_note_path: `${context.config.export_root}/Project/Obsidian Plugin Sync.md`,
+    });
 
   return {
     type: "project",
@@ -2208,6 +2308,42 @@ function renderPhaseLedgerNote(context: ExportContext): RenderedNote {
   ]);
 }
 
+function renderArchitectureDecisionNote(context: ExportContext, record: ProjectArchitectureDecisionRecord): RenderedNote {
+  const phaseEvidence = context.graph.project_ledger.phase_evidence_links.filter((item) => record.phase_refs.includes(item.phase));
+
+  return renderProjectNote(context, `Decision Record - ${slugify(record.title, record.id)}.md`, record.title, [
+    renderSection(
+      "Decision",
+      [
+        `- Status: ${record.status}`,
+        `- Related phases: ${record.phase_refs.join(", ")}`,
+        `- ${record.decision}`,
+      ].join("\n"),
+    ),
+    renderSection("Context", record.context),
+    renderSection("Consequences", renderBulletList(record.consequences)),
+    renderSection(
+      "Evidence",
+      renderBulletList(
+        [
+          ...record.evidence_refs.map((ref) => `Repo ref: \`${ref}\``),
+          ...record.command_refs.map((ref) => `Command: \`${ref}\``),
+          ...phaseEvidence.map((item) => `${item.phase}: ${item.title} | ${item.status ?? "status not listed"}`),
+        ],
+        "- No explicit evidence links were parsed for this decision record.",
+      ),
+    ),
+    renderSection(
+      "Backlinks",
+      renderBulletList([
+        wikiLink(createProjectTarget(context, "Phase Ledger.md", "Phase Ledger")),
+        wikiLink(createProjectTarget(context, "Risk Register.md", "Risk Register")),
+        wikiLink(createProjectTarget(context, "Validation History.md", "Validation History")),
+      ]),
+    ),
+  ]);
+}
+
 function renderBuildLogNote(context: ExportContext): RenderedNote {
   return renderProjectNote(context, "Build Log.md", "Build Log", [
     renderSection(
@@ -2277,6 +2413,15 @@ function renderDataInventoryNote(context: ExportContext, connectionReports: Conn
   const importedLessons = context.graph.lessons.filter(
     (lesson) => lesson.metadata.imported_from === "obsidian" || lesson.metadata.import_mode === "selective_human_inbox",
   );
+  const coreMemoryCount =
+    context.graph.investigations.length +
+    context.graph.decision_briefs.length +
+    context.graph.portfolio_candidates.length +
+    context.graph.lessons.length;
+  const exportReadiness =
+    coreMemoryCount > 1
+      ? "Useful local memory export: workspace contains investigation, decision, portfolio, or lesson objects beyond project scaffolding."
+      : "Thin local memory export: seed or point `PGLITE_DATA_DIR` at the intended workspace before relying on the vault for a walkthrough.";
 
   return renderProjectNote(context, "Data Inventory.md", "Data Inventory", [
     renderSection(
@@ -2295,6 +2440,7 @@ function renderDataInventoryNote(context: ExportContext, connectionReports: Conn
         `- Local sync sessions: ${context.graph.project_ledger.sync_state?.sessions.length ?? 0}`,
       ].join("\n"),
     ),
+    renderSection("Export Readiness", `- ${exportReadiness}`),
     renderSection(
       "Data Collection Surfaces",
       [
@@ -2314,6 +2460,7 @@ function renderProjectNotes(context: ExportContext, connectionReports: Connectio
     renderProjectOverviewNote(context),
     renderWorkSessionNote(context),
     renderPhaseLedgerNote(context),
+    ...context.graph.project_ledger.architecture_decision_records.map((record) => renderArchitectureDecisionNote(context, record)),
     renderBuildLogNote(context),
     renderRiskRegisterNote(context),
     renderValidationHistoryNote(context),

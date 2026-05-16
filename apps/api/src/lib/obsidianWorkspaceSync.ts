@@ -104,6 +104,7 @@ export async function syncObsidianWorkspace(input: ObsidianWorkspaceSyncInput): 
       sync_state: nextState,
       latest_review: latestReview,
       export_note_counts: exportSummary.note_counts,
+      plugin_status_note_path: `${exportRoot}/Project/Obsidian Plugin Sync.md`,
     }),
     "utf8",
   );

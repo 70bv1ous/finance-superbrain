@@ -19,7 +19,7 @@ function truncateText(value, maxLength = 140) {
 
 function buildFrontmatter(settings, sync) {
   const base = [
-    `managed_by: ${JSON.stringify("finance_superbrain_plugin")}`,
+    PLUGIN_MANAGED_MARKER,
     `type: ${JSON.stringify("project")}`,
     `plugin_id: ${JSON.stringify("finance-superbrain")}`,
     `api_base_url: ${JSON.stringify(settings.apiBaseUrl)}`,
@@ -158,6 +158,35 @@ const DEFAULT_SETTINGS = {
   syncOnInboxChange: true,
 };
 
+const PLUGIN_MANAGED_MARKER = 'managed_by: "finance_superbrain_plugin"';
+
+function pathStartsWith(parentPath, childPath) {
+  const parent = normalizePath(parentPath).replace(/\/+$/, "");
+  const child = normalizePath(childPath);
+  return child === parent || child.startsWith(`${parent}/`);
+}
+
+function resolveManagedStatusNotePath(settings) {
+  const exportRoot = normalizePath(settings.exportRoot || DEFAULT_SETTINGS.exportRoot).replace(/\/+$/, "");
+  const projectRoot = `${exportRoot}/Project`;
+  const requested = normalizePath(settings.statusNotePath || DEFAULT_SETTINGS.statusNotePath);
+  const fallback = `${projectRoot}/Obsidian Plugin Sync.md`;
+
+  if (!requested || requested === projectRoot || requested.endsWith("/")) {
+    return fallback;
+  }
+
+  if (!pathStartsWith(projectRoot, requested)) {
+    return fallback;
+  }
+
+  if (pathStartsWith(settings.inboxPath, requested)) {
+    return fallback;
+  }
+
+  return requested;
+}
+
 class FinanceSuperbrainPlugin extends Plugin {
   constructor() {
     super(...arguments);
@@ -217,7 +246,7 @@ class FinanceSuperbrainPlugin extends Plugin {
           return;
         }
 
-        if (normalizePath(file.path).startsWith(normalizePath(this.settings.inboxPath))) {
+        if (pathStartsWith(this.settings.inboxPath, file.path)) {
           void this.queueSync("watch");
         }
       }),
@@ -261,13 +290,18 @@ class FinanceSuperbrainPlugin extends Plugin {
   }
 
   async writeStatusNote(sync, review, error) {
-    const targetPath = normalizePath(this.settings.statusNotePath);
+    const targetPath = resolveManagedStatusNotePath(this.settings);
     const folderPath = targetPath.split("/").slice(0, -1).join("/");
     await ensureFolder(this.app.vault.adapter, folderPath);
     const content = buildStatusMarkdown(this.settings, sync, review, error);
 
     const existing = this.app.vault.getAbstractFileByPath(targetPath);
     if (existing instanceof TFile) {
+      const existingContent = await this.app.vault.cachedRead(existing).catch(() => "");
+      if (existingContent.trim() && !existingContent.includes(PLUGIN_MANAGED_MARKER)) {
+        throw new Error(`Refusing to overwrite non-plugin note at ${targetPath}.`);
+      }
+
       await this.app.vault.modify(existing, `${content}\n`);
       return;
     }
@@ -355,7 +389,7 @@ class FinanceSuperbrainPlugin extends Plugin {
   }
 
   async openStatusNote() {
-    const targetPath = normalizePath(this.settings.statusNotePath);
+    const targetPath = resolveManagedStatusNotePath(this.settings);
     const file = this.app.vault.getAbstractFileByPath(targetPath);
 
     if (file instanceof TFile) {
@@ -405,7 +439,7 @@ class FinanceSuperbrainSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Status note path")
-      .setDesc("Generated plugin status note inside the vault.")
+      .setDesc("Generated plugin status note. It is constrained to the managed Project folder.")
       .addText((text) =>
         text
           .setPlaceholder("Finance Superbrain/Project/Obsidian Plugin Sync.md")

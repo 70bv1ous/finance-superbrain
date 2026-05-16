@@ -323,7 +323,7 @@ describe("obsidian export", () => {
     expect(summary.note_counts.lessons).toBe(1);
     expect(summary.note_counts.activity).toBe(2);
     expect(summary.note_counts.connections).toBe(3);
-    expect(summary.note_counts.project).toBe(7);
+    expect(summary.note_counts.project).toBe(11);
     expect(summary.note_counts.indexes).toBe(7);
 
     await expect(stat(join(vaultPath, "Finance Superbrain"))).rejects.toThrow();
@@ -403,15 +403,23 @@ describe("obsidian export", () => {
         "Risk Register.md",
         "Validation History.md",
         "Data Inventory.md",
+        "Decision Record - postgresql-remains-source-of-truth-while-obsidian-is-local-memory.md",
+        "Decision Record - obsidian-human-inbox-import-is-review-gated.md",
+        "Decision Record - next-js-remains-the-primary-desk-workflow.md",
+        "Decision Record - hosted-health-separates-liveness-from-readiness.md",
       ]),
     );
     const workSessionMarkdown = await readFile(join(outputRoot, "Project", "Work Session.md"), "utf8");
     expect(workSessionMarkdown).toContain("# Work Session");
     expect(workSessionMarkdown).toContain("automatic workspace syncing");
+    expect(workSessionMarkdown).toContain("Companion plugin status note");
+    expect(workSessionMarkdown).toContain("[[Finance Superbrain/Project/Obsidian Plugin Sync|Obsidian Plugin Sync]]");
     const dataInventoryMarkdown = await readFile(join(outputRoot, "Project", "Data Inventory.md"), "utf8");
     expect(dataInventoryMarkdown).toContain("## Workspace Data Counts");
     expect(dataInventoryMarkdown).toContain("Connection reports: 3");
     expect(dataInventoryMarkdown).toContain("Local sync sessions:");
+    expect(dataInventoryMarkdown).toContain("## Export Readiness");
+    expect(dataInventoryMarkdown).toContain("Useful local memory export");
     const phaseLedgerMarkdown = await readFile(join(outputRoot, "Project", "Phase Ledger.md"), "utf8");
     expect(phaseLedgerMarkdown).toContain("# Phase Ledger");
     expect(phaseLedgerMarkdown).toContain("## Phase 14: Public Pilot Deployment");
@@ -423,6 +431,14 @@ describe("obsidian export", () => {
     expect(phaseLedgerMarkdown).toContain(
       "Deployment status: hosted public pilot smoke passed after splitting lightweight `/health` liveness from detailed operational health.",
     );
+    const architectureDecisionMarkdown = await readFile(
+      join(outputRoot, "Project", "Decision Record - postgresql-remains-source-of-truth-while-obsidian-is-local-memory.md"),
+      "utf8",
+    );
+    expect(architectureDecisionMarkdown).toContain("# PostgreSQL remains source of truth while Obsidian is local memory");
+    expect(architectureDecisionMarkdown).toContain("## Decision");
+    expect(architectureDecisionMarkdown).toContain("Related phases: Phase 4, Phase 12, Phase 14");
+    expect(architectureDecisionMarkdown).toContain("[[Finance Superbrain/Project/Phase Ledger]]");
   });
 
   it("includes automatic work-session history when sync state exists", async () => {
@@ -466,11 +482,12 @@ describe("obsidian export", () => {
         dry_run: false,
       });
 
-      expect(summary.note_counts.project).toBe(7);
+      expect(summary.note_counts.project).toBe(11);
       const workSessionMarkdown = await readFile(join(vaultPath, "Finance Superbrain", "Project", "Work Session.md"), "utf8");
       expect(workSessionMarkdown).toContain("watch");
       expect(workSessionMarkdown).toContain("apps/api/src/lib/obsidianExport.ts");
       expect(workSessionMarkdown).toContain("Changed files: 1");
+      expect(workSessionMarkdown).toContain("same sync/review state");
     } finally {
       if (previousSyncStatePath === undefined) {
         delete process.env.FINANCE_SUPERBRAIN_OBSIDIAN_SYNC_STATE_PATH;

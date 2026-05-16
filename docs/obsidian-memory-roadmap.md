@@ -30,6 +30,10 @@ Already implemented:
 - automatic `Project/Work Session.md` sync note driven by local git state
 - Obsidian plugin package under `apps/obsidian-plugin/` for automatic local status refresh inside the vault
 - canonical `docs/phase-ledger.md` source mirrored into `Project/Phase Ledger.md`
+- generated architecture decision records for source-of-truth, Obsidian import, primary web workflow, and hosted health boundaries
+- generated export-readiness signal that warns when the local vault export is too thin for a walkthrough
+- app-generated `Project/Work Session.md` links to the companion plugin status note and shares sync/review state with it
+- Obsidian plugin status writes are constrained to the managed `Project/` folder and refuse to overwrite non-plugin notes
 - API and Library UI review queue for Human Inbox import candidates
 - selected-only import apply with explicit reject-all support
 - JSONL audit log for imported and rejected Obsidian review decisions
@@ -135,10 +139,11 @@ Deliverables:
 Acceptance:
 
 - Obsidian can answer what each phase shipped, how it is validated, and what risk remains
-- current baseline: generated `Project/Work Session.md`, `Project/Phase Ledger.md`, `Project/Build Log.md`, `Project/Risk Register.md`, `Project/Validation History.md`, and `Project/Data Inventory.md`
+- current baseline: generated `Project/Work Session.md`, `Project/Phase Ledger.md`, architecture decision records, `Project/Build Log.md`, `Project/Risk Register.md`, `Project/Validation History.md`, and `Project/Data Inventory.md`
 - `Project/Phase Ledger.md` is sourced from `docs/phase-ledger.md`
-- next hardening step: replace inferred phase summaries with explicit per-phase evidence links to routes, scripts, tests, and deployment status
-- next hardening step: keep the plugin-generated sync note and the app-generated work-session note aligned without overwriting human-authored inbox notes
+- explicit per-phase evidence links now cover repo refs, scripts, tests, risks, and deployment status parsed from `docs/phase-ledger.md`
+- architecture decision records now link major product boundaries back to relevant phases and validation evidence
+- plugin-generated sync notes and app-generated work-session notes now point at the same sync/review state while staying out of `Human Inbox/`
 
 ### 3. Connection Finder
 

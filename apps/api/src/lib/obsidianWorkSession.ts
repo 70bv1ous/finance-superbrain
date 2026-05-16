@@ -35,6 +35,7 @@ export function buildObsidianWorkSessionMarkdown(input: {
     indexes: number;
     total: number;
   } | null;
+  plugin_status_note_path?: string | null;
 }) {
   const frontmatter = {
     managed_by: "finance_superbrain",
@@ -47,6 +48,10 @@ export function buildObsidianWorkSessionMarkdown(input: {
 
   const latestSession = input.sync_state?.sessions[0] ?? null;
   const recentSessions = input.sync_state?.sessions.slice(0, 5) ?? [];
+  const pluginStatusNotePath = input.plugin_status_note_path?.trim() || null;
+  const pluginStatusNoteLink = pluginStatusNotePath
+    ? `[[${pluginStatusNotePath.replace(/\\/g, "/").replace(/\.md$/i, "")}|Obsidian Plugin Sync]]`
+    : null;
 
   return [
     `---\n${Object.entries(frontmatter)
@@ -99,7 +104,10 @@ export function buildObsidianWorkSessionMarkdown(input: {
         input.export_note_counts
           ? `- The last full workspace export wrote ${input.export_note_counts.total} managed notes into Obsidian.`
           : "- The last full workspace export count is not available yet.",
-        "- The vault note updates from that state on each sync run.",
+        pluginStatusNoteLink
+          ? `- Companion plugin status note: ${pluginStatusNoteLink}.`
+          : "- Companion plugin status note is not configured.",
+        "- The app-generated work-session note and plugin-generated status note read the same sync/review state.",
         "- Product memory export stays separate so raw workspace changes do not overwrite reviewed decision memory.",
       ].join("\n"),
     ),
