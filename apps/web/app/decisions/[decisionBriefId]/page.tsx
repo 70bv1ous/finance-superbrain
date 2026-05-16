@@ -14,11 +14,14 @@ import type {
 
 import { AppShell } from "@/components/AppShell"
 import { DecisionStatusBadge } from "@/components/DecisionStatusBadge"
+import { LinkedObsidianMemoryPanel } from "@/components/LinkedObsidianMemoryPanel"
 import { PortfolioStatusBadge } from "@/components/PortfolioStatusBadge"
 import { RouteEmptyState, RouteLoadingState } from "@/components/RouteState"
 import { useWorkspace } from "@/components/WorkspaceProvider"
 import { assignDecisionBrief, getDecisionBriefDetail, saveDecisionCheckpoint, updateDecisionBriefStatus } from "@/lib/decisionApi"
 import { getDecisionClosureSummary } from "@/lib/decisionRetrospective"
+import { getLessons, type Lesson } from "@/lib/chatApi"
+import { getLinkedObsidianLessons } from "@/lib/obsidianLinkedMemory"
 import { createPortfolioCandidate } from "@/lib/portfolioApi"
 import { formatWorkspaceActivityKind, getWorkspaceActivityReferences } from "@/lib/workspaceActivity"
 
@@ -149,6 +152,7 @@ export default function DecisionBriefDetailPage() {
   const params = useParams<{ decisionBriefId: string }>()
   const decisionBriefId = params?.decisionBriefId
   const [detail, setDetail] = useState<DecisionBriefDetailResponse | null>(null)
+  const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
   const [checkpointSummary, setCheckpointSummary] = useState("")
   const [thesisState, setThesisState] = useState<DecisionCheckpointThesisState>("intact")
@@ -175,10 +179,11 @@ export default function DecisionBriefDetailPage() {
       return
     }
 
-    void getDecisionBriefDetail(decisionBriefId)
-      .then((nextDetail) => {
+    void Promise.all([getDecisionBriefDetail(decisionBriefId), getLessons()])
+      .then(([nextDetail, nextLessons]) => {
         if (active) {
           setDetail(nextDetail)
+          setLessons(nextLessons)
         }
       })
       .finally(() => {
@@ -214,6 +219,17 @@ export default function DecisionBriefDetailPage() {
         ? activity.filter((event) => event.metadata.decision_brief_id === linkedWorkspaceBrief.id).slice(0, 6)
         : [],
     [activity, linkedWorkspaceBrief],
+  )
+  const linkedObsidianLessons = useMemo(
+    () =>
+      linkedWorkspaceBrief
+        ? getLinkedObsidianLessons(lessons, {
+            investigationId: linkedWorkspaceBrief.investigation_id,
+            decisionBriefId: linkedWorkspaceBrief.id,
+            portfolioCandidateId: linkedPortfolioCandidate?.id ?? null,
+          })
+        : [],
+    [lessons, linkedPortfolioCandidate?.id, linkedWorkspaceBrief],
   )
   const latestCheckpoint = useMemo(
     () =>
@@ -439,6 +455,13 @@ export default function DecisionBriefDetailPage() {
                 ) : null}
               </div>
             </div>
+          </Section>
+
+          <Section title="Linked Obsidian memory">
+            <LinkedObsidianMemoryPanel
+              lessons={linkedObsidianLessons}
+              emptyDescription="No reviewed Human Inbox note is linked to this decision brief yet. Linked imported notes will appear here as retrieval-only support, without changing the decision state."
+            />
           </Section>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">

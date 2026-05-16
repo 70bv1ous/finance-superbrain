@@ -12,9 +12,12 @@ import type {
 } from "@finance-superbrain/schemas"
 
 import { AppShell } from "@/components/AppShell"
+import { LinkedObsidianMemoryPanel } from "@/components/LinkedObsidianMemoryPanel"
 import { PortfolioStatusBadge } from "@/components/PortfolioStatusBadge"
 import { RouteEmptyState, RouteLoadingState } from "@/components/RouteState"
 import { useWorkspace } from "@/components/WorkspaceProvider"
+import { getLessons, type Lesson } from "@/lib/chatApi"
+import { getLinkedObsidianLessons } from "@/lib/obsidianLinkedMemory"
 import {
   assignPortfolioCandidate,
   getPortfolioCandidateDetail,
@@ -185,6 +188,7 @@ export default function PortfolioCandidateDetailPage() {
   const params = useParams<{ portfolioCandidateId: string }>()
   const portfolioCandidateId = params?.portfolioCandidateId
   const [detail, setDetail] = useState<PortfolioCandidateDetailResponse | null>(null)
+  const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
   const [savingAssignment, setSavingAssignment] = useState(false)
   const [savingPosture, setSavingPosture] = useState(false)
@@ -211,10 +215,11 @@ export default function PortfolioCandidateDetailPage() {
       return
     }
 
-    void getPortfolioCandidateDetail(portfolioCandidateId)
-      .then((nextDetail) => {
+    void Promise.all([getPortfolioCandidateDetail(portfolioCandidateId), getLessons()])
+      .then(([nextDetail, nextLessons]) => {
         if (active) {
           setDetail(nextDetail)
+          setLessons(nextLessons)
         }
       })
       .finally(() => {
@@ -249,6 +254,16 @@ export default function PortfolioCandidateDetailPage() {
   const candidateActivity = useMemo(
     () => (candidate ? activity.filter((event) => event.metadata.portfolio_candidate_id === candidate.id).slice(0, 8) : []),
     [activity, candidate],
+  )
+  const linkedObsidianLessons = useMemo(
+    () =>
+      candidate
+        ? getLinkedObsidianLessons(lessons, {
+            decisionBriefId: candidate.decision_brief_id,
+            portfolioCandidateId: candidate.id,
+          })
+        : [],
+    [candidate, lessons],
   )
 
   useEffect(() => {
@@ -891,6 +906,15 @@ export default function PortfolioCandidateDetailPage() {
               )}
             </Section>
 
+            <Section title="Linked Obsidian memory">
+              <LinkedObsidianMemoryPanel
+                lessons={linkedObsidianLessons}
+                emptyDescription="No reviewed Human Inbox note is linked to this portfolio candidate yet. Linked imported notes will appear here as retrieval-only memory for the live exposure."
+              />
+            </Section>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
             <Section title="Linked operating objects">
               <div className="space-y-3">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
