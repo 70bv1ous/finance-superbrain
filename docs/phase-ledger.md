@@ -111,11 +111,11 @@ This is the canonical project phase ledger for Finance Superbrain. It is intenti
 - Goal: deploy public web on Vercel and hosted API on Railway for a public pilot preview.
 - Evidence: Vercel web URL, Railway API handoff docs, `docs/public-pilot-runbook.md`, `demo:public-pilot:smoke:hosted`.
 - Validation: `npm run demo:public-pilot:smoke:hosted`.
-- Status: hosted public pilot smoke passed after splitting lightweight `/health` liveness from detailed operational health.
+- Status: hosted public pilot smoke passed on 2026-05-17 after the Obsidian local-memory pass and readiness response hardening.
 - Risk: hosted readiness still depends on Railway runtime, Postgres connectivity, migrations, and deterministic seed state staying aligned.
 
 ## Current Priority
 
-- Prioritize Obsidian memory, progress visibility, connection review, and backend/frontend hardening.
-- Defer Phase 14 production health until the local memory and project ledger workflow is reliable.
+- Keep Phase 14 public pilot health as the active operating track now that the local Obsidian memory and project ledger workflow is reliable.
+- Continue backend/frontend hardening around provenance, review controls, hosted readiness, and deterministic pilot data.
 - Keep PostgreSQL as source of truth and Obsidian as readable local memory.

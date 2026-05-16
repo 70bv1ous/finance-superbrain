@@ -247,7 +247,7 @@ The frontend should make memory provenance obvious:
 
 ## Production Health Track
 
-Production health remains important and the first public pilot repair pass is now complete.
+Production health is back as the active operating track after the local Obsidian memory pass.
 
 Phase 14 public pilot status after the Obsidian memory local acceptance path:
 
@@ -255,4 +255,4 @@ Phase 14 public pilot status after the Obsidian memory local acceptance path:
 2. detailed operational health remains available through `/health?detail=operations`
 3. hosted `/ready` verifies runtime dependencies
 4. hosted seed state passed the public pilot smoke with one investigation, decision, and portfolio candidate
-5. `npm run demo:public-pilot:smoke` passed against the Vercel/Railway deployment
+5. `npm run demo:public-pilot:smoke:hosted` passed against the Vercel/Railway deployment on 2026-05-17

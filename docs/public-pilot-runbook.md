@@ -49,12 +49,17 @@ The smoke verifies:
 - hosted auth cookie includes `SameSite=None` and `Secure`
 - authenticated workspace state contains seeded investigation, decision, and portfolio data
 
+Latest known passing run:
+
+- 2026-05-17: `npm run demo:public-pilot:smoke:hosted` passed against the hosted Vercel/Railway targets after `/ready` dependency-detail hardening.
+
 ## Failure Guide
 
 - `public shell` fails: Vercel deployment, domain, or production build is broken.
 - `login page` fails: Vercel build or `NEXT_PUBLIC_API_URL` is likely wrong or missing.
 - `api health` fails: Railway API process, container start, or routing is down.
 - `api readiness` fails: hosted dependency readiness is broken, usually Postgres, migrations, or runtime env.
+- `api readiness` returns a schema error: a dependency detail is malformed; `/ready` should return a degraded dependency instead of a 500.
 - `workspace bootstrap` fails: CORS, allowed origins, or API route startup is broken.
 - `seeded account login` fails: auth env, hosted cookie settings, CORS, or deterministic seed state is wrong.
 - `authenticated workspace state` fails: login worked, but seeded workspace data is missing or incomplete.
