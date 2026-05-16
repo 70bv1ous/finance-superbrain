@@ -200,7 +200,8 @@ Restore or create the hosted API first:
 3. Seed deterministic demo proof data with `npm run seed:demo-proof`.
 4. Confirm the API returns healthy responses for `/health`, `/ready`, and `/v1/auth/bootstrap`.
 5. Run `npm run ops:public-pilot:health` for a lightweight hosted web/API/CORS probe.
-6. Run `npm run demo:public-pilot:smoke:hosted` for the full hosted smoke, including seeded login and deterministic workspace data.
+6. Run `npm run ops:public-pilot:monitor -- --cycles=1 --smoke-after-failures=0` for the repeatable monitor/report path.
+7. Run `npm run demo:public-pilot:smoke:hosted` for the full hosted smoke, including seeded login and deterministic workspace data.
 
 Deployment handoff:
 
@@ -230,6 +231,12 @@ Validate the hosted pilot:
 
 ```bash
 npm run demo:public-pilot:smoke:hosted
+```
+
+For repeated health supervision with a JSON report under `test-results/public-pilot-monitor/latest.json`, run:
+
+```bash
+npm run ops:public-pilot:monitor
 ```
 
 See [docs/public-pilot-runbook.md](docs/public-pilot-runbook.md) for preview overrides, failure diagnosis, and recovery order.

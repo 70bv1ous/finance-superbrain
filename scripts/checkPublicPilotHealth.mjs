@@ -1,3 +1,5 @@
+import { pathToFileURL } from "node:url";
+
 const DEFAULT_WEB_URL = "https://finance-superbrain-web.vercel.app";
 const DEFAULT_API_URL = "https://sincere-smile-production-9c3f.up.railway.app";
 
@@ -87,7 +89,7 @@ async function check(name, probe, options = {}) {
   };
 }
 
-async function runChecks(config) {
+export async function runPublicPilotHealthCheck(config = readConfig()) {
   const results = [];
 
   results.push(await check("public_shell", async () => {
@@ -152,30 +154,31 @@ async function runChecks(config) {
     };
   }));
 
-  return results;
-}
-
-async function main() {
-  const config = readConfig();
-  const checkedAt = new Date().toISOString();
-  const results = await runChecks(config);
   const ok = results.every((result) => result.ok);
-  const summary = {
+
+  return {
     ok,
-    checked_at: checkedAt,
+    checked_at: new Date().toISOString(),
     web_url: config.webUrl,
     api_url: config.apiUrl,
     results,
   };
+}
+
+async function main() {
+  const config = readConfig();
+  const summary = await runPublicPilotHealthCheck(config);
 
   console.log(JSON.stringify(summary, null, 2));
 
-  if (!ok) {
+  if (!summary.ok) {
     process.exitCode = 1;
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

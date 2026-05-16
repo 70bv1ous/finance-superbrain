@@ -36,11 +36,24 @@ Use the lighter monitoring probe when you only need web/API/CORS health and do n
 npm run ops:public-pilot:health
 ```
 
+Use the monitor when you want repeated health checks with a JSON report and automatic full-smoke escalation after repeated failures:
+
+```bash
+npm run ops:public-pilot:monitor
+```
+
 Override either target when testing a preview:
 
 ```bash
 PUBLIC_PILOT_WEB_URL=https://finance-superbrain-web.vercel.app PUBLIC_PILOT_API_URL=https://example-api.up.railway.app npm run demo:public-pilot:smoke:hosted
 ```
+
+Monitor options:
+
+- `--cycles=3` sets the number of health cycles; `0` runs continuously until stopped.
+- `--interval-ms=60000` sets the delay between cycles.
+- `--smoke-after-failures=2` runs the full hosted smoke after consecutive health failures; `0` disables escalation.
+- `--report=test-results/public-pilot-monitor/latest.json` writes the latest monitor report.
 
 ## What Passing Means
 
@@ -62,6 +75,8 @@ The lighter health probe verifies:
 - API `/health` returns healthy liveness
 - API `/ready` returns healthy dependency readiness
 - `/v1/auth/bootstrap` responds from the hosted web origin
+
+The monitor runs the lighter health probe repeatedly, records each cycle under `test-results/public-pilot-monitor/latest.json` by default, and escalates to the full hosted smoke when health failures repeat.
 
 The full smoke retries transient web/API checks three times to reduce false alarms during Railway cold starts or deploy handoff, but the seeded account login itself is single-shot to avoid hiding auth or credential problems.
 
@@ -95,6 +110,7 @@ Local command sequence before pushing a pilot health change:
 ```bash
 npm run build
 npm test
+npm run ops:public-pilot:monitor -- --cycles=1 --smoke-after-failures=0
 npm run demo:public-pilot:smoke:hosted
 ```
 
