@@ -429,7 +429,7 @@ describe("obsidian export", () => {
     expect(phaseLedgerMarkdown).toContain("`apps/api/sql/001_phase1_intelligence_core.sql`");
     expect(phaseLedgerMarkdown).toContain("Commands: `npm run demo:public-pilot:smoke:hosted`");
     expect(phaseLedgerMarkdown).toContain(
-      "Deployment status: hosted public pilot smoke passed on 2026-05-17 after the Obsidian local-memory pass and readiness response hardening.",
+      "Deployment status: hosted public pilot smoke, scheduled monitor workflow, and hosted operations health check passed on 2026-05-17.",
     );
     const architectureDecisionMarkdown = await readFile(
       join(outputRoot, "Project", "Decision Record - postgresql-remains-source-of-truth-while-obsidian-is-local-memory.md"),

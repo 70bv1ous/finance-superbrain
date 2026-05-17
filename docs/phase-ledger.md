@@ -109,13 +109,13 @@ This is the canonical project phase ledger for Finance Superbrain. It is intenti
 ## Phase 14: Public Pilot Deployment
 
 - Goal: deploy public web on Vercel and hosted API on Railway for a public pilot preview.
-- Evidence: Vercel web URL, Railway API handoff docs, `docs/public-pilot-runbook.md`, `demo:public-pilot:smoke:hosted`.
-- Validation: `npm run demo:public-pilot:smoke:hosted`.
-- Status: hosted public pilot smoke passed on 2026-05-17 after the Obsidian local-memory pass and readiness response hardening.
-- Risk: hosted readiness still depends on Railway runtime, Postgres connectivity, migrations, and deterministic seed state staying aligned.
+- Evidence: Vercel web URL, Railway API handoff docs, `docs/public-pilot-runbook.md`, `demo:public-pilot:smoke:hosted`, `ops:public-pilot:monitor`, `ops:hosted-operations:health`, scheduled `Public Pilot Monitor` workflow.
+- Validation: `npm run demo:public-pilot:smoke:hosted`, `npm run ops:public-pilot:monitor -- --cycles=1 --smoke-after-failures=0 --interval-ms=1000`, `npm run ops:hosted-operations:health`, manual GitHub Actions monitor run.
+- Status: hosted public pilot smoke, scheduled monitor workflow, and hosted operations health check passed on 2026-05-17.
+- Risk: hosted readiness still depends on Railway runtime, Postgres connectivity, migrations, deterministic seed state, and intentionally enabling a dedicated hosted worker service when background automation becomes active.
 
 ## Current Priority
 
-- Keep Phase 14 public pilot health as the active operating track now that the local Obsidian memory and project ledger workflow is reliable.
-- Continue backend/frontend hardening around provenance, review controls, hosted readiness, and deterministic pilot data.
+- Keep Phase 14 public pilot health as the active operating track, with scheduled public monitor and hosted operations reports as the current safety net.
+- Continue backend/frontend hardening around provenance, review controls, hosted worker-service activation, and deterministic pilot data.
 - Keep PostgreSQL as source of truth and Obsidian as readable local memory.
