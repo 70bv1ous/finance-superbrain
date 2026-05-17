@@ -239,7 +239,13 @@ For repeated health supervision with a JSON report under `test-results/public-pi
 npm run ops:public-pilot:monitor
 ```
 
-The `Public Pilot Monitor` GitHub Actions workflow runs the same monitor every six hours and can be started manually from Actions.
+For hosted queue, worker-service, integration, and incident supervision, run:
+
+```bash
+npm run ops:hosted-operations:health
+```
+
+The `Public Pilot Monitor` GitHub Actions workflow runs the public monitor and hosted operations check every six hours, and can be started manually from Actions.
 
 See [docs/public-pilot-runbook.md](docs/public-pilot-runbook.md) for preview overrides, failure diagnosis, and recovery order.
 

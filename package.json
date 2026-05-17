@@ -83,6 +83,7 @@
     "ops:public-pilot:health": "node ./scripts/checkPublicPilotHealth.mjs",
     "ops:public-pilot:monitor": "node ./scripts/monitorPublicPilot.mjs",
     "ops:public-pilot:smoke": "node ./scripts/runPublicPilotSmoke.mjs",
+    "ops:hosted-operations:health": "node ./scripts/checkHostedOperations.mjs",
     "dev:web": "npm --workspace @finance-superbrain/web run dev",
     "test:e2e": "npm run build && playwright test apps/web/e2e/team-workspace.spec.ts && npm run test:e2e:smoke",
     "test:e2e:smoke": "npm run build && playwright test --grep @smoke"

@@ -42,7 +42,13 @@ Use the monitor when you want repeated health checks with a JSON report and auto
 npm run ops:public-pilot:monitor
 ```
 
-GitHub Actions also runs `Public Pilot Monitor` every six hours and exposes a manual `workflow_dispatch` run with cycle, interval, and smoke-escalation inputs. Each run uploads `public-pilot-monitor-report` with the latest JSON report.
+Use the hosted operations health check when you need queue, worker, worker-service, integration, and incident supervision from the hosted API:
+
+```bash
+npm run ops:hosted-operations:health
+```
+
+GitHub Actions also runs `Public Pilot Monitor` every six hours and exposes a manual `workflow_dispatch` run with cycle, interval, and smoke-escalation inputs. Each run uploads `public-pilot-monitor-report` and `hosted-operations-report` with the latest JSON reports.
 
 Override either target when testing a preview:
 
@@ -56,6 +62,15 @@ Monitor options:
 - `--interval-ms=60000` sets the delay between cycles.
 - `--smoke-after-failures=2` runs the full hosted smoke after consecutive health failures; `0` disables escalation.
 - `--report=test-results/public-pilot-monitor/latest.json` writes the latest monitor report.
+
+Hosted operations options:
+
+- `--require-worker-service=true` fails when no worker-service boundary is registered.
+- `--attempts=3` and `--retry-delay-ms=2000` tune retry tolerance for Railway/Postgres cold-start handoff.
+- `--max-pending-jobs=0`, `--max-running-jobs=5`, and `--max-retry-scheduled-jobs=0` tune queue thresholds.
+- `--max-recent-worker-service-failures=0` and `--max-recent-ownership-conflicts=0` tune worker-service churn thresholds.
+- `--max-integration-degraded=0`, `--max-open-medium-incidents=5`, and `--max-open-low-incidents=10` tune operational alert thresholds.
+- `--report=test-results/hosted-operations/latest.json` writes the latest operations report.
 
 ## What Passing Means
 
@@ -80,6 +95,8 @@ The lighter health probe verifies:
 
 The monitor runs the lighter health probe repeatedly, records each cycle under `test-results/public-pilot-monitor/latest.json` by default, and escalates to the full hosted smoke when health failures repeat.
 
+The hosted operations check reads `/health?detail=operations` and fails on stale running work, blocked backlog, stale or failed worker services, critical integrations, suppressed integration governance, missing probe snapshots, and high-severity operational incidents. By default it does not require a worker-service boundary to exist, because hosted pilot deployments may run without a dedicated worker process until background automation is intentionally enabled.
+
 The full smoke retries transient web/API checks three times to reduce false alarms during Railway cold starts or deploy handoff, but the seeded account login itself is single-shot to avoid hiding auth or credential problems.
 
 Latest known passing run:
@@ -88,7 +105,8 @@ Latest known passing run:
 
 ## Failure Guide
 
-- `Public Pilot Monitor` workflow fails: open the uploaded `public-pilot-monitor-report` artifact first, then follow the failing check below.
+- `Public Pilot Monitor` workflow fails: open the uploaded `public-pilot-monitor-report` and `hosted-operations-report` artifacts first, then follow the failing check below.
+- `ops:hosted-operations:health` fails: open `test-results/hosted-operations/latest.json` and inspect the `failures` array first.
 - `public shell` fails: Vercel deployment, domain, or production build is broken.
 - `login page` fails: Vercel build or `NEXT_PUBLIC_API_URL` is likely wrong or missing.
 - `api health` fails: Railway API process, container start, or routing is down.
@@ -114,6 +132,7 @@ Local command sequence before pushing a pilot health change:
 npm run build
 npm test
 npm run ops:public-pilot:monitor -- --cycles=1 --smoke-after-failures=0
+npm run ops:hosted-operations:health
 npm run demo:public-pilot:smoke:hosted
 ```
 

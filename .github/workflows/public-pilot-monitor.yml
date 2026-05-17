@@ -25,6 +25,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   monitor:
     name: Monitor hosted public pilot
@@ -37,6 +40,7 @@ jobs:
       MONITOR_INTERVAL_MS: ${{ github.event.inputs.interval_ms || '60000' }}
       MONITOR_SMOKE_AFTER_FAILURES: ${{ github.event.inputs.smoke_after_failures || '2' }}
       MONITOR_REPORT: test-results/public-pilot-monitor/latest.json
+      HOSTED_OPERATIONS_REPORT: test-results/hosted-operations/latest.json
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -54,11 +58,25 @@ jobs:
             --smoke-after-failures="${MONITOR_SMOKE_AFTER_FAILURES}" \
             --report="${MONITOR_REPORT}"
 
+      - name: Check hosted operations health
+        run: |
+          npm run ops:hosted-operations:health -- \
+            --report="${HOSTED_OPERATIONS_REPORT}"
+
       - name: Upload monitor report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: public-pilot-monitor-report
           path: test-results/public-pilot-monitor/latest.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload hosted operations report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-operations-report
+          path: test-results/hosted-operations/latest.json
           if-no-files-found: warn
           retention-days: 14
